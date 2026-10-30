@@ -1,0 +1,14 @@
+# Normalize to LF in the repository, regardless of the checkout OS.
+* text=auto eol=lf
+
+# Windows scripts keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets.
+*.jar binary
+*.png binary
+*.webp binary
+*.jpg binary
+*.keystore binary
+*.jks binary
