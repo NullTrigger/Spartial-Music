@@ -1,0 +1,13 @@
+# Copyright (C) 2026 The Nodes Authors.
+# Licensed under GPL-3.0-or-later. See LICENSE.
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/nodes-app/nodes/blob/main/SECURITY.md
+    about: Please report vulnerabilities privately, not in an issue.
+  - name: YouTube setup help
+    url: https://github.com/nodes-app/nodes/blob/main/YOUTUBE.md
+    about: API key, quota and OAuth troubleshooting.
+  - name: Contributing guide
+    url: https://github.com/nodes-app/nodes/blob/main/CONTRIBUTING.md
+    about: Build steps, code style and the rules for new sources.

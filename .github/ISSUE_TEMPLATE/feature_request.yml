@@ -1,0 +1,53 @@
+# Copyright (C) 2026 The Nodes Authors.
+# Licensed under GPL-3.0-or-later. See LICENSE.
+name: Feature request
+description: Suggest an improvement for Nodes
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nodes only plays music from sources it is allowed to play. Requests for
+        YouTube stream extraction, downloading, ad blocking or unofficial APIs
+        will be closed.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      placeholder: I cannot tell which source a search result came from.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Home / design
+        - Playback
+        - Library
+        - Search
+        - Sources
+        - Sessions
+        - Settings
+        - Docs / build
+    validations:
+      required: true
+  - type: checkboxes
+    id: legal
+    attributes:
+      label: Legal check
+      options:
+        - label: This does not require extracting, downloading or scraping third-party audio.
+          required: true

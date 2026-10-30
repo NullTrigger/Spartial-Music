@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Nodes favicon - original artwork (GPL-3.0-or-later).
+  Squircle with the fluid N mark.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 512 512">
+  <title>Nodes</title>
+  <path d="M0 0h512v512H0z" fill="#050506"/>
+  <path d="M186 352V160l140 192V160" fill="none" stroke="#FFFFFF" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

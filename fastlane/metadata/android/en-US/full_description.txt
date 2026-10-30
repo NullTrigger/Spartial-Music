@@ -1,0 +1,33 @@
+Nodes is an open-source music player for Android with a dark, glassy interface.
+
+Play the music you own, and stream what is legal to stream. Nodes reads audio
+already on your device, streams Creative Commons music from Jamendo, and browses
+YouTube through its official Data API with playback in the official embedded
+player. Nothing is scraped, extracted or downloaded from YouTube.
+
+FEATURES
+- Local library via MediaStore, with no copies or uploads
+- Creative Commons streaming from Jamendo, credited per track
+- Official YouTube browsing: search, charts, playlists
+- Hero carousel home screen with blurred glass surfaces
+- Likes, playlists, play history and search history stored on device
+- Synced lyrics from local .lrc files
+- Queue, seek, media notification, lock screen controls
+- Settings for sources, audio and cache
+
+PRIVACY
+No accounts, no analytics, no advertising, no tracking. Your library never leaves
+the device. Optional Google Sign-In only reads your own YouTube playlists with the
+youtube.readonly scope, and the token is kept in memory for the session.
+
+SOURCES
+- Local device files
+- Jamendo (Creative Commons)
+- YouTube (official API; bring your own API key - see YOUTUBE.md)
+
+LICENCE
+GPL-3.0-or-later. No album art, artist names or audio from third parties is
+bundled.
+
+Nodes is not affiliated with YouTube, Google, Jamendo or any streaming service.
+"YouTube" is a trademark of Google LLC.

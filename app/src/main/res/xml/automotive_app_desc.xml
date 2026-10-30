@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The Nodes Authors.
+  Licensed under GPL-3.0-or-later. See LICENSE.
+-->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>

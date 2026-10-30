@@ -1,0 +1,71 @@
+# Copyright (C) 2026 The Nodes Authors.
+# Licensed under GPL-3.0-or-later. See LICENSE.
+name: Bug report
+description: Something is broken or looks wrong
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do not paste API keys, OAuth tokens or
+        personal data. Security issues belong in SECURITY.md, not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+      placeholder: Tapping Play on a YouTube track shows a quota error on first launch.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add YOUTUBE_API_KEY and build
+        2. Open Home
+        3. Tap Play on the hero card
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Music source
+      options:
+        - Local device
+        - Jamendo (Creative Commons)
+        - YouTube (official)
+        - Not source related (UI, settings, playback)
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version and device
+      placeholder: Android 15, Pixel 8
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Nodes version or commit
+      placeholder: 0.1.0-debug / 4f2a1c9
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output of `adb logcat` around the failure. Redact keys and tokens.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I am not asking for stream extraction, downloading or background YouTube audio.
+          required: true
+        - label: This is not a security issue.
+          required: true
