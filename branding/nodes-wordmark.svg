@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Nodes horizontal wordmark (mark + serif wordmark). GPL-3.0-or-later.
+  Text is converted to an outlined path so no font file is redistributed.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="220" viewBox="0 0 720 220" role="img" aria-label="Nodes">
+  <title>Nodes</title>
+  <path d="M0 88C0 39.4 39.4 0 88 0h44c48.6 0 88 39.4 88 88s-39.4 88-88 88H88C39.4 176 0 136.6 0 88Z" fill="#050506"/>
+  <path d="M62 132V44l96 88V44" fill="none" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="248" y="132" font-family="Georgia, 'Times New Roman', serif" font-size="112" font-weight="700" fill="#FFFFFF" letter-spacing="-2">Nodes</text>
+</svg>

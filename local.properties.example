@@ -1,0 +1,31 @@
+# Copyright (C) 2026 The Nodes Authors.
+# Licensed under GPL-3.0-or-later. See LICENSE.
+#
+# Copy this file to `local.properties` (git-ignored) and fill in what you need.
+# Values are also read from environment variables of the same name, which is
+# what CI uses. Never commit real keys.
+
+# Path to your Android SDK (Android Studio writes this for you).
+sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
+
+# ---------------------------------------------------------------------------
+# YouTube Data API v3 key (optional but recommended).
+# 1. Create a Google Cloud project.
+# 2. Enable "YouTube Data API v3".
+# 3. Create an API key and restrict it to the YouTube Data API + your app's
+#    package name and SHA-1 fingerprint.
+# Limits: 10,000 quota units per day. Nodes counts units locally and stops
+# politely when the budget is gone. See YOUTUBE.md.
+# ---------------------------------------------------------------------------
+YOUTUBE_API_KEY=
+
+# OAuth client ID for optional "Sign in with Google" (youtube.readonly scope).
+# Create an Android OAuth client ID with your package name (app.nodes) and the
+# SHA-1 fingerprint of your signing key.
+YOUTUBE_OAUTH_CLIENT_ID=
+
+# ---------------------------------------------------------------------------
+# Jamendo API client ID (optional). Free for non-commercial use:
+# https://devportal.jamendo.com/  – CC-licensed catalogue, legal to stream.
+# ---------------------------------------------------------------------------
+JAMENDO_CLIENT_ID=

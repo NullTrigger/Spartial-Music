@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The Nodes Authors.
+  Licensed under GPL-3.0-or-later. See LICENSE.
+-->
+<resources>
+    <color name="nodes_background">#FF050506</color>
+    <color name="nodes_surface">#FF0B0C0E</color>
+    <color name="nodes_teal">#FF13B3A0</color>
+    <color name="ic_launcher_background">#FF050506</color>
+</resources>

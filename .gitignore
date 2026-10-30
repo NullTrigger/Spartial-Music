@@ -1,0 +1,31 @@
+# Gradle / Android
+.gradle/
+build/
+*/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Secrets and keys
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+.androidkeys/
+
+# Local Android SDK used for CI-less builds
+.androidsdk/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs
+*.log
