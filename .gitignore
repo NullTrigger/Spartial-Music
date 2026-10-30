@@ -16,7 +16,13 @@ captures/
 *.keystore
 keystore.properties
 secrets.properties
+google-services.json
+.env
+.env.*
+!.env.example
 .androidkeys/
+*.pem
+*.p12
 
 # Local Android SDK used for CI-less builds
 .androidsdk/

@@ -31,6 +31,19 @@ fun secret(name: String): String = (localProperties.getProperty(name) ?: System.
     .replace("\\", "\\\\")
     .replace("\"", "\\\"")
 
+/**
+ * Release signing lives in a git-ignored keystore.properties (see
+ * keystore.properties.example and BUILDING.md). Without it the release build
+ * falls back to the debug key so forks can still build; never distribute an APK
+ * signed that way.
+ */
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     namespace = "app.nodes"
     compileSdk = 36
@@ -48,12 +61,35 @@ android {
         buildConfigField("String", "JAMENDO_CLIENT_ID", "\"${secret("JAMENDO_CLIENT_ID")}\"")
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(
+                    requireNotNull(keystoreProperties.getProperty("storeFile")) {
+                        "keystore.properties is missing storeFile"
+                    },
+                )
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         release {
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning == null) {
+                logger.warn(
+                    "keystore.properties not found: the release build is signed with the " +
+                        "debug key and must not be distributed. See BUILDING.md.",
+                )
+            }
+            signingConfig = releaseSigning ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
