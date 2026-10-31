@@ -166,7 +166,7 @@ fun SettingsScreen(
                         color = NodesGrey,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
                     )
-                } else if (settings.youtubeSignedIn) {
+                } else if (settings.youtubeSignedIn && viewModel.hasSession) {
                     SettingsActionRow(
                         title = stringResource(R.string.settings_youtube_signout),
                         subtitle = settings.youtubeAccountEmail,
@@ -197,6 +197,22 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.labelSmall,
                     color = NodesGrey.copy(alpha = 0.8f),
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
+
+            item(key = "ytmusic") {
+                SettingsSection(stringResource(R.string.settings_ytmusic))
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_ytmusic_enable),
+                    subtitle = stringResource(R.string.settings_ytmusic_hint),
+                    checked = settings.innerTubeEnabled,
+                    onCheckedChange = viewModel::setInnerTubeEnabled,
+                )
+                Text(
+                    text = stringResource(R.string.settings_ytmusic_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NodesGrey,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
                 )
             }
 
@@ -399,6 +415,7 @@ private fun SourceId.localizedName(): String = when (this) {
     SourceId.LOCAL -> stringResource(R.string.source_local)
     SourceId.JAMENDO -> stringResource(R.string.source_jamendo)
     SourceId.YOUTUBE -> stringResource(R.string.source_youtube)
+    SourceId.YOUTUBE_MUSIC -> stringResource(R.string.source_youtube_music)
 }
 
 private fun openUrl(context: Context, url: String) {

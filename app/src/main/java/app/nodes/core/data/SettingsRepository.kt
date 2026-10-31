@@ -29,6 +29,11 @@ data class AppSettings(
     val onboardingCompleted: Boolean = false,
     val youtubeAccountEmail: String? = null,
     val youtubeSignedIn: Boolean = false,
+    /**
+     * Opt-in for the unofficial InnerTube source. Off by default because it is
+     * outside the YouTube API Services Terms. See YOUTUBE.md.
+     */
+    val innerTubeEnabled: Boolean = false,
     /** Local YouTube quota bookkeeping, see YOUTUBE.md. */
     val quotaDate: String = "",
     val quotaUnitsUsed: Int = 0,
@@ -57,6 +62,7 @@ class SettingsRepository @Inject constructor(
             onboardingCompleted = prefs[KEY_ONBOARDING] ?: false,
             youtubeAccountEmail = prefs[KEY_YOUTUBE_EMAIL],
             youtubeSignedIn = prefs[KEY_YOUTUBE_SIGNED_IN] ?: false,
+            innerTubeEnabled = prefs[KEY_INNERTUBE_ENABLED] ?: false,
             quotaDate = prefs[KEY_QUOTA_DATE] ?: "",
             quotaUnitsUsed = prefs[KEY_QUOTA_USED] ?: 0,
         )
@@ -91,6 +97,9 @@ class SettingsRepository @Inject constructor(
         prefs[KEY_YOUTUBE_SIGNED_IN] = signedIn
     }
 
+    suspend fun setInnerTubeEnabled(enabled: Boolean) =
+        dataStore.edit { prefs -> prefs[KEY_INNERTUBE_ENABLED] = enabled }
+
     suspend fun setQuota(date: String, used: Int) = dataStore.edit { prefs ->
         prefs[KEY_QUOTA_DATE] = date
         prefs[KEY_QUOTA_USED] = used
@@ -106,6 +115,7 @@ class SettingsRepository @Inject constructor(
         val KEY_ONBOARDING = booleanPreferencesKey("onboarding_completed")
         val KEY_YOUTUBE_EMAIL = stringPreferencesKey("youtube_account_email")
         val KEY_YOUTUBE_SIGNED_IN = booleanPreferencesKey("youtube_signed_in")
+        val KEY_INNERTUBE_ENABLED = booleanPreferencesKey("innertube_enabled")
         val KEY_QUOTA_DATE = stringPreferencesKey("quota_date")
         val KEY_QUOTA_USED = intPreferencesKey("quota_units_used")
     }

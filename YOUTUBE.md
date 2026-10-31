@@ -11,7 +11,7 @@ it up.
 > the [YouTube API Services Terms of Service](https://developers.google.com/youtube/terms/api-services-terms-of-service)
 > and the [Google Privacy Policy](https://policies.google.com/privacy).
 
-## Mode 1 — Official (the only mode shipped)
+## Mode 1 — Official (the default)
 
 | Feature | API | Cost |
 | --- | --- | --- |
@@ -20,6 +20,7 @@ it up.
 | Curated playlists | `playlists.list` (`chart=mostPopular`) | 1 unit |
 | Playlist contents | `playlistItems.list` | 1 unit |
 | Your playlists (signed in) | `playlists.list` (`mine=true`) | 1 unit |
+| Liked videos (signed in) | `videos.list` (`myRating=like`) | 1 unit |
 | Playback | Official embedded IFrame player | no quota |
 
 The default daily allowance is **10,000 units**, reset at midnight Pacific Time.
@@ -34,16 +35,12 @@ costs about 3 units.
 
 ### What Nodes deliberately does not do
 
-- No stream URL extraction. YouTube tracks resolve to an `EmbeddedVideo` handle.
 - No downloading, caching or re-encoding of YouTube media.
-- No background or audio-only playback of YouTube content. The player is always
-  rendered on the Now Playing screen and pauses when that screen is disposed.
 - No ad blocking, no sponsor blocking, no cipher or PoToken bypass.
-- No unofficial endpoints. Under this project's clean-room path there is **no**
-  InnerTube module, no experimental toggle, and no scraping code to enable.
+- No account cookie harvesting: this mode never touches your Google session.
 
-These are product and legal boundaries, not missing features. Pull requests that
-add any of them will be closed.
+Mode 1 tracks are always played by the embedded player, on screen, and pause
+when that screen is disposed. Mode 2 (below) is a separate, opt-in source.
 
 ### Setup: API key
 
@@ -64,7 +61,23 @@ add any of them will be closed.
 
 ### Setup: optional Google Sign-In
 
-Sign-in only adds your own playlists. Nodes works fully signed out.
+Sign-in only adds your own YouTube music. Nodes works fully signed out.
+
+What a Google sign-in unlocks on Home, once `YOUTUBE_API_KEY` and
+`YOUTUBE_OAUTH_CLIENT_ID` are set:
+
+- **Liked on YouTube** — the videos your account rated "like", newest first
+  (`videos.list`, `myRating=like`).
+- **Your playlist** — the tracks of your most recent own playlist
+  (`playlists.list` + `playlistItems.list`). A rail of playlist cards would be
+  unplayable in an embedded-player app, so the tracks are shown directly.
+
+Both rails are best-effort: if the quota is spent or the token expires the
+public charts still load. The token is never persisted, so after a restart the
+app asks you to sign in again rather than silently losing your rails.
+
+Sign-in does **not** turn Nodes into a YouTube Music client. There is no
+YouTube Music API; its app talks to private endpoints. See Mode 2 below.
 
 1. Get your signing SHA-1:
 
@@ -93,51 +106,45 @@ Notes:
 - Play Store distribution requires your own privacy policy link and the YouTube
   attribution below.
 
-## Mode 2 — Unofficial InnerTube (not implemented)
+## Mode 2 — Unofficial InnerTube (shipped, off by default)
 
-The alternative approach, used by several players in this space, is to speak to
-YouTube's private InnerTube endpoints: reverse-engineered search, signature
-ciphering, stream URL extraction and an alternate player. Nodes **does not ship
-this**, and the repository contains no InnerTube client to enable.
+`core/source/youtubemusic/` talks to YouTube's private `youtubei` endpoints,
+which is how YouTube's own apps talk to YouTube. **It is off until you turn it on
+in Settings → YouTube Music**, and Mode 1 stays the default.
 
-Why it is out of scope here:
-
-| Risk | What it means in practice |
-| --- | --- |
-| Terms of Service | The YouTube ToS forbids accessing content through anything other than the public API and the official player. |
-| Legal exposure | Extracting streams is the part rights holders sue over; distributing an app that does it puts every contributor at risk, not just the user. |
-| Breakage | Endpoints, ciphers and PoToken requirements change without notice; the app breaks on YouTube's schedule, not yours. |
-| Accounts | Signed-in accounts that use unofficial clients can be limited or terminated. |
-| Distribution | F-Droid and Google Play reject clients that bypass the official player. |
-| Audio quality and ads | Streams are throttled and ad-free playback is circumvention, not a feature. |
-
-If you want a fork with Mode 2, that is a licensing and legal decision for you to
-make in your own repository, under your own name and your own risk. Nodes
-supports exactly two things: the Data API for metadata and the embedded player
-for playback.
-
-Mode 2 would also not solve the quota problem: it has no quota, but it has no
-sanctioned existence either. Nodes' `QuotaTracker` and 15-minute `RemoteCache`
-exist to keep Mode 1 inside its free allowance.
-
-## Attribution
-
-Nodes shows, in Settings and in the README:
-
-- "Powered by YouTube"
-- links to the YouTube Terms of Service and Google Privacy Policy
-- the statement that Nodes is not affiliated with YouTube or Google
-
-If you fork and ship this app, keep that attribution. It is part of the API
-Services Terms, not decoration.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Feature | Endpoint | Notes |
 | --- | --- | --- |
-| "Add a YouTube Data API key…" | `YOUTUBE_API_KEY` empty at build time | add the key, rebuild (Gradle caches `BuildConfig`) |
-| Quota exceeded on first launch | key shared with another app, or quota already spent | wait for the Pacific midnight reset or use another project |
-| `keyInvalid` / 400 | key restricted to a different package or API | fix API/application restrictions |
-| Sign-in error 10 | SHA-1/package mismatch | register the debug SHA-1 too |
-| Video will not play | embedding disabled by the uploader | expected; Nodes will not work around it |
-| Nothing renders in the player card | WebView disabled or no network | check WebView updates/connection |
+| Search | `POST /youtubei/v1/search` (WEB client) | no Data API quota used |
+| Playlist contents | `POST /youtubei/v1/browse` (`VL<id>`) | |
+| Playback | `POST /youtubei/v1/player` (`ANDROID_VR`) | plain `googlevideo` audio URL |
+
+The `ANDROID_VR` client is used for playback because it answers with a plain
+`url` instead of a ciphered one. That is exactly why Nodes contains no signature
+deciphering and no PoToken generation: there is nothing here to decipher. If
+YouTube changes that, playback stops and the source must be fixed or removed —
+not patched with a cipher solver.
+
+What it still does not do: no downloading, no caching of media, no ad or sponsor
+blocking, no attestation bypass, no cookie harvesting, no account scraping.
+
+### The legal reality, stated plainly
+
+- InnerTube is **not** covered by the YouTube API Services Terms. Using it is
+  outside the agreement that Mode 1 relies on.
+- Google can rate-limit, change or block it at any time. Nothing here is stable,
+  and a broken build is not a bug report you can win.
+- Shipping a client that does this may breach the YouTube Terms of Service, and
+  some stores (Google Play among them) reject apps that bypass the official
+  player. Distributing this mode is the maintainer's and your fork's risk.
+- The mode exists because the maintainer decided to add it. A fork that disagrees
+  can delete `core/source/youtubemusic/`, the `YOUTUBE_MUSIC` entry in
+  `SourceId`, its binding in `di/SourceModule.kt` and the settings toggle; the
+  rest of the app is unaffected.
+
+### Attribution
+
+The protocol details were learned from GPL-3.0 projects in this space —
+[Metrolist](https://github.com/mostafaalagamy/Metrolist), InnerTune/OuterTune and
+[Glossy](https://github.com/izybro110-gif/Glossy). No file from those projects is
+copied into Nodes; `InnerTubeClient.kt` was written for Nodes. See
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

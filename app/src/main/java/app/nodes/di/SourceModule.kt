@@ -9,6 +9,7 @@ import app.nodes.core.source.MusicSource
 import app.nodes.core.source.jamendo.JamendoSource
 import app.nodes.core.source.local.LocalSource
 import app.nodes.core.source.youtube.YouTubeOfficialSource
+import app.nodes.core.source.youtubemusic.YouTubeMusicSource
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -30,4 +31,8 @@ abstract class SourceModule {
     @Binds
     @IntoSet
     abstract fun bindYouTubeSource(source: YouTubeOfficialSource): MusicSource
+
+    @Binds
+    @IntoSet
+    abstract fun bindYouTubeMusicSource(source: YouTubeMusicSource): MusicSource
 }

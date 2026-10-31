@@ -17,10 +17,11 @@ import app.nodes.core.model.Track
  * The one contract every music provider implements.
  *
  * Rules that apply to all implementations:
- *  - Never return a direct audio URL for a provider whose terms forbid it.
- *    YouTube tracks resolve to [PlaybackHandle.EmbeddedVideo] and are played by
- *    the official IFrame player.
- *  - Never scrape an unofficial API. See YOUTUBE.md and PRIVACY.md.
+ *  - Mode 1 YouTube tracks resolve to [PlaybackHandle.EmbeddedVideo] and are
+ *    played by the official IFrame player; the opt-in InnerTube source returns
+ *    [PlaybackHandle.Stream] instead. Neither downloads media.
+ *  - Never add a third unofficial API without a maintainer decision. See
+ *    YOUTUBE.md and PRIVACY.md.
  *  - Report configuration problems through [availability] instead of throwing,
  *    so the UI can explain the fix.
  */

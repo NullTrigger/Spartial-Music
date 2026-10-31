@@ -60,6 +60,16 @@ interface YouTubeApi {
         @Header("Authorization") authorization: String,
     ): PlaylistListResponse
 
+    /** Authorized call: videos the signed-in user rated "like". */
+    @GET("youtube/v3/videos")
+    suspend fun likedVideos(
+        @Query("part") part: String,
+        @Query("myRating") myRating: String,
+        @Query("maxResults") maxResults: Int,
+        @Query("key") key: String,
+        @Header("Authorization") authorization: String,
+    ): VideoListResponse
+
     @GET("youtube/v3/playlistItems")
     suspend fun playlistItems(
         @Query("part") part: String,

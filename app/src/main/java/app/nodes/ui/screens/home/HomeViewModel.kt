@@ -14,12 +14,14 @@ import app.nodes.core.model.SourceErrorType
 import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceResult
 import app.nodes.core.source.SourceRegistry
+import app.nodes.core.source.youtube.YouTubeSignIn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -39,6 +41,7 @@ class HomeViewModel @Inject constructor(
     private val registry: SourceRegistry,
     private val settings: SettingsRepository,
     private val library: LibraryRepository,
+    private val signIn: YouTubeSignIn,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -50,6 +53,13 @@ class HomeViewModel @Inject constructor(
                 .map { it.primarySource }
                 .distinctUntilChanged()
                 .collectLatest { sourceId -> load(sourceId) }
+        }
+        // Signing in or out adds or removes the personal rails, so reload rather
+        // than making the user restart the app to see their own music.
+        viewModelScope.launch {
+            signIn.state
+                .drop(1)
+                .collect { load(_state.value.sourceId) }
         }
     }
 

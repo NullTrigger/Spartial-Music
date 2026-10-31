@@ -62,6 +62,7 @@ add or bump a dependency.
 | Service | Terms |
 | --- | --- |
 | YouTube Data API v3 | [YouTube API Services Terms](https://developers.google.com/youtube/terms/api-services-terms-of-service), [Google Privacy Policy](https://policies.google.com/privacy) |
+| YouTube InnerTube (`youtubei`), unofficial and opt-in | Not covered by the YouTube API Services Terms. See [YOUTUBE.md](YOUTUBE.md) |
 | Jamendo API | [Jamendo terms](https://developer.jamendo.com/v3.0), per-track Creative Commons licence |
 
 ## Fonts and images
@@ -77,6 +78,22 @@ Thanks to the Android open-source community, and in particular to the projects
 that made modern Compose media apps practical: AndroidX Media3, Compose, Hilt,
 Coil, Retrofit and kotlinx.serialization.
 
-This project does not contain code from Metrolist, InnerTune, OuterTune or
-Glossy. If you build on one of those GPL-3.0 projects instead, keep their
-copyright headers and add them to this file.
+Nodes also implements YouTube's private InnerTube protocol in
+`core/source/youtubemusic/`. That client was written for Nodes; the protocol
+details — client names and versions, context fields, and the fact that the
+`ANDROID_VR` client returns plain audio URLs — were learned from GPL-3.0
+projects in this space, credited here:
+
+| Project | Licence | What Nodes uses |
+| --- | --- | --- |
+| [Metrolist](https://github.com/mostafaalagamy/Metrolist) | GPL-3.0 | InnerTube protocol reference |
+| InnerTune / OuterTune | GPL-3.0 | InnerTube protocol reference |
+| [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube protocol reference, WebView sign-in study (not copied, not used) |
+
+No source file from those projects is copied into Nodes, so nothing here carries
+their copyright headers. If you do port code from one of them, keep that file's
+header, keep the GPL-3.0 licence, and add the project to this table.
+
+InnerTube is not a licensed API. Bundling a client for it does not grant any
+right to YouTube's content, and it does not put this project inside the YouTube
+API Services Terms; the trade-offs are written down in [YOUTUBE.md](YOUTUBE.md).
