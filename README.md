@@ -16,8 +16,12 @@ Licensed under **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 - **Local library** — reads audio already on your device through MediaStore.
 - **Creative Commons streaming** — Jamendo's catalogue, credited per track.
 - **YouTube, the official way** — YouTube Data API v3 for browsing, the official
-  embedded player for playback. No stream extraction, no downloads, no
-  background audio for YouTube tracks. See [YOUTUBE.md](YOUTUBE.md).
+  embedded player for playback. No downloads, no background audio for these
+  tracks. See [YOUTUBE.md](YOUTUBE.md).
+- **YouTube Music, unofficial and opt-in** — an InnerTube source that streams
+  audio directly, switched on in Settings → YouTube Music. Off by default, outside
+  the YouTube API Services Terms, and it can break whenever YouTube changes its
+  private endpoints. Read the warning in [YOUTUBE.md](YOUTUBE.md) first.
 
 Everything else (likes, playlists, history, search history) is stored on the
 device in Room/DataStore. There is no account, no sync and no analytics.

@@ -17,6 +17,9 @@ enum class SourceId(val key: String) {
     LOCAL("local"),
     JAMENDO("jamendo"),
     YOUTUBE("youtube"),
+
+    /** Unofficial InnerTube source; off unless the user enables it in Settings. */
+    YOUTUBE_MUSIC("youtube_music"),
     ;
 
     companion object {

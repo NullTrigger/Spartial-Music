@@ -149,7 +149,8 @@ class YouTubeOfficialSource @Inject constructor(
             HomeFeed(
                 hero = trending.take(5).map { HeroSlide(track = it) },
                 continuePlaying = trending.drop(5).take(6),
-                sections = sections,
+                // Signed-in content sits above the public charts.
+                sections = personalSections() + sections,
             ),
         )
     }
@@ -219,6 +220,76 @@ class YouTubeOfficialSource @Inject constructor(
         } catch (t: Throwable) {
             t.asYouTubeFailure()
         }
+    }
+
+    /**
+     * The signed-in user's liked videos, which is the closest thing the Data API
+     * offers to "my YouTube Music": their account's own music, played through
+     * the official player like everything else.
+     */
+    suspend fun myLikedTracks(limit: Int = 20): SourceResult<List<Track>> {
+        val token = signIn.currentToken()
+        if (apiKey.isBlank() || token.isNullOrBlank()) {
+            return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
+        }
+        val cacheKey = "youtube:liked:$limit"
+        readCache(cacheKey)?.let { return SourceResult.Success(it, fromCache = true) }
+        if (!quota.canAfford(QuotaTracker.COST_LIST)) {
+            return SourceResult.Failure(SourceErrorType.QUOTA_EXCEEDED)
+        }
+        return try {
+            quota.spend(QuotaTracker.COST_LIST)
+            val response = api.likedVideos(
+                part = "snippet,contentDetails",
+                myRating = "like",
+                maxResults = limit.coerceIn(1, 50),
+                key = apiKey,
+                authorization = "Bearer $token",
+            )
+            val tracks = response.items.mapNotNull { item ->
+                val videoId = item.id ?: return@mapNotNull null
+                item.snippet.toTrack(videoId, item.contentDetails?.duration)
+            }
+            writeCache(cacheKey, tracks)
+            SourceResult.Success(tracks)
+        } catch (t: Throwable) {
+            t.asYouTubeFailure()
+        }
+    }
+
+    /**
+     * Rails that only exist while signed in. Failure is soft: a spent quota or a
+     * stale token must not take the public charts down with it.
+     */
+    private suspend fun personalSections(): List<HomeSection> {
+        if (signIn.currentToken().isNullOrBlank()) return emptyList()
+        val sections = mutableListOf<HomeSection>()
+
+        val liked = myLikedTracks(20).getOrNull().orEmpty()
+        if (liked.isNotEmpty()) {
+            sections += HomeSection(
+                id = "youtube-liked",
+                title = "Liked on YouTube",
+                subtitle = signIn.currentEmail() ?: "Your Google account",
+                tracks = liked,
+            )
+        }
+
+        // A rail of playlist cards would not be playable, so show the tracks of
+        // the user's most recent own playlist instead.
+        val first = myPlaylists().getOrNull().orEmpty().firstOrNull()
+        val fromOwnPlaylist = first?.let { playlistTracks(it.id, 20).getOrNull().orEmpty() }.orEmpty()
+        if (first != null && fromOwnPlaylist.isNotEmpty()) {
+            sections += HomeSection(
+                id = "youtube-my-playlist",
+                title = first.title,
+                subtitle = "From your YouTube playlists",
+                tracks = fromOwnPlaylist,
+                playlistId = first.id,
+            )
+        }
+
+        return sections
     }
 
     // ---------------------------------------------------------------------

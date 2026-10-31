@@ -38,6 +38,13 @@ Nodes only talks to a provider when you browse or play something:
 4. **Artwork CDNs** — cover images are fetched by Coil from the URL the provider
    returned.
 
+If you turn on the unofficial YouTube Music source (Settings → YouTube Music),
+Nodes also calls YouTube's private `youtubei` endpoints on `youtube.com` for
+search, playlists and audio URLs. Those requests are anonymous: no account
+cookie, no OAuth token, no identifier beyond what any request to youtube.com
+carries (your IP address and the request itself). That mode is off by default and
+is outside the YouTube API Services Terms — see YOUTUBE.md.
+
 Nodes sends no identifiers of its own, no device fingerprint, no advertising ID,
 and no usage events. Uninstalling the app removes all local data.
 

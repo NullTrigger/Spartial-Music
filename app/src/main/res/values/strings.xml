@@ -45,6 +45,7 @@
     <string name="source_local">Local device</string>
     <string name="source_jamendo">Jamendo (Creative Commons)</string>
     <string name="source_youtube">YouTube (official API)</string>
+    <string name="source_youtube_music">YouTube Music (unofficial)</string>
     <string name="source_needs_key">Add a YouTube Data API key in local.properties to enable this source.</string>
     <string name="source_needs_client_id">Add a Jamendo client ID in local.properties to enable this source.</string>
     <string name="source_quota_exceeded">YouTube API quota for today is used up. It resets at midnight Pacific Time. Cached and local content still works.</string>
@@ -123,6 +124,10 @@
     <string name="settings_youtube_signout">Sign out</string>
     <string name="settings_youtube_signin_hint">Optional. Reads your playlists and liked videos with the youtube.readonly scope. Stays on device.</string>
     <string name="settings_youtube_missing_client">No OAuth client ID configured. See YOUTUBE.md.</string>
+    <string name="settings_ytmusic">YouTube Music (unofficial)</string>
+    <string name="settings_ytmusic_enable">Use the InnerTube source</string>
+    <string name="settings_ytmusic_hint">Searches YouTube Music and streams audio directly. Off by default.</string>
+    <string name="settings_ytmusic_warning">Unofficial. This uses the same private endpoints as YouTube's own apps, outside the YouTube API Services Terms: it can break without notice, and Google may throttle or block it. Nothing is downloaded and ads are not skipped. See YOUTUBE.md.</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %1$s</string>
     <string name="settings_licenses">Licences and credits</string>

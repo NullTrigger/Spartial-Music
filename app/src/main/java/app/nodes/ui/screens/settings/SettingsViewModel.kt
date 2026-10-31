@@ -52,6 +52,9 @@ class SettingsViewModel @Inject constructor(
     val isSignInConfigured: Boolean get() = signIn.isConfigured
     val signInState: StateFlow<SignInState> = signIn.state
 
+    /** The token is memory-only, so after a restart a fresh sign-in is required. */
+    val hasSession: Boolean get() = signIn.currentToken() != null
+
     init {
         viewModelScope.launch {
             settings.settings.collect {
@@ -82,6 +85,17 @@ class SettingsViewModel @Inject constructor(
 
     fun setHighQuality(enabled: Boolean) {
         viewModelScope.launch { settings.setHighQuality(enabled) }
+    }
+
+    fun setInnerTubeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settings.setInnerTubeEnabled(enabled)
+            _message.value = if (enabled) {
+                "YouTube Music (unofficial) is on. It can stop working at any time."
+            } else {
+                "YouTube Music (unofficial) is off."
+            }
+        }
     }
 
     fun signInIntent(): Intent? = signIn.signInIntent()

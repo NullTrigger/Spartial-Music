@@ -14,11 +14,16 @@ plugin behind one contract, so the player never knows where a track came from.
 
 ## Non-negotiable rules
 
-1. **No unofficial APIs.** YouTube is accessed only through the official Data API
-   v3 and played only in the official embedded player. Do not add InnerTube,
-   signature deciphering, stream extraction, downloading, ad skipping,
-   background YouTube audio, or anything that requires bypassing a service's
-   terms. If a task seems to need this, stop and ask the maintainer.
+1. **YouTube has exactly two modes, and the second one is opt-in.** Mode 1 is
+   the official Data API v3 plus the embedded player, and it stays the default.
+   Mode 2 is the unofficial InnerTube client in `core/source/youtubemusic/`,
+   which the maintainer added deliberately; it is **off unless the user turns it
+   on** in Settings and it must stay that way. In either mode: never download,
+   cache or re-encode YouTube media, never skip ads, never bundle a PoToken or
+   attestation bypass, never harvest account cookies without a maintainer
+   decision recorded in `YOUTUBE.md`. Mode 2 is outside the YouTube API Services
+   Terms and can break at any time — say so anywhere it is exposed. If a task
+   needs a third mechanism, stop and ask the maintainer.
 2. **No third-party content.** No real artist names, album art, lyrics, audio or
    logos. Placeholder art is generated procedurally; sample data is fictional
    (`DemoCatalog.kt`).
