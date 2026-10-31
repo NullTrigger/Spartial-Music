@@ -29,13 +29,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK packages
+      # ubuntu-latest already ships the Android SDK. Installing packages with
+      # the bundled sdkmanager avoids android-actions/setup-android, which
+      # runs a legacy `sdkmanager tools` call that fails on current images
+      # ("Failed to find package 'tools'").
+      - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER=$(command -v sdkmanager); fi
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
+            "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
