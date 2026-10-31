@@ -69,6 +69,16 @@ class PlaybackController @Inject constructor(
         override fun onPlayerError(error: PlaybackException) {
             _state.update { it.copy(message = error.errorCodeName.ifBlank { "Playback error" }) }
         }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState != Player.STATE_ENDED) return
+            if (_state.value.embeddedVideoId != null) return
+            val index = queue.indexOfFirst { it.id == _state.value.current?.id }
+            val next = queue.getOrNull(index + 1) ?: return
+            // Tracks whose URL is minted per play are not in the player's item
+            // list, so the player ends instead of advancing; keep the queue going.
+            if (next.mediaUri == null) playNow(next, queue)
+        }
     }
 
     init {
@@ -134,20 +144,27 @@ class PlaybackController @Inject constructor(
                         _state.update { it.copy(message = "The player is still starting. Try again.") }
                         return@launch
                     }
-                    val playable = playbackQueue.filter { it.mediaUri != null }
+                    // The URL was minted for this track a moment ago, so it is
+                    // attached to the copy that goes into the player. Tracks from
+                    // the same source still carry no URL and stay out of the
+                    // player's item list; next() and previous() resolve them
+                    // through the source instead of Media3 skipping to nothing.
+                    val resolved = track.copy(mediaUri = handle.url)
+                    val withUrls = playbackQueue.map { if (it.id == track.id) resolved else it }
+                    val playable = withUrls.filter { it.mediaUri != null }
                     if (playable.isEmpty()) {
                         _state.update { it.copy(message = "Nothing in this list can be streamed.") }
                         return@launch
                     }
                     val startIndex = playable.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-                    queue = playable
+                    queue = withUrls
                     player.setMediaItems(playable.map { it.toMediaItem() }, startIndex, 0L)
                     player.prepare()
                     player.play()
                     _state.update {
                         it.copy(
-                            current = track,
-                            queue = playable,
+                            current = resolved,
+                            queue = withUrls,
                             embeddedVideoId = null,
                             isPlaying = true,
                             isBuffering = true,
@@ -196,9 +213,10 @@ class PlaybackController @Inject constructor(
 
     fun next() {
         val current = _state.value
-        if (current.embeddedVideoId != null) {
-            val index = queue.indexOfFirst { it.id == current.current?.id }
-            queue.getOrNull(index + 1)?.let { playNow(it, queue) }
+        val index = queue.indexOfFirst { it.id == current.current?.id }
+        val candidate = queue.getOrNull(index + 1)
+        if (candidate != null && (current.embeddedVideoId != null || candidate.mediaUri == null)) {
+            playNow(candidate, queue)
             return
         }
         controller?.seekToNextMediaItem()
@@ -206,9 +224,10 @@ class PlaybackController @Inject constructor(
 
     fun previous() {
         val current = _state.value
-        if (current.embeddedVideoId != null) {
-            val index = queue.indexOfFirst { it.id == current.current?.id }
-            queue.getOrNull((index - 1).coerceAtLeast(0))?.let { playNow(it, queue) }
+        val index = queue.indexOfFirst { it.id == current.current?.id }
+        val candidate = queue.getOrNull(index - 1)
+        if (candidate != null && (current.embeddedVideoId != null || candidate.mediaUri == null)) {
+            playNow(candidate, queue)
             return
         }
         controller?.seekToPreviousMediaItem()
@@ -229,7 +248,10 @@ class PlaybackController @Inject constructor(
 
     private fun syncFromController() {
         val player = controller ?: return
-        val track = queue.getOrNull(player.currentMediaItemIndex)
+        // The player's item list can be shorter than the queue, so the media id
+        // is the reliable way to find which track is actually playing.
+        val track = queue.firstOrNull { it.id == player.currentMediaItem?.mediaId }
+            ?: queue.getOrNull(player.currentMediaItemIndex)
         _state.update { state ->
             state.copy(
                 current = track ?: state.current,

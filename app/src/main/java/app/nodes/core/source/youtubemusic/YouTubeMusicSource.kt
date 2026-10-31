@@ -122,16 +122,22 @@ class YouTubeMusicSource @Inject constructor(
             PlaybackHandle.Unavailable("This track has no YouTube video id."),
         )
         val preferHighQuality = settings.current().highQualityAudio
-        val url = runCatching { innerTube.audioUrl(videoId, preferHighQuality) }.getOrNull()
-        return if (url.isNullOrBlank()) {
-            SourceResult.Success(
+        val outcome = runCatching { innerTube.audioUrl(videoId, preferHighQuality) }.getOrNull()
+            ?: return SourceResult.Success(
                 PlaybackHandle.Unavailable(
-                    "YouTube did not return a playable stream for this track. " +
-                        "It may be region-locked, age-gated or a live stream.",
+                    "Could not reach YouTube Music. Check your connection and try again.",
                 ),
             )
-        } else {
-            SourceResult.Success(PlaybackHandle.Stream(url))
+
+        return when (outcome) {
+            is InnerTubeStream.Playable -> SourceResult.Success(PlaybackHandle.Stream(outcome.url))
+            is InnerTubeStream.Refused -> SourceResult.Success(
+                PlaybackHandle.Unavailable(
+                    "YouTube would not serve this track (${outcome.detail}). " +
+                        "It may be region-locked, age-gated, a live stream, or only offered " +
+                        "to clients this app does not imitate. See YOUTUBE.md.",
+                ),
+            )
         }
     }
 

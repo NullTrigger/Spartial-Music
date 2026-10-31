@@ -170,7 +170,32 @@
   .pill { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 7px;
           border-radius: 7px; background: rgba(255,255,255,.06); color: var(--grey); }
 
-  /* Keep both phones fully visible in a short preview panel. */
+  /* ---------------- Now playing ---------------- */
+  .np { padding: 4px 20px 0; }
+  .np .art {
+    margin-top: 8px; height: 268px; border-radius: 28px; display: grid; place-items: center;
+    border: 1px solid rgba(255,255,255,.07);
+    background: linear-gradient(160deg,#1b3a4b,#0d1a24 58%,#101115);
+    font-family: Georgia, serif; font-size: 54px; color: rgba(255,255,255,.16);
+  }
+  .np h3 { margin-top: 18px; font-size: 21px; font-weight: 600; letter-spacing: .2px; }
+  .np .who { font-size: 11.5px; color: var(--grey); margin-top: 4px; }
+  .np .bar { margin-top: 16px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.1); position: relative; }
+  .np .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; border-radius: 999px; background: var(--teal); }
+  .np .times { display: flex; justify-content: space-between; font-size: 10px; color: var(--grey-dim); margin-top: 6px; }
+  .np .controls { display: flex; align-items: center; justify-content: center; gap: 28px; margin-top: 14px; font-size: 15px; }
+  .np .controls .big {
+    width: 50px; height: 50px; border-radius: 50%; background: var(--white); color: #04231f;
+    display: grid; place-items: center; font-size: 15px; letter-spacing: .08em;
+  }
+  .chain { margin-top: 16px; }
+  .chain .row .t { font-size: 12px; }
+  .chain .row .r { font-size: 10.5px; letter-spacing: .04em; }
+  .ok { color: var(--teal); }
+  .idle { color: var(--grey-dim); }
+  .no { color: #cf9e7a; }
+
+  /* Keep all phones fully visible in a short preview panel. */
   @media (max-height: 1000px) {
     body { zoom: .58; }
   }
@@ -178,11 +203,12 @@
 </head>
 <body>
   <div class="caption">
-    <h1>Nodes — design preview of the two changed screens</h1>
-    <p>Home now carries the signed-in YouTube rails; Settings gains the
-      <code>YouTube Music (unofficial)</code> switch. This is a static mockup that mirrors the Compose
-      layout and the real theme colours (<code>NodesTeal #14B3A1</code>, <code>NodesBlack #050506</code>),
-      not a rendering of the running app.</p>
+    <h1>Nodes — design preview of the changed screens</h1>
+    <p>Home carries the signed-in YouTube rails, Settings gains the
+      <code>YouTube Music (unofficial)</code> switch, and Now Playing shows which client identity
+      actually served the stream. This is a static mockup that mirrors the Compose layout and the real
+      theme colours (<code>NodesTeal #14B3A1</code>, <code>NodesBlack #050506</code>), not a rendering
+      of the running app.</p>
   </div>
 
   <div class="stage">
@@ -297,6 +323,41 @@
               <div class="row">
                 <div><div class="t">This device</div><div class="s">Local audio via MediaStore</div></div>
                 <div class="pill">Ready</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOW PLAYING -->
+    <div class="frame-wrap">
+      <div class="frame-label">Now playing</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="status"><span>9:41</span><span>▮▮▮ ⌁ ▰</span></div>
+        <div class="scroll">
+          <div class="np">
+            <div class="art">M</div>
+            <h3>Midnight Signals</h3>
+            <div class="who">Demo Channel · YouTube Music</div>
+
+            <div class="bar"><i></i></div>
+            <div class="times"><span>1:24</span><span>3:42</span></div>
+
+            <div class="controls">
+              <span>⏮</span>
+              <span class="big">❚❚</span>
+              <span>⏭</span>
+            </div>
+
+            <div class="chain">
+              <div class="card-block">
+                <div class="powered">Stream source</div>
+                <div class="row"><div class="t">VISIONOS 0.1</div><div class="r no">unplayable</div></div>
+                <div class="row"><div class="t">ANDROID_VR 1.65.10</div><div class="r ok">● playing</div></div>
+                <div class="row"><div class="t">ANDROID_VR 1.43.32</div><div class="r idle">not needed</div></div>
+                <div class="row"><div class="t">IOS 21.03.1</div><div class="r idle">not needed</div></div>
               </div>
             </div>
           </div>
