@@ -58,6 +58,15 @@ data class HeroSlide(
     val kicker: String = "NOW PLAYING",
 )
 
+/**
+ * One time-synced lyric line. Lyrics come only from a local `.lrc` sidecar
+ * file the user supplies - Nodes never downloads lyrics from a third party.
+ */
+data class LyricLine(
+    val timeMs: Long,
+    val text: String,
+)
+
 /** A horizontal rail on Home. */
 data class HomeSection(
     val id: String,
@@ -138,7 +147,9 @@ sealed interface SourceResult<out T> {
     data class Success<T>(val data: T, val fromCache: Boolean = false) : SourceResult<T>
     data class Failure(val type: SourceErrorType, val message: String? = null) : SourceResult<Nothing>
 
-    inline fun <R> map(transform: (T) -> R): SourceResult<R> = when (this) {
+    // Not `inline`: interface members are open, so the compiler cannot inline
+    // them ("'inline' modifier on virtual members is prohibited").
+    fun <R> map(transform: (T) -> R): SourceResult<R> = when (this) {
         is Success -> Success(transform(data), fromCache)
         is Failure -> this
     }

@@ -58,7 +58,10 @@ class PlaybackController @Inject constructor(
     private var controller: MediaController? = null
     private var queue: List<Track> = emptyList()
 
-    private val listener = object : MediaController.Listener {
+    // MediaController.Listener only reports session events; playback callbacks
+    // such as onMediaItemTransition live on Player.Listener, which a
+    // MediaController implements.
+    private val listener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             syncFromController()
         }

@@ -31,7 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Pause
@@ -60,7 +60,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
@@ -76,6 +75,7 @@ import app.nodes.ui.theme.NodesTeal
 import app.nodes.ui.theme.NodesWhite
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 
 private enum class PlayerTab { QUEUE, LYRICS }
@@ -342,7 +342,7 @@ private fun BackButton(onBack: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowDown,
+            imageVector = Icons.Rounded.KeyboardArrowDown,
             contentDescription = stringResource(R.string.action_close),
             tint = NodesWhite,
             modifier = Modifier.size(26.dp),
@@ -431,7 +431,7 @@ private fun LyricsList(
  */
 @Composable
 private fun YouTubeEmbeddedCard(videoId: String, onStop: () -> Unit) {
-    val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     var player by remember { mutableStateOf<YouTubePlayer?>(null) }
     var loadedVideoId by remember { mutableStateOf<String?>(null) }
 
@@ -452,7 +452,7 @@ private fun YouTubeEmbeddedCard(videoId: String, onStop: () -> Unit) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
-                YouTubePlayerView(context).apply {
+                YouTubePlayerView(context).also(lifecycle::addObserver).apply {
                     addYouTubePlayerListener(
                         object : AbstractYouTubePlayerListener() {
                             override fun onReady(youTubePlayer: YouTubePlayer) {
@@ -467,15 +467,21 @@ private fun YouTubeEmbeddedCard(videoId: String, onStop: () -> Unit) {
                 }
             },
             update = { view ->
-                view.lifecycleOwner = lifecycleOwner
-                view.getYouTubePlayerWhenReady { youTubePlayer ->
-                    player = youTubePlayer
-                    if (loadedVideoId != videoId) {
-                        youTubePlayer.loadVideo(videoId, 0f)
-                        loadedVideoId = videoId
-                    }
-                }
+                // YouTubePlayerCallback is a Kotlin interface, so it needs an
+                // explicit object rather than a SAM lambda.
+                view.getYouTubePlayerWhenReady(
+                    object : YouTubePlayerCallback {
+                        override fun onYouTubePlayer(youTubePlayer: YouTubePlayer) {
+                            player = youTubePlayer
+                            if (loadedVideoId != videoId) {
+                                youTubePlayer.loadVideo(videoId, 0f)
+                                loadedVideoId = videoId
+                            }
+                        }
+                    },
+                )
             },
+            onRelease = { view -> lifecycle.removeObserver(view) },
         )
     }
 }
