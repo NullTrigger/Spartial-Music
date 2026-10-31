@@ -20,8 +20,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class AppSettings(
-    val primarySource: SourceId = SourceId.LOCAL,
-    val enabledSources: Set<SourceId> = setOf(SourceId.LOCAL, SourceId.JAMENDO, SourceId.YOUTUBE),
+    /**
+     * YouTube Music is the home source. The local, Jamendo and official API
+     * sources stay registered and selectable, but they no longer decide what a
+     * fresh install shows: with LOCAL here, Home was the demo catalogue, which is
+     * why no real album or artist ever appeared.
+     */
+    val primarySource: SourceId = SourceId.YOUTUBE_MUSIC,
+    val enabledSources: Set<SourceId> =
+        setOf(SourceId.YOUTUBE_MUSIC, SourceId.LOCAL, SourceId.JAMENDO, SourceId.YOUTUBE),
     val dynamicColor: Boolean = false,
     val wifiOnlyStreaming: Boolean = false,
     val highQualityAudio: Boolean = true,
@@ -30,10 +37,11 @@ data class AppSettings(
     val youtubeAccountEmail: String? = null,
     val youtubeSignedIn: Boolean = false,
     /**
-     * Opt-in for the unofficial InnerTube source. Off by default because it is
-     * outside the YouTube API Services Terms. See YOUTUBE.md.
+     * The unofficial InnerTube source. On by default in this fork by maintainer
+     * decision (recorded in YOUTUBE.md). It is outside the YouTube API Services
+     * Terms, so the choice is deliberate rather than an oversight.
      */
-    val innerTubeEnabled: Boolean = false,
+    val innerTubeEnabled: Boolean = true,
     /** Local YouTube quota bookkeeping, see YOUTUBE.md. */
     val quotaDate: String = "",
     val quotaUnitsUsed: Int = 0,
@@ -50,10 +58,13 @@ class SettingsRepository @Inject constructor(
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
         val enabled = prefs[KEY_ENABLED_SOURCES]?.mapNotNull { key ->
             SourceId.entries.firstOrNull { it.key == key }
-        }?.toSet() ?: setOf(SourceId.LOCAL, SourceId.JAMENDO, SourceId.YOUTUBE)
+        }?.toSet()
+            ?: setOf(SourceId.YOUTUBE_MUSIC, SourceId.LOCAL, SourceId.JAMENDO, SourceId.YOUTUBE)
 
         AppSettings(
-            primarySource = SourceId.fromKey(prefs[KEY_PRIMARY_SOURCE] ?: SourceId.LOCAL.key),
+            primarySource = SourceId.fromKey(
+                prefs[KEY_PRIMARY_SOURCE] ?: SourceId.YOUTUBE_MUSIC.key,
+            ),
             enabledSources = enabled,
             dynamicColor = prefs[KEY_DYNAMIC_COLOR] ?: false,
             wifiOnlyStreaming = prefs[KEY_WIFI_ONLY] ?: false,
@@ -62,7 +73,7 @@ class SettingsRepository @Inject constructor(
             onboardingCompleted = prefs[KEY_ONBOARDING] ?: false,
             youtubeAccountEmail = prefs[KEY_YOUTUBE_EMAIL],
             youtubeSignedIn = prefs[KEY_YOUTUBE_SIGNED_IN] ?: false,
-            innerTubeEnabled = prefs[KEY_INNERTUBE_ENABLED] ?: false,
+            innerTubeEnabled = prefs[KEY_INNERTUBE_ENABLED] ?: true,
             quotaDate = prefs[KEY_QUOTA_DATE] ?: "",
             quotaUnitsUsed = prefs[KEY_QUOTA_USED] ?: 0,
         )
@@ -76,7 +87,12 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setSourceEnabled(sourceId: SourceId, enabled: Boolean) = dataStore.edit { prefs ->
         val current = prefs[KEY_ENABLED_SOURCES]?.toMutableSet()
-            ?: setOf(SourceId.LOCAL.key, SourceId.JAMENDO.key, SourceId.YOUTUBE.key).toMutableSet()
+            ?: setOf(
+                SourceId.YOUTUBE_MUSIC.key,
+                SourceId.LOCAL.key,
+                SourceId.JAMENDO.key,
+                SourceId.YOUTUBE.key,
+            ).toMutableSet()
         if (enabled) current.add(sourceId.key) else current.remove(sourceId.key)
         prefs[KEY_ENABLED_SOURCES] = current
     }

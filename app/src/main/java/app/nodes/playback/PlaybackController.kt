@@ -17,6 +17,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import app.nodes.core.data.LibraryRepository
 import app.nodes.core.model.PlaybackHandle
+import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceErrorType
 import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
@@ -58,6 +59,15 @@ class PlaybackController @Inject constructor(
     private var controller: MediaController? = null
     private var queue: List<Track> = emptyList()
 
+    /**
+     * Tracks whose stream URL has already been re-minted once. A googlevideo URL
+     * is short-lived and bound to the request that produced it, so a 403 is
+     * fixed by asking the source again - but only once per track per session, so
+     * a track YouTube genuinely will not serve shows its error instead of
+     * looping.
+     */
+    private val refreshedStreams = mutableSetOf<String>()
+
     // MediaController.Listener only reports session events; playback callbacks
     // such as onMediaItemTransition live on Player.Listener, which a
     // MediaController implements.
@@ -67,10 +77,28 @@ class PlaybackController @Inject constructor(
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            val track = _state.value.current
+            // ERROR_CODE_IO_BAD_HTTP_STATUS is the CDN answering 403: the URL
+            // expired, or was minted for a session it no longer matches. Resolve
+            // the track again and reuse the same queue position rather than
+            // showing the user a dead stream.
+            if (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS &&
+                track != null &&
+                track.sourceId == SourceId.YOUTUBE_MUSIC &&
+                refreshedStreams.add(track.id)
+            ) {
+                _state.update { it.copy(message = "Stream expired, refreshing…") }
+                playNow(track, queue.ifEmpty { listOf(track) })
+                return
+            }
             _state.update { it.copy(message = error.errorCodeName.ifBlank { "Playback error" }) }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            // A stream that reached READY worked, so allow one future refresh.
+            if (playbackState == Player.STATE_READY) {
+                _state.value.current?.id?.let(refreshedStreams::remove)
+            }
             if (playbackState != Player.STATE_ENDED) return
             if (_state.value.embeddedVideoId != null) return
             val index = queue.indexOfFirst { it.id == _state.value.current?.id }
@@ -276,7 +304,20 @@ class PlaybackController @Inject constructor(
             .setMediaId(id)
             .setUri(mediaUri)
             .setMediaMetadata(metadata)
+            .apply {
+                // googlevideo URLs say what they are (`mime=audio%2Fwebm` for
+                // Opus). Passing it tells Media3 which extractor to expect
+                // instead of making it guess from a query string with no file
+                // extension; local files carry no `mime` and are left alone.
+                audioMimeType(mediaUri)?.let { setMimeType(it) }
+            }
             .build()
+    }
+
+    private fun audioMimeType(url: String?): String? {
+        if (url == null) return null
+        val declared = runCatching { Uri.parse(url).getQueryParameter("mime") }.getOrNull()
+        return declared?.takeIf { it.startsWith("audio/") }
     }
 
     private companion object {

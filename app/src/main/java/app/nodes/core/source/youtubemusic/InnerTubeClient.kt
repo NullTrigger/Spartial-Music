@@ -89,14 +89,23 @@ class InnerTubeClient @Inject constructor(
     private val json: Json,
 ) {
 
-    /** Videos matching [query], newest first as YouTube ranks them. */
+    /**
+     * Songs matching [query], ranked as YouTube Music ranks them.
+     *
+     * The `params` value is YouTube Music's own "songs" filter. Without it the
+     * endpoint answers as plain YouTube search, and the results fill up with
+     * ordinary videos - gameplay clips, reviews, vlogs - which is not content a
+     * music player should offer. Only music shelf items are read back out of the
+     * response as well, so a plain `videoRenderer` can never leak into results.
+     */
     suspend fun search(query: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
         val payload = buildJsonObject {
             put("context", contextFor(WEB_PROFILE))
             put("query", query)
+            put("params", MUSIC_SONGS_FILTER)
         }
         val root = post("search", payload, WEB_PROFILE.userAgent)
-        rendererTracks(root).take(limit.coerceIn(1, 50))
+        musicTracks(root).take(limit.coerceIn(1, 50))
     }
 
     /** Contents of a YouTube playlist (any playlist id, no `VL` prefix needed). */
@@ -270,6 +279,102 @@ class InnerTubeClient @Inject constructor(
         }
     }
 
+    /**
+     * Reads only the rows YouTube Music puts on a music shelf.
+     *
+     * A music result is a `musicResponsiveListItemRenderer`, whose title, artist,
+     * album and clock live in `flexColumns` rather than in the flat fields a
+     * `videoRenderer` has. Reading that shape is what makes the filter visible in
+     * the UI: a row that is not music has no such renderer and is skipped.
+     */
+    private fun musicTracks(root: JsonElement): List<Track> {
+        val out = mutableListOf<Track>()
+        val seen = mutableSetOf<String>()
+
+        fun walk(node: JsonElement) {
+            when (node) {
+                is JsonObject -> {
+                    (node["musicResponsiveListItemRenderer"] as? JsonObject)
+                        ?.toMusicTrack()
+                        ?.let { track -> if (seen.add(track.id)) out += track }
+                    node.values.forEach(::walk)
+                }
+
+                is JsonArray -> node.forEach(::walk)
+                else -> Unit
+            }
+        }
+
+        walk(root)
+        return out
+    }
+
+    private fun JsonObject.toMusicTrack(): Track? {
+        val videoId = (this["playlistItemData"] as? JsonObject)?.get("videoId")?.string()
+            ?: firstVideoId()
+            ?: return null
+
+        val columns = (this["flexColumns"] as? JsonArray)
+            ?.mapNotNull {
+                (it as? JsonObject)?.get("musicResponsiveListItemFlexColumnRenderer")?.obj()
+            }
+            .orEmpty()
+        val title = columns.firstOrNull()?.get("text")?.text() ?: return null
+
+        // "Artist \u2022 Album \u2022 3:42": the first two runs link to a page and
+        // say which one, the clock is the only run with no page type at all.
+        val subtitle = (columns.getOrNull(1)?.get("text")?.obj()?.get("runs") as? JsonArray)
+            ?.mapNotNull { it as? JsonObject }
+            .orEmpty()
+        val artist = subtitle.firstOrNull { it.musicPageType() == "MUSIC_PAGE_TYPE_ARTIST" }
+            ?.get("text")?.string()
+            ?: subtitle.firstOrNull()?.get("text")?.string()
+            ?: "YouTube Music"
+        val album = subtitle.firstOrNull { it.musicPageType() == "MUSIC_PAGE_TYPE_ALBUM" }
+            ?.get("text")?.string()
+        val clock = subtitle.lastOrNull {
+            it["text"]?.string()?.let(CLOCK::matches) == true
+        }?.get("text")?.string()
+
+        val artwork = (this["thumbnail"]?.obj()?.get("musicThumbnailRenderer")?.obj()
+            ?.get("thumbnail")?.obj()?.get("thumbnails") as? JsonArray)
+            ?.mapNotNull { (it as? JsonObject)?.get("url")?.string() }
+            ?.lastOrNull()
+
+        return Track(
+            id = "ytmusic-$videoId",
+            title = title,
+            artist = artist,
+            album = album,
+            artworkUri = artwork,
+            mediaUri = null,
+            durationMs = parseClock(clock),
+            sourceId = SourceId.YOUTUBE_MUSIC,
+            videoId = videoId,
+            externalUrl = "https://music.youtube.com/watch?v=$videoId",
+        )
+    }
+
+    /** The page type a subtitle run links to, e.g. `MUSIC_PAGE_TYPE_ALBUM`. */
+    private fun JsonObject.musicPageType(): String? =
+        (this["navigationEndpoint"] as? JsonObject)
+            ?.get("browseEndpoint")?.obj()
+            ?.get("browseEndpointContextSupportedConfigs")?.obj()
+            ?.get("browseEndpointContextMusicConfig")?.obj()
+            ?.get("pageType")?.string()
+
+    /** Any `videoId` beneath this renderer, for rows without `playlistItemData`. */
+    private fun JsonObject.firstVideoId(): String? {
+        fun find(node: JsonElement): String? = when (node) {
+            is JsonObject -> node["videoId"]?.string()
+                ?: node.values.firstNotNullOfOrNull { find(it) }
+
+            is JsonArray -> node.firstNotNullOfOrNull { find(it) }
+            else -> null
+        }
+        return find(this)
+    }
+
     /** Walks the response for video-shaped nodes, whatever page wrapped them. */
     private fun rendererTracks(root: JsonElement): List<Track> {
         val out = mutableListOf<Track>()
@@ -360,6 +465,16 @@ class InnerTubeClient @Inject constructor(
         const val PUBLIC_CLIENT_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w"
 
         val JSON_MEDIA_TYPE = "application/json".toMediaType()
+
+        /** "3:42" / "1:02:03", the only subtitle run with no page type. */
+        val CLOCK = Regex("^\\d{1,2}(:\\d{2}){1,2}$")
+
+        /**
+         * YouTube Music's "songs" search filter (the `params` a music search
+         * carries). It restricts the answer to songs, which is why an ordinary
+         * video - a gameplay clip, for instance - no longer appears.
+         */
+        const val MUSIC_SONGS_FILTER = "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"
 
         /** Used for search and playlists, where any answer will do. */
         val WEB_PROFILE = InnerTubeClientProfile(
