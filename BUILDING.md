@@ -18,7 +18,7 @@ the same way with the POSIX equivalent of each command.
 | --- | --- | --- |
 | Android Studio | latest stable | brings the Android SDK |
 | JDK | **17** | Android Studio bundles one ("jbr"); a standalone Temurin 17 also works |
-| Android SDK | API 36 platform, Build-Tools 36.0.0, Platform-Tools | install from SDK Manager |
+| Android SDK | API 37.0 platform, Build-Tools 37.0.0, Platform-Tools | install from SDK Manager |
 
 Set `JAVA_HOME` if Gradle cannot find a JDK:
 
@@ -150,7 +150,7 @@ Verify the release build is signed with your key, not the debug key:
 
 ```powershell
 .\gradlew.bat :app:assembleRelease
-& "$env:LOCALAPPDATA\Android\Sdk\build-tools\36.0.0\apksigner.bat" verify --print-certs app\build\outputs\apk\release\app-release.apk
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\apksigner.bat" verify --print-certs app\build\outputs\apk\release\app-release.apk
 ```
 
 If `keystore.properties` is missing, `assembleRelease` falls back to debug

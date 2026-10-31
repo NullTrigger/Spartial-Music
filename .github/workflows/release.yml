@@ -35,7 +35,7 @@ jobs:
       - name: Install SDK packages
         run: |
           yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -96,6 +96,7 @@ jobs:
         run: |
           APK=$(find dist -name '*.apk' | head -n 1)
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          echo "Using $BUILD_TOOLS"
           "$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | grep -i "Signer #1 certificate DN"
 
       - name: Create GitHub Release
