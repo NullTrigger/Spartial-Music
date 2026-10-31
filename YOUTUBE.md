@@ -106,20 +106,34 @@ Notes:
 - Play Store distribution requires your own privacy policy link and the YouTube
   attribution below.
 
-## Mode 2 — Unofficial InnerTube (shipped, off by default)
+## Mode 2 — Unofficial InnerTube (the default source in this fork)
 
 `core/source/youtubemusic/` talks to YouTube's private `youtubei` endpoints,
-which is how YouTube's own apps talk to YouTube. **It is off until you turn it on
-in Settings → YouTube Music**, and Mode 1 stays the default.
+which is how YouTube's own apps talk to YouTube.
+
+**Maintainer decision, 31 October 2026:** this fork ships Mode 2 as the default
+source, because Mode 1 (Data API v3 + embedded player) cannot show a real YouTube
+Music catalogue — its 100-unit search budget and video-only results left Home on
+the demo catalogue, with no albums, artists or songs from the service. Mode 1 is
+still built, registered and selectable in Settings → Sources; turning Mode 2 off
+returns the app to the documented behaviour above. The legal position below is
+unchanged and is accepted with that decision: it is outside the API Services
+Terms, and it can break.
 
 | Feature | Endpoint | Notes |
 | --- | --- | --- |
-| Search | `POST /youtubei/v1/search` (WEB client) | no Data API quota used |
+| Search | `POST /youtubei/v1/search` (WEB client, songs filter) | no Data API quota used |
 | Playlist contents | `POST /youtubei/v1/browse` (`VL<id>`) | |
 | Playback | `POST /youtubei/v1/player` (several app identities) | plain `googlevideo` audio URL |
 
 No single client identity serves every track any more, so playback asks several
 in turn and takes the first usable answer:
+
+Search sends YouTube Music's own "songs" filter in `params` and reads back only
+music shelf rows. Without both, the endpoint answers as plain YouTube search, so
+a query like "gaming" returns gameplay clips and reviews; with them, an ordinary
+video cannot reach a music player's results at all.
+
 
 | Order | Client | Version | Why it is in the chain |
 | --- | --- | --- | --- |

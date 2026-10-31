@@ -201,15 +201,41 @@
   .idle { color: var(--grey-dim); }
   .no { color: #cf9e7a; }
 
+  /* ---------------- Search ---------------- */
+  .search-head { display: flex; align-items: center; gap: 12px; padding: 2px 22px 12px; }
+  .search-head h2 { font-size: 22px; font-weight: 600; font-family: Georgia, serif; }
+  .field {
+    margin: 0 22px; height: 46px; border-radius: 999px; display: flex; align-items: center; gap: 9px;
+    padding: 0 16px; background: var(--surface); border: 1px solid rgba(255,255,255,.07); font-size: 13px;
+  }
+  .field .mag { font-size: 13px; color: var(--grey-dim); }
+  .filter-note { padding: 12px 22px 2px; font-size: 10.5px; color: var(--grey-dim); letter-spacing: .04em; }
+  .res { display: flex; align-items: center; gap: 12px; padding: 9px 22px; }
+  .res .thumb {
+    width: 46px; height: 46px; border-radius: 12px; flex: 0 0 46px; display: grid; place-items: center;
+    font-family: Georgia, serif; font-size: 16px; color: rgba(255,255,255,.7);
+    border: 1px solid rgba(255,255,255,.06);
+  }
+  .res .meta { flex: 1; min-width: 0; }
+  .res b { display: block; font-size: 12.5px; font-weight: 500; }
+  .res i { display: block; font-style: normal; font-size: 10.5px; color: var(--grey-dim); margin-top: 2px; }
+  .res .len { font-size: 10.5px; color: var(--grey-dim); }
+  .excluded {
+    margin: 14px 22px 0; font-size: 10.5px; line-height: 1.55; color: #cf9e7a;
+    background: rgba(207,158,122,.07); border: 1px solid rgba(207,158,122,.18);
+    border-radius: 12px; padding: 10px 12px;
+  }
+
   /* Narrow panels stack the phones; nothing is scaled, so text stays crisp. */
 </style>
 </head>
 <body>
   <div class="caption">
     <h1>Nodes — design preview of the changed screens</h1>
-    <p>Home carries the signed-in YouTube rails, Settings gains the
-      <code>YouTube Music (unofficial)</code> switch, and Now Playing shows which client identity
-      actually served the stream. This is a static mockup that mirrors the Compose layout and the real
+    <p>Home carries the signed-in YouTube rails, Search asks YouTube Music for songs only (so
+      gaming videos are filtered out), Settings gains the <code>YouTube Music (unofficial)</code>
+      switch, and Now Playing shows which client identity actually served the stream. This is a
+      static mockup that mirrors the Compose layout and the real
       theme colours (<code>NodesTeal #14B3A1</code>, <code>NodesBlack #050506</code>), not a rendering
       of the running app.</p>
   </div>
@@ -264,6 +290,50 @@
             <div class="item"><div class="dot"></div>Trending</div>
             <div class="item"><div class="dot round"></div>Search</div>
             <div class="item"><div class="dot"></div>Library</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEARCH -->
+    <div class="frame-wrap">
+      <div class="frame-label">Search</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="status"><span>9:41</span><span>▮▮▮ ⌁ ▰</span></div>
+        <div class="scroll">
+          <div class="search-head">
+            <div class="chev">‹</div>
+            <h2>Search</h2>
+          </div>
+
+          <div class="field"><span class="mag">⌕</span><span>gaming</span></div>
+          <div class="filter-note">SONGS · YouTube Music filter</div>
+
+          <div class="res">
+            <div class="thumb c1">M</div>
+            <div class="meta"><b>Midnight Signals</b><i>Demo Channel · Neon Hours</i></div>
+            <div class="len">3:42</div>
+          </div>
+          <div class="res">
+            <div class="thumb c4">N</div>
+            <div class="meta"><b>Neon Rain</b><i>Sample Band · After Hours</i></div>
+            <div class="len">4:05</div>
+          </div>
+          <div class="res">
+            <div class="thumb c3">H</div>
+            <div class="meta"><b>Harbour Lights</b><i>Demo Channel · Slow Orbit</i></div>
+            <div class="len">3:31</div>
+          </div>
+          <div class="res">
+            <div class="thumb c2">G</div>
+            <div class="meta"><b>Glass Hours</b><i>Placeholder Artist · Singles</i></div>
+            <div class="len">2:58</div>
+          </div>
+
+          <div class="excluded">
+            Not shown: 6 ordinary videos (gameplay, reviews, vlogs). A music search returns music
+            shelf rows only, so a gaming clip can never appear in a music app's results.
           </div>
         </div>
       </div>

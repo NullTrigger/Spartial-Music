@@ -15,6 +15,7 @@ import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceResult
 import app.nodes.core.source.SourceRegistry
 import app.nodes.core.source.youtube.YouTubeSignIn
+import app.nodes.playback.LoadingSound
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,7 @@ class HomeViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val library: LibraryRepository,
     private val signIn: YouTubeSignIn,
+    private val loadingSound: LoadingSound,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -69,6 +71,9 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun load(sourceId: SourceId) {
         _state.update { it.copy(loading = true, error = null, sourceId = sourceId) }
+        // The chime covers the wait for the first feed; it plays once per process
+        // and is released as soon as the request settles.
+        loadingSound.playOnce()
         val source = registry.byId(sourceId) ?: registry.primary()
         val recent = library.recentlyPlayed.first()
 
@@ -97,5 +102,6 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+        loadingSound.stop()
     }
 }

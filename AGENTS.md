@@ -14,11 +14,13 @@ plugin behind one contract, so the player never knows where a track came from.
 
 ## Non-negotiable rules
 
-1. **YouTube has exactly two modes, and the second one is opt-in.** Mode 1 is
-   the official Data API v3 plus the embedded player, and it stays the default.
-   Mode 2 is the unofficial InnerTube client in `core/source/youtubemusic/`,
-   which the maintainer added deliberately; it is **off unless the user turns it
-   on** in Settings and it must stay that way. In either mode: never download,
+1. **YouTube has exactly two modes.** Mode 1 is the official Data API v3 plus
+   the embedded player. Mode 2 is the unofficial InnerTube client in
+   `core/source/youtubemusic/`, which the maintainer added deliberately. Since
+   31 October 2026 Mode 2 is the default source by maintainer decision (recorded
+   in `YOUTUBE.md`), because Mode 1 cannot show a real music catalogue; Mode 1
+   stays registered and selectable, and reversing the decision is a matter of
+   flipping the defaults back. In either mode: never download,
    cache or re-encode YouTube media, never skip ads, never bundle a PoToken or
    attestation bypass, never harvest account cookies without a maintainer
    decision recorded in `YOUTUBE.md`. Mode 2 is outside the YouTube API Services
