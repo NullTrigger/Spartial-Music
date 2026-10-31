@@ -28,6 +28,41 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * What YouTube answered when asked for a stream.
+ *
+ * [Refused] carries a short, per-client account of why nothing was served, so the
+ * player can tell the user something more useful than "it failed" and a bug
+ * report carries the diagnosis without a log.
+ */
+sealed interface InnerTubeStream {
+    data class Playable(val url: String, val client: String) : InnerTubeStream
+
+    data class Refused(val detail: String) : InnerTubeStream
+}
+
+/**
+ * One of YouTube's own app identities, as used on the private InnerTube API.
+ *
+ * YouTube decides what audio it will hand out partly by which app is asking, and
+ * the answers change over time: the identity that serves a track this month can
+ * return "unplayable" next month. Working players carry several and try them in
+ * order, so these profiles are a list rather than a constant. The values are the
+ * ones Metrolist and Glossy ship (see THIRD_PARTY_LICENSES.md).
+ */
+internal data class InnerTubeClientProfile(
+    val name: String,
+    val version: String,
+    val userAgent: String,
+    val osName: String? = null,
+    val osVersion: String? = null,
+    val deviceMake: String? = null,
+    val deviceModel: String? = null,
+    val androidSdkVersion: Int? = null,
+    val includeUserAgentInContext: Boolean = false,
+    val embedded: Boolean = false,
+)
+
+/**
  * Client for YouTube's private InnerTube JSON API (the `youtubei` endpoints).
  *
  * This is the **unofficial** interface used by YouTube's own clients, not a
@@ -39,10 +74,14 @@ import javax.inject.Singleton
  *
  * Deliberate limits, so this stays a player and not a ripper:
  *  - search and playlist metadata only; no recommendations engine, no tracking;
- *  - the audio URL handed to Media3 is the one YouTube returns for this request,
- *    with nothing rewritten, deciphered or stripped (the `ANDROID_VR` client
- *    returns plain URLs, so no signature solving is implemented here);
- *  - nothing is written to disk except the artwork Coil caches as usual.
+ *  - playback asks the clients that answer with a plain `url` field, so no
+ *    signature deciphering, no PoToken minting and no attestation code lives
+ *    here. Clients that only answer with `signatureCipher` are skipped, and a
+ *    client that starts requiring a token simply drops out of the chain;
+ *  - the URL handed to Media3 is the one YouTube returned for this request, with
+ *    nothing rewritten beyond reading it out of the response;
+ *  - nothing is downloaded: the reachability probe reads a single byte, and
+ *    nothing is written to disk except the artwork Coil caches as usual.
  */
 @Singleton
 class InnerTubeClient @Inject constructor(
@@ -53,98 +92,173 @@ class InnerTubeClient @Inject constructor(
     /** Videos matching [query], newest first as YouTube ranks them. */
     suspend fun search(query: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
         val payload = buildJsonObject {
-            put("context", webContext())
+            put("context", contextFor(WEB_PROFILE))
             put("query", query)
         }
-        val root = post("search", payload)
+        val root = post("search", payload, WEB_PROFILE.userAgent)
         rendererTracks(root).take(limit.coerceIn(1, 50))
     }
 
     /** Contents of a YouTube playlist (any playlist id, no `VL` prefix needed). */
     suspend fun playlist(playlistId: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
         val payload = buildJsonObject {
-            put("context", webContext())
+            put("context", contextFor(WEB_PROFILE))
             put("browseId", if (playlistId.startsWith("VL")) playlistId else "VL$playlistId")
         }
-        val root = post("browse", payload)
+        val root = post("browse", payload, WEB_PROFILE.userAgent)
         rendererTracks(root).take(limit.coerceIn(1, 100))
     }
 
     /**
-     * Resolves a directly playable audio URL for [videoId], or null when YouTube
-     * refuses to serve it (age gate, region block, live stream, private video).
+     * Resolves a directly playable audio URL for [videoId].
      *
-     * The URL is short-lived and bound to the requesting client, so it must be
-     * used immediately and never cached or stored.
+     * The clients in [PLAYBACK_CLIENTS] are asked in turn, newest and best first;
+     * the first answer that is both `OK` and actually fetchable wins. Each URL is
+     * short-lived and bound to the client that minted it, so it must be used
+     * immediately and never cached.
      */
-    suspend fun audioUrl(videoId: String, preferHighQuality: Boolean): String? =
+    suspend fun audioUrl(videoId: String, preferHighQuality: Boolean): InnerTubeStream =
         withContext(Dispatchers.IO) {
-            val payload = buildJsonObject {
-                put("context", vrContext())
-                put("videoId", videoId)
-                put("contentCheckOk", true)
-                put("racyCheckOk", true)
-            }
-            val root = post("player", payload)
-            val status = root["playabilityStatus"]?.obj()?.get("status")?.string()
-            if (status != null && status != "OK") return@withContext null
+            val notes = mutableListOf<String>()
 
-            val data = root["streamingData"]?.obj() ?: return@withContext null
-            val adaptive = (data["adaptiveFormats"] as? JsonArray)?.toList().orEmpty()
-            val progressive = (data["formats"] as? JsonArray)?.toList().orEmpty()
-
-            val audio = (adaptive + progressive)
-                .mapNotNull { it as? JsonObject }
-                .filter { format ->
-                    val mime = format["mimeType"]?.string().orEmpty()
-                    mime.startsWith("audio/")
+            for (profile in PLAYBACK_CLIENTS) {
+                val attempt = try {
+                    requestStream(profile, videoId, preferHighQuality)
+                } catch (error: IOException) {
+                    notes += "${profile.name}: network error"
+                    continue
                 }
-                .mapNotNull { format -> format["url"]?.string()?.let { format to it } }
 
-            val picked = if (preferHighQuality) {
-                audio.maxByOrNull { (format, _) -> format["bitrate"]?.int() ?: 0 }
-            } else {
-                audio.minByOrNull { (format, _) -> format["bitrate"]?.int() ?: 0 }
+                if (attempt.status != STATUS_OK) {
+                    val reason = attempt.reason?.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
+                    notes += "${profile.name}: ${attempt.status.humanStatus()}$reason"
+                    continue
+                }
+
+                val url = attempt.url
+                if (url == null) {
+                    notes += "${profile.name}: no plain audio stream"
+                    continue
+                }
+
+                if (!isReachable(url, profile.userAgent)) {
+                    notes += "${profile.name}: stream rejected by the CDN"
+                    continue
+                }
+
+                return@withContext InnerTubeStream.Playable(url, profile.name)
             }
-            picked?.second
+
+            InnerTubeStream.Refused(notes.joinToString("; "))
         }
 
     // ---------------------------------------------------------------------
 
-    private fun webContext(): JsonObject = buildJsonObject {
-        putJsonObject("client") {
-            put("clientName", WEB_CLIENT)
-            put("clientVersion", WEB_CLIENT_VERSION)
-            put("hl", "en")
-            put("gl", "US")
+    /** What one client answered: the playability status and, if offered, a URL. */
+    private data class Attempt(val status: String, val reason: String?, val url: String?)
+
+    private fun requestStream(
+        profile: InnerTubeClientProfile,
+        videoId: String,
+        preferHighQuality: Boolean,
+    ): Attempt {
+        val payload = buildJsonObject {
+            put("context", contextFor(profile))
+            put("videoId", videoId)
+            put("contentCheckOk", true)
+            put("racyCheckOk", true)
         }
+        val root = post("player", payload, profile.userAgent)
+
+        val statusBlock = root["playabilityStatus"]?.obj()
+        val status = statusBlock?.get("status")?.string() ?: "UNKNOWN"
+        val reason = statusBlock?.get("reason")?.string()
+        if (status != STATUS_OK) return Attempt(status, reason, null)
+
+        val formats = (root["streamingData"]?.obj()?.get("adaptiveFormats") as? JsonArray)
+            ?.mapNotNull { it as? JsonObject }
+            .orEmpty()
+
+        return Attempt(status, reason, pickAudioFormat(formats, preferHighQuality))
     }
 
     /**
-     * The VR client is used for playback only because it answers with plain
-     * `url` fields instead of ciphered ones, which keeps signature deciphering
-     * out of this project entirely.
+     * The audio URL to use, or null when this client only offered ciphered
+     * formats. Plain `url` fields are the whole reason this client is in the
+     * chain; a `signatureCipher` entry would need a JavaScript player to solve
+     * and is intentionally not handled.
      */
-    private fun vrContext(): JsonObject = buildJsonObject {
+    private fun pickAudioFormat(formats: List<JsonObject>, preferHighQuality: Boolean): String? {
+        val audio = formats.filter { format ->
+            (format["mimeType"]?.string() ?: "").startsWith("audio/") &&
+                format["url"]?.string() != null
+        }
+        if (audio.isEmpty()) return null
+
+        val chosen = if (preferHighQuality) {
+            audio.maxWithOrNull(
+                compareBy<JsonObject> { qualityScore(it) }
+                    .thenBy { it["bitrate"]?.int() ?: 0 },
+            )
+        } else {
+            // A modest bitrate saves data without sounding worse on a phone
+            // speaker; fall back to the lowest the track offers.
+            val modest = audio.filter { (it["bitrate"]?.int() ?: 0) <= MODEST_BITRATE }
+            (modest.ifEmpty { audio }).maxWithOrNull(
+                compareBy<JsonObject> { it["bitrate"]?.int() ?: 0 },
+            )
+        }
+        return chosen?.get("url")?.string()
+    }
+
+    private fun qualityScore(format: JsonObject): Int = when (format["audioQuality"]?.string()) {
+        "AUDIO_QUALITY_HIGH" -> 3
+        "AUDIO_QUALITY_MEDIUM" -> 2
+        "AUDIO_QUALITY_LOW" -> 1
+        else -> 0
+    }
+
+    /**
+     * Whether the CDN will actually serve [url] to [userAgent].
+     *
+     * The probe is a ranged GET for a single byte, because googlevideo answers
+     * HEAD with 403 and would reject every candidate if it were used instead.
+     * Media3 would otherwise take the URL and fail later, mid-playback, with the
+     * player already showing the track as playing.
+     */
+    private fun isReachable(url: String, userAgent: String): Boolean = runCatching {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", userAgent)
+            .header("Range", "bytes=0-0")
+            .get()
+            .build()
+        client.newCall(request).execute().use { response -> response.isSuccessful }
+    }.getOrDefault(false)
+
+    private fun contextFor(profile: InnerTubeClientProfile): JsonObject = buildJsonObject {
         putJsonObject("client") {
-            put("clientName", VR_CLIENT)
-            put("clientVersion", VR_CLIENT_VERSION)
-            put("deviceMake", "Oculus")
-            put("deviceModel", "Quest 3")
-            put("osName", "Android")
-            put("osVersion", "12")
-            put("androidSdkVersion", 32)
+            put("clientName", profile.name)
+            put("clientVersion", profile.version)
+            if (profile.includeUserAgentInContext) put("userAgent", profile.userAgent)
+            profile.osName?.let { put("osName", it) }
+            profile.osVersion?.let { put("osVersion", it) }
+            profile.deviceMake?.let { put("deviceMake", it) }
+            profile.deviceModel?.let { put("deviceModel", it) }
+            profile.androidSdkVersion?.let { put("androidSdkVersion", it) }
             put("hl", "en")
             put("gl", "US")
-            put("userAgent", VR_USER_AGENT)
+        }
+        if (profile.embedded) {
+            putJsonObject("thirdParty") { put("embedUrl", EMBED_URL) }
         }
     }
 
-    private fun post(path: String, payload: JsonObject): JsonObject {
+    private fun post(path: String, payload: JsonObject, userAgent: String): JsonObject {
         val request = Request.Builder()
             .url("$BASE_URL/$path?key=$PUBLIC_CLIENT_KEY&prettyPrint=false")
             .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
-            .header("User-Agent", VR_USER_AGENT)
+            .header("User-Agent", userAgent)
             .header("Content-Type", "application/json")
             .build()
         client.newCall(request).execute().use { response ->
@@ -233,19 +347,92 @@ class InnerTubeClient @Inject constructor(
         return total * 1_000L
     }
 
+    /** "UNPLAYABLE" -> "unplayable", so the failure line reads like a sentence. */
+    private fun String.humanStatus(): String = lowercase().replace('_', ' ')
+
     private companion object {
         const val BASE_URL = "https://www.youtube.com/youtubei/v1"
-        const val WEB_CLIENT = "WEB"
-        const val WEB_CLIENT_VERSION = "2.20240726.00.00"
-        const val VR_CLIENT = "ANDROID_VR"
-        const val VR_CLIENT_VERSION = "1.62.27"
-        const val VR_USER_AGENT =
-            "com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12; GB) gzip"
+        const val STATUS_OK = "OK"
+        const val EMBED_URL = "https://www.reddit.com/"
+        const val MODEST_BITRATE = 160_000
 
         /** The public key YouTube's own web client ships with; not a secret. */
         const val PUBLIC_CLIENT_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w"
 
         val JSON_MEDIA_TYPE = "application/json".toMediaType()
+
+        /** Used for search and playlists, where any answer will do. */
+        val WEB_PROFILE = InnerTubeClientProfile(
+            name = "WEB",
+            version = "2.20260114.08.00",
+            userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) " +
+                "Gecko/20100101 Firefox/140.0",
+        )
+
+        /**
+         * Playback clients, tried in this order.
+         *
+         * These are the identities that still answer with plain `url` fields
+         * instead of a ciphered one. WEB_REMIX, WEB_CREATOR and the TV clients
+         * are deliberately absent: they now require a PoToken and signature
+         * solving, which this project does not ship. A track that only those
+         * clients would serve is reported as unavailable rather than worked
+         * around.
+         */
+        val PLAYBACK_CLIENTS = listOf(
+            InnerTubeClientProfile(
+                name = "VISIONOS",
+                version = "0.1",
+                userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+                    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+                osName = "visionOS",
+                osVersion = "1.3.21O771",
+                deviceMake = "Apple",
+                deviceModel = "RealityDevice14,1",
+            ),
+            InnerTubeClientProfile(
+                name = "ANDROID_VR",
+                version = "1.65.10",
+                userAgent = "com.google.android.apps.youtube.vr.oculus/1.65.10 " +
+                    "(Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
+                osName = "Android",
+                osVersion = "12L",
+                deviceMake = "Oculus",
+                deviceModel = "Quest 3",
+                androidSdkVersion = 32,
+                includeUserAgentInContext = true,
+            ),
+            InnerTubeClientProfile(
+                name = "ANDROID_VR",
+                version = "1.43.32",
+                userAgent = "com.google.android.apps.youtube.vr.oculus/1.43.32 " +
+                    "(Linux; U; Android 12; en_US; Quest 3; Build/SQ3A.220605.009.A1; " +
+                    "Cronet/107.0.5284.2)",
+                osName = "Android",
+                osVersion = "12",
+                deviceMake = "Oculus",
+                deviceModel = "Quest 3",
+                androidSdkVersion = 32,
+                includeUserAgentInContext = true,
+            ),
+            InnerTubeClientProfile(
+                name = "IOS",
+                version = "21.03.1",
+                userAgent = "com.google.ios.youtube/21.03.1 " +
+                    "(iPhone16,2; U; CPU iOS 18_2 like Mac OS X;)",
+                osVersion = "18.2.22C152",
+            ),
+            InnerTubeClientProfile(
+                name = "IOS",
+                version = "21.03.3",
+                userAgent = "com.google.ios.youtube/21.03.3 " +
+                    "(iPad7,6; U; CPU iPadOS 17_7_10 like Mac OS X; en-US)",
+                osName = "iPadOS",
+                osVersion = "17.7.10.21H450",
+                deviceMake = "Apple",
+                deviceModel = "iPad7,6",
+            ),
+        )
 
         /** Node names that carry a playable video in search, browse and playlists. */
         val VIDEO_KEYS = listOf(

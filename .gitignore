@@ -35,3 +35,4 @@ google-services.json
 
 # Logs
 *.log
+.ref-glossy/

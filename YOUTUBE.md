@@ -116,13 +116,35 @@ in Settings → YouTube Music**, and Mode 1 stays the default.
 | --- | --- | --- |
 | Search | `POST /youtubei/v1/search` (WEB client) | no Data API quota used |
 | Playlist contents | `POST /youtubei/v1/browse` (`VL<id>`) | |
-| Playback | `POST /youtubei/v1/player` (`ANDROID_VR`) | plain `googlevideo` audio URL |
+| Playback | `POST /youtubei/v1/player` (several app identities) | plain `googlevideo` audio URL |
 
-The `ANDROID_VR` client is used for playback because it answers with a plain
-`url` instead of a ciphered one. That is exactly why Nodes contains no signature
-deciphering and no PoToken generation: there is nothing here to decipher. If
-YouTube changes that, playback stops and the source must be fixed or removed —
-not patched with a cipher solver.
+No single client identity serves every track any more, so playback asks several
+in turn and takes the first usable answer:
+
+| Order | Client | Version | Why it is in the chain |
+| --- | --- | --- | --- |
+| 1 | `VISIONOS` | 0.1 | the identity YouTube flags least; plain URLs |
+| 2 | `ANDROID_VR` | 1.65.10 | plain URLs, full audio ladder |
+| 3 | `ANDROID_VR` | 1.43.32 | older build with different limits |
+| 4 | `IOS` | 21.03.1 | plain URLs, muxed formats |
+| 5 | `IOS` (iPadOS) | 21.03.3 | last resort |
+
+Each candidate URL is checked before Media3 sees it: a one-byte ranged `GET` must
+answer `200`/`206`. (`HEAD` returns `403` from `googlevideo` for every candidate,
+so it cannot be used as the probe.) If the check fails the next identity is
+tried, and if all of them fail the player shows what each one said — for example
+`ANDROID_VR: unplayable (Video unavailable)` — rather than a generic error.
+
+Every client in that chain answers with a plain `url`, which is why Nodes
+contains no signature deciphering and no PoToken generation: there is nothing
+here to decipher. `WEB_REMIX`, `WEB_CREATOR` and the TV clients are deliberately
+absent — they now demand a PoToken and an `n`-parameter transform. A track that
+only those clients would serve is reported as unavailable rather than worked
+around: adding attestation and cipher code is a maintainer decision, not a
+side effect of a playback fix.
+
+If YouTube closes the plain-URL door as well, playback stops and the source has
+to be fixed or removed — not patched with a cipher solver.
 
 What it still does not do: no downloading, no caching of media, no ad or sponsor
 blocking, no attestation bypass, no cookie harvesting, no account scraping.
@@ -144,7 +166,10 @@ blocking, no attestation bypass, no cookie harvesting, no account scraping.
 ### Attribution
 
 The protocol details were learned from GPL-3.0 projects in this space —
-[Metrolist](https://github.com/mostafaalagamy/Metrolist), InnerTune/OuterTune and
-[Glossy](https://github.com/izybro110-gif/Glossy). No file from those projects is
-copied into Nodes; `InnerTubeClient.kt` was written for Nodes. See
+[Metrolist](https://github.com/MetrolistGroup/Metrolist), InnerTune/OuterTune and
+its fork [Glossy](https://github.com/izybro110-gif/Glossy). The client identities
+in the playback chain (names, versions, user agents and device fields) are the
+ones those projects ship, since they are what YouTube currently accepts; the
+fallback order, the ranged-GET validation and every line of `InnerTubeClient.kt`
+are Nodes' own. No file from those projects is copied into Nodes. See
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
