@@ -46,7 +46,9 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "app.nodes"
-    compileSdk = 36
+    // Compose 1.12 / Navigation 2.10 / Hilt-Compose 1.4 require API 37 to
+    // compile. targetSdk stays 36 until the new runtime behaviour is tested.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "app.nodes"

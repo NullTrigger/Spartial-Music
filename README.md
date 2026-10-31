@@ -154,7 +154,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and
 - Dependencies and their licences: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 - YouTube integration: [YOUTUBE.md](YOUTUBE.md), "Powered by YouTube".
 
-Nodes is an independent project. It is **not affiliated with, endorsed by or
-sponsored by YouTube, Google, Jamendo or any streaming service**. "YouTube" is a
-trademark of Google LLC. All third-party content remains the property of its
-owners and is used only through the providers' public APIs and licences.
+**Not affiliated with, funded, authorized or endorsed by YouTube, Google LLC,
+or any streaming service.** "YouTube" is a trademark of Google LLC. All
+third-party content remains the property of its owners and is used only through
+the providers' public APIs and licences.

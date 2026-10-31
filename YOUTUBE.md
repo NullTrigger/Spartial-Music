@@ -93,6 +93,33 @@ Notes:
 - Play Store distribution requires your own privacy policy link and the YouTube
   attribution below.
 
+## Mode 2 — Unofficial InnerTube (not implemented)
+
+The alternative approach, used by several players in this space, is to speak to
+YouTube's private InnerTube endpoints: reverse-engineered search, signature
+ciphering, stream URL extraction and an alternate player. Nodes **does not ship
+this**, and the repository contains no InnerTube client to enable.
+
+Why it is out of scope here:
+
+| Risk | What it means in practice |
+| --- | --- |
+| Terms of Service | The YouTube ToS forbids accessing content through anything other than the public API and the official player. |
+| Legal exposure | Extracting streams is the part rights holders sue over; distributing an app that does it puts every contributor at risk, not just the user. |
+| Breakage | Endpoints, ciphers and PoToken requirements change without notice; the app breaks on YouTube's schedule, not yours. |
+| Accounts | Signed-in accounts that use unofficial clients can be limited or terminated. |
+| Distribution | F-Droid and Google Play reject clients that bypass the official player. |
+| Audio quality and ads | Streams are throttled and ad-free playback is circumvention, not a feature. |
+
+If you want a fork with Mode 2, that is a licensing and legal decision for you to
+make in your own repository, under your own name and your own risk. Nodes
+supports exactly two things: the Data API for metadata and the embedded player
+for playback.
+
+Mode 2 would also not solve the quota problem: it has no quota, but it has no
+sanctioned existence either. Nodes' `QuotaTracker` and 15-minute `RemoteCache`
+exist to keep Mode 1 inside its free allowance.
+
 ## Attribution
 
 Nodes shows, in Settings and in the README:
