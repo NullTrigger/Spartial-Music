@@ -5,8 +5,8 @@
   Your library data stays on device. Backups exclude cached remote responses.
 -->
 <full-backup-content>
+    <!-- Only the library database and preferences are backed up; cached
+         responses and external files are never included, so no excludes. -->
     <include domain="database" path="." />
     <include domain="sharedpref" path="." />
-    <exclude domain="file" path="cache" />
-    <exclude domain="external" path="." />
 </full-backup-content>
