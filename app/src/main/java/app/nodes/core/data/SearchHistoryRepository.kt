@@ -5,7 +5,6 @@
 
 package app.nodes.core.data
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -21,7 +20,6 @@ import javax.inject.Singleton
  */
 @Singleton
 class SearchHistoryRepository @Inject constructor(
-    @Suppress("UNUSED_PARAMETER") context: Context,
     private val dataStore: DataStore<Preferences>,
 ) {
     val recent: Flow<List<String>> = dataStore.data.map { prefs ->
