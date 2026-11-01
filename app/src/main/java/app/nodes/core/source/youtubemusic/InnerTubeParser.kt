@@ -502,14 +502,26 @@ internal object InnerTubeParser {
         walk(root)
     }
 
-    /** The largest thumbnail URL on this row, following the music wrapper. */
+    /**
+     * The largest thumbnail on this row, following the music wrapper. YouTube
+     * lists thumbnails smallest first, so taking the first one is what made
+     * every cover look soft; the display layer then rewrites this URL to the
+     * pixels the surface actually needs.
+     */
     private fun musicThumbnail(row: JsonObject): String? {
         for (key in listOf("thumbnail", "thumbnailRenderer")) {
             val outer = row[key] as? JsonObject ?: continue
             val inner = outer["musicThumbnailRenderer"]?.obj() ?: outer
             val thumbs = ((inner["thumbnail"] as? JsonObject)?.get("thumbnails")
                 ?: inner["thumbnails"]) as? JsonArray ?: continue
-            val url = thumbs.mapNotNull { (it as? JsonObject)?.get("url")?.string() }.lastOrNull()
+            val sized = thumbs.mapNotNull { element ->
+                val obj = element as? JsonObject ?: return@mapNotNull null
+                val url = obj["url"]?.string() ?: return@mapNotNull null
+                val area = (obj["width"]?.int() ?: 0) * (obj["height"]?.int() ?: 0)
+                url to area
+            }
+            val url = sized.maxByOrNull { it.second }?.takeIf { it.second > 0 }?.first
+                ?: sized.lastOrNull()?.first
             if (url != null) return url
         }
         return null

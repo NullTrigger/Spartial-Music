@@ -5,6 +5,7 @@
 
 package app.nodes.ui.components
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.nodes.core.util.thumbnailCandidates
 import app.nodes.ui.theme.ArtAccents
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesWhite
@@ -35,6 +38,10 @@ import coil.request.ImageRequest
  *
  * Nothing in this repository ships copyrighted cover art: when a track has no
  * artwork (or is offline), we draw a stable gradient derived from its title.
+ *
+ * Every surface passes the pixel size it actually needs ([targetPx]); the URL is
+ * rewritten to that size first, so a 60px provider thumbnail is never stretched
+ * over a 430dp hero. See `core/util/Thumbnails.kt`.
  */
 @Composable
 fun Artwork(
@@ -43,22 +50,77 @@ fun Artwork(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(18.dp),
     contentScale: ContentScale = ContentScale.Crop,
+    targetPx: Int = 512,
 ) {
     val clipped = modifier.clip(shape)
     if (artworkUri.isNullOrBlank()) {
         GeneratedArt(title = title, modifier = clipped)
         return
     }
-    val context = LocalContext.current
-    SubcomposeAsyncImage(
-        model = ImageRequest.Builder(context).data(artworkUri).crossfade(true).build(),
-        contentDescription = null,
+    RemoteArtwork(
+        artworkUri = artworkUri,
+        title = title,
+        targetPx = targetPx,
         contentScale = contentScale,
         modifier = clipped,
-        loading = { GeneratedArt(title = title, modifier = Modifier.fillMaxSize()) },
-        error = { GeneratedArt(title = title, modifier = Modifier.fillMaxSize()) },
+        crossfade = true,
     )
 }
+
+/**
+ * Loads the sharpest candidate, and draws the next one when the provider does
+ * not have it (YouTube's `maxresdefault.jpg` is missing for many older videos).
+ */
+@Composable
+private fun RemoteArtwork(
+    artworkUri: String,
+    title: String,
+    targetPx: Int,
+    contentScale: ContentScale,
+    modifier: Modifier,
+    crossfade: Boolean,
+    showInitial: Boolean = true,
+) {
+    val context = LocalContext.current
+    val candidates = remember(artworkUri, targetPx) { thumbnailCandidates(artworkUri, targetPx) }
+    val primary = candidates.firstOrNull() ?: return
+
+    SubcomposeAsyncImage(
+        model = imageRequest(context, primary, targetPx, crossfade),
+        contentDescription = null,
+        contentScale = contentScale,
+        modifier = modifier,
+        loading = { GeneratedArt(title = title, modifier = Modifier.fillMaxSize(), showInitial = showInitial) },
+        error = {
+            val fallback = candidates.getOrNull(1)
+            if (fallback == null) {
+                GeneratedArt(title = title, modifier = Modifier.fillMaxSize(), showInitial = showInitial)
+            } else {
+                SubcomposeAsyncImage(
+                    model = imageRequest(context, fallback, targetPx, crossfade = false),
+                    contentDescription = null,
+                    contentScale = contentScale,
+                    modifier = Modifier.fillMaxSize(),
+                    loading = {
+                        GeneratedArt(title = title, modifier = Modifier.fillMaxSize(), showInitial = showInitial)
+                    },
+                    error = {
+                        GeneratedArt(title = title, modifier = Modifier.fillMaxSize(), showInitial = showInitial)
+                    },
+                )
+            }
+        },
+    )
+}
+
+private fun imageRequest(context: Context, url: String, targetPx: Int, crossfade: Boolean): ImageRequest =
+    ImageRequest.Builder(context)
+        // Resolving the request at the size the surface needs (instead of the
+        // 60-120px the provider advertises) is what removes the blur.
+        .size(targetPx)
+        .data(url)
+        .crossfade(crossfade)
+        .build()
 
 /** Stable gradient + initial for a track without artwork. */
 @Composable
@@ -111,14 +173,16 @@ fun ArtworkBackdrop(
         if (artworkUri.isNullOrBlank()) {
             GeneratedArt(title = title, modifier = Modifier.fillMaxSize(), showInitial = false)
         } else {
-            val context = LocalContext.current
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(context).data(artworkUri).crossfade(false).build(),
-                contentDescription = null,
+            RemoteArtwork(
+                artworkUri = artworkUri,
+                title = title,
+                // The backdrop is a full screen behind the controls, so it gets
+                // the biggest copy available.
+                targetPx = 1280,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
-                loading = { GeneratedArt(title = title, modifier = Modifier.fillMaxSize(), showInitial = false) },
-                error = { GeneratedArt(title = title, modifier = Modifier.fillMaxSize(), showInitial = false) },
+                crossfade = false,
+                showInitial = false,
             )
         }
         Box(

@@ -108,6 +108,7 @@ fun ContinuePlayingCard(
             title = track.title,
             modifier = Modifier.size(68.dp),
             shape = RoundedCornerShape(14.dp),
+            targetPx = 320,
         )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -159,6 +160,7 @@ fun AlbumCard(
             title = track.title,
             modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(24.dp),
+            targetPx = 768,
         )
         Box(
             Modifier
@@ -238,6 +240,7 @@ fun TrackRow(
             title = track.title,
             modifier = Modifier.size(52.dp),
             shape = RoundedCornerShape(12.dp),
+            targetPx = 256,
         )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
