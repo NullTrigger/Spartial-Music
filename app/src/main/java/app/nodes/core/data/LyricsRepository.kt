@@ -14,6 +14,7 @@ import app.nodes.core.lyrics.LyricsQuery
 import app.nodes.core.model.LyricLine
 import app.nodes.core.model.Track
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -71,16 +72,24 @@ class LyricsRepository @Inject constructor(
             }
         }
 
-        val resolved = resolve(
-            LyricsQuery(
-                trackId = track.id,
-                title = track.title,
-                artist = track.artist,
-                album = track.album,
-                durationSec = (track.durationMs / 1_000L).toInt(),
-                videoId = track.videoId,
-            ),
-        )
+        val resolved = try {
+            resolve(
+                LyricsQuery(
+                    trackId = track.id,
+                    title = track.title,
+                    artist = track.artist,
+                    album = track.album,
+                    durationSec = (track.durationMs / 1_000L).toInt(),
+                    videoId = track.videoId,
+                ),
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // This runs while a track is playing. A provider, a settings read or
+            // the parser failing must cost the lyrics, nothing more.
+            Resolved()
+        }
         memory[key] = resolved
         writeCache(key, resolved)
         return resolved.toResult()

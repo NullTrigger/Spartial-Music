@@ -12,6 +12,7 @@ import app.nodes.core.data.LyricsRepository
 import app.nodes.core.data.LyricsResult
 import app.nodes.core.model.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,19 +54,42 @@ class NowPlayingViewModel @Inject constructor(
             return
         }
         likedJob = viewModelScope.launch {
-            library.isLiked(track.id).collect { _liked.value = it }
+            // A flow failure here used to reach the default uncaught-exception
+            // handler and kill the process: the library is not worth that.
+            try {
+                library.isLiked(track.id).collect { _liked.value = it }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _liked.value = false
+            }
         }
         lyricsJob = viewModelScope.launch {
-            _lyrics.value = repository.lyricsFor(track)
+            _lyrics.value = resolveLyrics(track)
         }
     }
+
+    /**
+     * Lyrics are looked up the moment a track starts playing. Providers, the
+     * disk cache and the parser all live outside this app's control, so a
+     * failure is answered with "no lyrics" instead of an exception on the
+     * main-scoped coroutine - which would close the app mid-playback.
+     */
+    private suspend fun resolveLyrics(track: Track, refresh: Boolean = false): LyricsResult =
+        try {
+            repository.lyricsFor(track, refresh)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            LyricsResult()
+        }
 
     /** "Refresh lyrics": steps over every cache and asks the providers again. */
     fun refreshLyrics() {
         val track = current ?: return
         lyricsJob?.cancel()
         lyricsJob = viewModelScope.launch {
-            _lyrics.value = repository.lyricsFor(track, refresh = true)
+            _lyrics.value = resolveLyrics(track, refresh = true)
         }
     }
 

@@ -136,6 +136,15 @@
     <string name="login_done">Done</string>
     <string name="login_explainer">Sign in to Google to load your own YouTube Music shelves, playlists and liked songs. The session is saved encrypted on this device and used only for YouTube Music requests.</string>
     <string name="playlist_load_failed">Could not load this album or playlist.</string>
+    <string name="playlist_kicker">Playlist</string>
+    <string name="playlist_up_next">Up next</string>
+    <string name="playlist_track_count">%1$d tracks</string>
+    <string name="playlist_play_all">Play all</string>
+    <string name="playlist_starts_with">Starts with %1$s</string>
+    <string name="playlist_runtime_minutes">%1$d min</string>
+    <string name="playlist_runtime_hours">%1$d hr</string>
+    <string name="playlist_runtime_hours_minutes">%1$d hr %2$d min</string>
+    <string name="cd_back">Back</string>
     <string name="settings_ytmusic_warning">Unofficial. This uses the same private endpoints as the official YouTube apps, outside the YouTube API Services Terms: it can break without notice, and Google may throttle or block it. Nothing is downloaded and ads are not skipped. See YOUTUBE.md.</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %1$s</string>
@@ -148,6 +157,21 @@
     <string name="settings_storage">Cache</string>
     <string name="settings_clear_cache">Clear cached responses</string>
     <string name="settings_cache_cleared">Cache cleared</string>
+
+    <string name="playback_could_not_start">This track could not be started. Check your connection and try again.</string>
+
+    <!-- Crash reports -->
+    <string name="crash_title">Nodes closed unexpectedly</string>
+    <string name="crash_description">Something went wrong and the app had to stop. The report below stays on this device: nothing is sent anywhere automatically. Copy it or share it if you want help fixing the problem.</string>
+    <string name="crash_none">No crash has been recorded on this device.</string>
+    <string name="crash_share">Share report</string>
+    <string name="crash_share_title">Share crash report</string>
+    <string name="crash_share_subject">Nodes crash report</string>
+    <string name="crash_copy">Copy</string>
+    <string name="crash_copied">Crash report copied</string>
+    <string name="settings_support">Support</string>
+    <string name="settings_crash_reports">Crash reports</string>
+    <string name="settings_crash_reports_subtitle">View the last crash report</string>
 
     <!-- Common -->
     <string name="action_retry">Retry</string>

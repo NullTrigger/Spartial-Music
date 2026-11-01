@@ -6,6 +6,7 @@
 package app.nodes
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -29,8 +30,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import app.nodes.core.data.AppSettings
+import app.nodes.core.crash.CrashReport
 import app.nodes.core.data.SettingsRepository
 import app.nodes.ui.navigation.NodesApp
+import app.nodes.ui.screens.crash.CrashActivity
 import app.nodes.ui.screens.onboarding.OnboardingScreen
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesTheme
@@ -52,6 +55,12 @@ class MainActivity : ComponentActivity() {
         splashScreen.setKeepOnScreenCondition { !settingsLoaded }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // The previous run died: show what happened before Home appears. The
+        // page reads the saved report itself and clears the pending marker.
+        if (CrashReport.hasPending(this)) {
+            startActivity(Intent(this, CrashActivity::class.java))
+        }
 
         setContent {
             var appSettings by remember { mutableStateOf<AppSettings?>(null) }

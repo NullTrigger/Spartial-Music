@@ -15,6 +15,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import app.nodes.R
 import app.nodes.core.data.LibraryRepository
 import app.nodes.core.model.PlaybackHandle
 import app.nodes.core.model.SourceId
@@ -23,6 +24,7 @@ import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -113,16 +115,26 @@ class PlaybackController @Inject constructor(
         connect()
         scope.launch {
             while (true) {
-                val player = controller
-                if (player != null && player.isPlaying) {
-                    _state.update { state ->
-                        state.copy(
-                            isPlaying = true,
-                            isBuffering = player.playbackState == Player.STATE_BUFFERING,
-                            positionMs = player.currentPosition.coerceAtLeast(0L),
-                            durationMs = player.duration.takeIf { it > 0L } ?: state.durationMs,
-                        )
+                // This loop is the one piece of code that runs for the whole
+                // time music is playing, so it is also the easiest place for a
+                // stale session to end the process. A tick that cannot read the
+                // controller is skipped; the next one tries again.
+                try {
+                    val player = controller
+                    if (player != null && player.isPlaying) {
+                        _state.update { state ->
+                            state.copy(
+                                isPlaying = true,
+                                isBuffering = player.playbackState == Player.STATE_BUFFERING,
+                                positionMs = player.currentPosition.coerceAtLeast(0L),
+                                durationMs = player.duration.takeIf { it > 0L } ?: state.durationMs,
+                            )
+                        }
                     }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Session died or is between states; nothing to show this tick.
                 }
                 delay(TICK_MS)
             }
@@ -160,71 +172,106 @@ class PlaybackController @Inject constructor(
 
     fun playNow(track: Track, playbackQueue: List<Track> = listOf(track)) {
         scope.launch {
-            val source = registry.forTrack(track.sourceId)
-            val result = source?.play(track) ?: SourceResult.Failure(SourceErrorType.UNKNOWN)
-            library.recordPlay(track)
+            // Resolving a stream is provider and network code. A failure there
+            // has to become a message; an uncaught exception on this (main)
+            // scope would take the whole process down mid-listen.
+            val result = try {
+                val source = registry.forTrack(track.sourceId)
+                source?.play(track) ?: SourceResult.Failure(SourceErrorType.UNKNOWN)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(message = context.getString(R.string.playback_could_not_start)) }
+                return@launch
+            }
+
+            // Play history is a nicety: a database problem must never be the
+            // reason music does not start.
+            runCatching { library.recordPlay(track) }
+
             val handle = (result as? SourceResult.Success)?.data
 
-            when (handle) {
-                is PlaybackHandle.Stream -> {
-                    val player = awaitController()
-                    if (player == null) {
-                        _state.update { it.copy(message = "The player is still starting. Try again.") }
-                        return@launch
-                    }
-                    // The URL was minted for this track a moment ago, so it is
-                    // attached to the copy that goes into the player. Tracks from
-                    // the same source still carry no URL and stay out of the
-                    // player's item list; next() and previous() resolve them
-                    // through the source instead of Media3 skipping to nothing.
-                    val resolved = track.copy(mediaUri = handle.url)
-                    val withUrls = playbackQueue.map { if (it.id == track.id) resolved else it }
-                    val playable = withUrls.filter { it.mediaUri != null }
-                    if (playable.isEmpty()) {
-                        _state.update { it.copy(message = "Nothing in this list can be streamed.") }
-                        return@launch
-                    }
-                    val startIndex = playable.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-                    queue = withUrls
-                    player.setMediaItems(playable.map { it.toMediaItem() }, startIndex, 0L)
-                    player.prepare()
-                    player.play()
-                    _state.update {
-                        it.copy(
-                            current = resolved,
-                            queue = withUrls,
-                            embeddedVideoId = null,
-                            isPlaying = true,
-                            isBuffering = true,
-                            positionMs = 0L,
-                            durationMs = track.durationMs,
-                            message = null,
-                        )
-                    }
-                }
+            try {
+                applyHandle(track, playbackQueue, handle)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(message = context.getString(R.string.playback_could_not_start)) }
+            }
+        }
+    }
 
-                is PlaybackHandle.EmbeddedVideo -> {
-                    controller?.pause()
-                    queue = listOf(track)
-                    _state.update {
-                        it.copy(
-                            current = track,
-                            queue = listOf(track),
-                            embeddedVideoId = handle.videoId,
-                            isPlaying = false,
-                            isBuffering = false,
-                            positionMs = 0L,
-                            durationMs = track.durationMs,
-                            message = null,
-                        )
-                    }
+    /**
+     * Hands [handle] to the engine that owns it.
+     *
+     * Split out of [playNow] so every Media3 call sits inside one guarded
+     * block: a player rejecting an item becomes a message on the player, not an
+     * uncaught exception that closes the app while music is playing.
+     */
+    private suspend fun applyHandle(
+        track: Track,
+        playbackQueue: List<Track>,
+        handle: PlaybackHandle?,
+    ) {
+        when (handle) {
+            is PlaybackHandle.Stream -> {
+                val player = awaitController()
+                if (player == null) {
+                    _state.update { it.copy(message = "The player is still starting. Try again.") }
+                    return
                 }
-
-                is PlaybackHandle.Unavailable -> _state.update { it.copy(message = handle.reason) }
-
-                null -> _state.update {
-                    it.copy(message = "This track cannot be played from ${track.sourceId.key}.")
+                // The URL was minted for this track a moment ago, so it is
+                // attached to the copy that goes into the player. Tracks from
+                // the same source still carry no URL and stay out of the
+                // player's item list; next() and previous() resolve them
+                // through the source instead of Media3 skipping to nothing.
+                val resolved = track.copy(mediaUri = handle.url)
+                val withUrls = playbackQueue.map { if (it.id == track.id) resolved else it }
+                val playable = withUrls.filter { it.mediaUri != null }
+                if (playable.isEmpty()) {
+                    _state.update { it.copy(message = "Nothing in this list can be streamed.") }
+                    return
                 }
+                val startIndex = playable.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+                queue = withUrls
+                player.setMediaItems(playable.map { it.toMediaItem() }, startIndex, 0L)
+                player.prepare()
+                player.play()
+                _state.update {
+                    it.copy(
+                        current = resolved,
+                        queue = withUrls,
+                        embeddedVideoId = null,
+                        isPlaying = true,
+                        isBuffering = true,
+                        positionMs = 0L,
+                        durationMs = track.durationMs,
+                        message = null,
+                    )
+                }
+            }
+
+            is PlaybackHandle.EmbeddedVideo -> {
+                controller?.pause()
+                queue = listOf(track)
+                _state.update {
+                    it.copy(
+                        current = track,
+                        queue = listOf(track),
+                        embeddedVideoId = handle.videoId,
+                        isPlaying = false,
+                        isBuffering = false,
+                        positionMs = 0L,
+                        durationMs = track.durationMs,
+                        message = null,
+                    )
+                }
+            }
+
+            is PlaybackHandle.Unavailable -> _state.update { it.copy(message = handle.reason) }
+
+            null -> _state.update {
+                it.copy(message = "This track cannot be played from ${track.sourceId.key}.")
             }
         }
     }
