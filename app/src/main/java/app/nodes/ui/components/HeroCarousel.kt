@@ -18,15 +18,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +33,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,7 +50,6 @@ import app.nodes.ui.theme.NodesWhite
 fun HeroCarousel(
     slides: List<HeroSlide>,
     onPlay: (Track) -> Unit,
-    onNext: () -> Unit,
     modifier: Modifier = Modifier,
     onPageChanged: (Int) -> Unit = {},
 ) {
@@ -97,12 +91,6 @@ fun HeroCarousel(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = current.kicker,
-                style = MaterialTheme.typography.labelSmall,
-                color = NodesWhite.copy(alpha = 0.78f),
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
                 text = current.track.title,
                 style = MaterialTheme.typography.displayLarge,
                 color = NodesWhite,
@@ -123,49 +111,22 @@ fun HeroCarousel(
 
             Spacer(Modifier.height(22.dp))
 
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(horizontal = 24.dp)
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.White.copy(alpha = 0.13f))
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(28.dp))
+                    .clickable { onPlay(current.track) },
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(Color.White.copy(alpha = 0.13f))
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(28.dp))
-                        .clickable { onPlay(current.track) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "Play",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = NodesWhite,
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Row(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .clickable(onClick = onNext)
-                        .padding(horizontal = 10.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Next",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = NodesWhite,
-                    )
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = NodesWhite,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
+                Text(
+                    text = "Play",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = NodesWhite,
+                )
             }
 
             Spacer(Modifier.height(16.dp))

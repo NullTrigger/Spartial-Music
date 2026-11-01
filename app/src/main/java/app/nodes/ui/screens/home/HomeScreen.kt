@@ -76,7 +76,6 @@ fun HomeScreen(
                 HeroCarousel(
                     slides = state.feed.hero,
                     onPlay = { track -> playerViewModel.play(track, heroTracks) },
-                    onNext = { playerViewModel.next() },
                 )
             }
 
