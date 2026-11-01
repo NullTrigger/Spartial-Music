@@ -11,7 +11,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.nodes.core.model.SourceId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -21,14 +20,12 @@ import javax.inject.Singleton
 
 data class AppSettings(
     /**
-     * YouTube Music is the home source. The local, Jamendo and official API
-     * sources stay registered and selectable, but they no longer decide what a
-     * fresh install shows: with LOCAL here, Home was the demo catalogue, which is
-     * why no real album or artist ever appeared.
+     * YouTube Music through InnerTube is the only source the UI can reach. It is
+     * a constant rather than a stored preference: the old "Sources" section is
+     * gone, and a stale value from an earlier install must never leave Home,
+     * Search or playback without a provider.
      */
     val primarySource: SourceId = SourceId.YOUTUBE_MUSIC,
-    val enabledSources: Set<SourceId> =
-        setOf(SourceId.YOUTUBE_MUSIC, SourceId.LOCAL, SourceId.JAMENDO, SourceId.YOUTUBE),
     val dynamicColor: Boolean = false,
     val wifiOnlyStreaming: Boolean = false,
     val highQualityAudio: Boolean = true,
@@ -36,12 +33,6 @@ data class AppSettings(
     val onboardingCompleted: Boolean = false,
     val youtubeAccountEmail: String? = null,
     val youtubeSignedIn: Boolean = false,
-    /**
-     * The unofficial InnerTube source. On by default in this fork by maintainer
-     * decision (recorded in YOUTUBE.md). It is outside the YouTube API Services
-     * Terms, so the choice is deliberate rather than an oversight.
-     */
-    val innerTubeEnabled: Boolean = true,
     /** Local YouTube quota bookkeeping, see YOUTUBE.md. */
     val quotaDate: String = "",
     val quotaUnitsUsed: Int = 0,
@@ -56,16 +47,7 @@ class SettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) {
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
-        val enabled = prefs[KEY_ENABLED_SOURCES]?.mapNotNull { key ->
-            SourceId.entries.firstOrNull { it.key == key }
-        }?.toSet()
-            ?: setOf(SourceId.YOUTUBE_MUSIC, SourceId.LOCAL, SourceId.JAMENDO, SourceId.YOUTUBE)
-
         AppSettings(
-            primarySource = SourceId.fromKey(
-                prefs[KEY_PRIMARY_SOURCE] ?: SourceId.YOUTUBE_MUSIC.key,
-            ),
-            enabledSources = enabled,
             dynamicColor = prefs[KEY_DYNAMIC_COLOR] ?: false,
             wifiOnlyStreaming = prefs[KEY_WIFI_ONLY] ?: false,
             highQualityAudio = prefs[KEY_HIGH_QUALITY] ?: true,
@@ -73,29 +55,12 @@ class SettingsRepository @Inject constructor(
             onboardingCompleted = prefs[KEY_ONBOARDING] ?: false,
             youtubeAccountEmail = prefs[KEY_YOUTUBE_EMAIL],
             youtubeSignedIn = prefs[KEY_YOUTUBE_SIGNED_IN] ?: false,
-            innerTubeEnabled = prefs[KEY_INNERTUBE_ENABLED] ?: true,
             quotaDate = prefs[KEY_QUOTA_DATE] ?: "",
             quotaUnitsUsed = prefs[KEY_QUOTA_USED] ?: 0,
         )
     }
 
     suspend fun current(): AppSettings = settings.first()
-
-    suspend fun setPrimarySource(sourceId: SourceId) = dataStore.edit { prefs ->
-        prefs[KEY_PRIMARY_SOURCE] = sourceId.key
-    }
-
-    suspend fun setSourceEnabled(sourceId: SourceId, enabled: Boolean) = dataStore.edit { prefs ->
-        val current = prefs[KEY_ENABLED_SOURCES]?.toMutableSet()
-            ?: setOf(
-                SourceId.YOUTUBE_MUSIC.key,
-                SourceId.LOCAL.key,
-                SourceId.JAMENDO.key,
-                SourceId.YOUTUBE.key,
-            ).toMutableSet()
-        if (enabled) current.add(sourceId.key) else current.remove(sourceId.key)
-        prefs[KEY_ENABLED_SOURCES] = current
-    }
 
     suspend fun setDynamicColor(enabled: Boolean) = dataStore.edit { it[KEY_DYNAMIC_COLOR] = enabled }
 
@@ -113,17 +78,12 @@ class SettingsRepository @Inject constructor(
         prefs[KEY_YOUTUBE_SIGNED_IN] = signedIn
     }
 
-    suspend fun setInnerTubeEnabled(enabled: Boolean) =
-        dataStore.edit { prefs -> prefs[KEY_INNERTUBE_ENABLED] = enabled }
-
     suspend fun setQuota(date: String, used: Int) = dataStore.edit { prefs ->
         prefs[KEY_QUOTA_DATE] = date
         prefs[KEY_QUOTA_USED] = used
     }
 
     private companion object {
-        val KEY_PRIMARY_SOURCE = stringPreferencesKey("primary_source")
-        val KEY_ENABLED_SOURCES = stringSetPreferencesKey("enabled_sources")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
         val KEY_HIGH_QUALITY = booleanPreferencesKey("high_quality_audio")
@@ -131,7 +91,6 @@ class SettingsRepository @Inject constructor(
         val KEY_ONBOARDING = booleanPreferencesKey("onboarding_completed")
         val KEY_YOUTUBE_EMAIL = stringPreferencesKey("youtube_account_email")
         val KEY_YOUTUBE_SIGNED_IN = booleanPreferencesKey("youtube_signed_in")
-        val KEY_INNERTUBE_ENABLED = booleanPreferencesKey("innertube_enabled")
         val KEY_QUOTA_DATE = stringPreferencesKey("quota_date")
         val KEY_QUOTA_USED = intPreferencesKey("quota_units_used")
     }
