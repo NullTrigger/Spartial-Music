@@ -29,7 +29,8 @@ import javax.inject.Singleton
  * On by default in this fork by maintainer decision (recorded in YOUTUBE.md),
  * because the official Data API cannot show a real music catalogue. It is
  * outside the YouTube API Services Terms and can stop working at any time; the
- * official Data API source stays registered and is selectable in Settings.
+ * official Data API source stays registered, but the UI has no source picker
+ * any more, so this is the only provider Home, Search and playback can reach.
  *
  * Playback is [PlaybackHandle.Stream] straight into Media3 — no downloading, no
  * ad skipping, and no transcoding.
@@ -43,19 +44,10 @@ class YouTubeMusicSource @Inject constructor(
     override val id: SourceId = SourceId.YOUTUBE_MUSIC
     override val displayName: String = "YouTube Music (unofficial)"
 
-    private suspend fun enabled(): Boolean = settings.current().innerTubeEnabled
-
-    override suspend fun availability(): SourceAvailability = when {
-        enabled() -> SourceAvailability(id, SourceStatus.READY)
-        else -> SourceAvailability(
-            id,
-            SourceStatus.NEEDS_PERMISSION,
-            "Off by default. Turn it on in Settings → YouTube Music. It is unofficial and can break.",
-        )
-    }
+    override suspend fun availability(): SourceAvailability =
+        SourceAvailability(id, SourceStatus.READY)
 
     override suspend fun search(query: String, limit: Int): SourceResult<List<Track>> {
-        if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
         if (query.isBlank()) return SourceResult.Success(emptyList())
         return runCatching { innerTube.search(query, limit) }
             .fold(
@@ -66,7 +58,6 @@ class YouTubeMusicSource @Inject constructor(
 
     /** Suggestions for the search field, best effort. */
     suspend fun suggestions(input: String): List<String> {
-        if (!enabled()) return emptyList()
         return innerTube.suggestions(input)
     }
 
@@ -80,8 +71,6 @@ class YouTubeMusicSource @Inject constructor(
      * inventing data, and never replaces a real response.
      */
     override suspend fun getHome(): SourceResult<HomeFeed> {
-        if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
-
         val home = runCatching { innerTube.home() }
             .getOrElse { return it.asFailure() }
 
@@ -119,7 +108,6 @@ class YouTubeMusicSource @Inject constructor(
     }
 
     override suspend fun getTrending(limit: Int): SourceResult<List<Track>> {
-        if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
         return runCatching {
             val songs = innerTube.explore().sections
                 .flatMap { it.tracks }
@@ -142,7 +130,6 @@ class YouTubeMusicSource @Inject constructor(
      * "MPREb…") or "LM" for the signed-in user's liked songs.
      */
     override suspend fun getPlaylist(playlistId: String): SourceResult<PlaylistDetail> {
-        if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
         return runCatching { innerTube.collection(playlistId, 200) }
             .fold(
                 onSuccess = { tracks ->
@@ -179,7 +166,6 @@ class YouTubeMusicSource @Inject constructor(
         .getOrDefault(emptyList())
 
     override suspend fun play(track: Track): SourceResult<PlaybackHandle> {
-        if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
         val videoId = track.videoId ?: return SourceResult.Success(
             PlaybackHandle.Unavailable("This track has no YouTube video id."),
         )

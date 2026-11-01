@@ -5,9 +5,7 @@
 
 package app.nodes.core.source
 
-import app.nodes.core.data.SettingsRepository
 import app.nodes.core.model.SourceId
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,11 +13,15 @@ import javax.inject.Singleton
  * Resolves the provider the UI should use. Nothing outside this class maps a
  * [SourceId] to an implementation, which keeps provider-specific behaviour
  * (quotas, embedded playback, permissions) contained.
+ *
+ * The other providers stay registered so their code and data remain reachable
+ * through [byId] (playback of an already stored track, for example), but the
+ * primary source is fixed: the UI has no source picker any more, so a missing or
+ * stale preference can never leave Home or Search without a provider.
  */
 @Singleton
 class SourceRegistry @Inject constructor(
     sources: Set<@JvmSuppressWildcards MusicSource>,
-    private val settings: SettingsRepository,
 ) {
     private val byId: Map<SourceId, MusicSource> = sources.associateBy { it.id }
 
@@ -27,10 +29,7 @@ class SourceRegistry @Inject constructor(
 
     fun byId(id: SourceId): MusicSource? = byId[id]
 
-    suspend fun primary(): MusicSource {
-        val preferred = settings.settings.first().primarySource
-        return byId[preferred] ?: byId.getValue(SourceId.LOCAL)
-    }
+    fun primary(): MusicSource = byId.getValue(SourceId.YOUTUBE_MUSIC)
 
     suspend fun forTrack(sourceId: SourceId): MusicSource? = byId[sourceId]
 }
