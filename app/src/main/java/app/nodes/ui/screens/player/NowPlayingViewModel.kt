@@ -9,7 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.nodes.core.data.LibraryRepository
 import app.nodes.core.data.LyricsRepository
-import app.nodes.core.model.LyricLine
+import app.nodes.core.data.LyricsResult
 import app.nodes.core.model.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -22,36 +22,50 @@ import javax.inject.Inject
 /**
  * Lyrics and "liked" state for the Now Playing screen.
  *
- * Playback commands live on [PlayerViewModel]; this one only loads the local
- * `.lrc` sidecar for the current track and mirrors the favourite flag.
+ * Playback commands live on [PlayerViewModel]; this one resolves lyrics through
+ * [LyricsRepository] — local file first, then whichever providers the user
+ * enabled — and mirrors the favourite flag.
  */
 @HiltViewModel
 class NowPlayingViewModel @Inject constructor(
-    private val lyrics: LyricsRepository,
+    private val repository: LyricsRepository,
     private val library: LibraryRepository,
 ) : ViewModel() {
 
-    private val _lines = MutableStateFlow<List<LyricLine>>(emptyList())
-    val lines: StateFlow<List<LyricLine>> = _lines.asStateFlow()
+    private val _lyrics = MutableStateFlow(LyricsResult())
+    val lyrics: StateFlow<LyricsResult> = _lyrics.asStateFlow()
 
     private val _liked = MutableStateFlow(false)
     val liked: StateFlow<Boolean> = _liked.asStateFlow()
 
     private var likedJob: Job? = null
+    private var lyricsJob: Job? = null
+    private var current: Track? = null
 
     /** Called by the screen whenever the playing track changes. */
     fun onTrackChanged(track: Track?) {
+        current = track
         likedJob?.cancel()
+        lyricsJob?.cancel()
         if (track == null) {
-            _lines.value = emptyList()
+            _lyrics.value = LyricsResult()
             _liked.value = false
             return
         }
         likedJob = viewModelScope.launch {
             library.isLiked(track.id).collect { _liked.value = it }
         }
-        viewModelScope.launch {
-            _lines.value = lyrics.lyricsFor(track)
+        lyricsJob = viewModelScope.launch {
+            _lyrics.value = repository.lyricsFor(track)
+        }
+    }
+
+    /** "Refresh lyrics": steps over every cache and asks the providers again. */
+    fun refreshLyrics() {
+        val track = current ?: return
+        lyricsJob?.cancel()
+        lyricsJob = viewModelScope.launch {
+            _lyrics.value = repository.lyricsFor(track, refresh = true)
         }
     }
 

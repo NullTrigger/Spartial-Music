@@ -94,7 +94,7 @@ fun NowPlayingScreen(
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
-    val lines by viewModel.lines.collectAsStateWithLifecycle()
+    val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val liked by viewModel.liked.collectAsStateWithLifecycle()
     val track = playerState.current
 
@@ -323,7 +323,7 @@ fun NowPlayingScreen(
                 )
 
                 PlayerTab.LYRICS -> LyricsList(
-                    lyrics = lines,
+                    lyrics = lyrics.lines,
                     positionMs = playerState.positionMs,
                 )
             }

@@ -11,6 +11,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import app.nodes.core.lyrics.LyricsProviders
 import app.nodes.core.model.SourceId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -29,6 +31,12 @@ data class AppSettings(
     val dynamicColor: Boolean = false,
     val wifiOnlyStreaming: Boolean = false,
     val highQualityAudio: Boolean = true,
+    /** Lyrics providers, in the order the user arranged. */
+    val lyricsProviderOrder: List<String> = LyricsProviders.DEFAULT_ORDER,
+    /** Providers the user switched off; kept separately so order survives. */
+    val lyricsDisabledProviders: Set<String> = emptySet(),
+    val lyricsPreferSynced: Boolean = true,
+    val lyricsShowSource: Boolean = true,
     val youtubeRegion: String = "US",
     val onboardingCompleted: Boolean = false,
     val youtubeAccountEmail: String? = null,
@@ -51,6 +59,10 @@ class SettingsRepository @Inject constructor(
             dynamicColor = prefs[KEY_DYNAMIC_COLOR] ?: false,
             wifiOnlyStreaming = prefs[KEY_WIFI_ONLY] ?: false,
             highQualityAudio = prefs[KEY_HIGH_QUALITY] ?: true,
+            lyricsProviderOrder = parseLyricsOrder(prefs[KEY_LYRICS_ORDER]),
+            lyricsDisabledProviders = prefs[KEY_LYRICS_DISABLED] ?: emptySet(),
+            lyricsPreferSynced = prefs[KEY_LYRICS_PREFER_SYNCED] ?: true,
+            lyricsShowSource = prefs[KEY_LYRICS_SHOW_SOURCE] ?: true,
             youtubeRegion = prefs[KEY_YOUTUBE_REGION] ?: "US",
             onboardingCompleted = prefs[KEY_ONBOARDING] ?: false,
             youtubeAccountEmail = prefs[KEY_YOUTUBE_EMAIL],
@@ -67,6 +79,20 @@ class SettingsRepository @Inject constructor(
     suspend fun setWifiOnly(enabled: Boolean) = dataStore.edit { it[KEY_WIFI_ONLY] = enabled }
 
     suspend fun setHighQuality(enabled: Boolean) = dataStore.edit { it[KEY_HIGH_QUALITY] = enabled }
+
+    suspend fun setLyricsProviderOrder(order: List<String>) =
+        dataStore.edit { it[KEY_LYRICS_ORDER] = order.joinToString(",") }
+
+    suspend fun setLyricsProviderEnabled(id: String, enabled: Boolean) = dataStore.edit { prefs ->
+        val disabled = prefs[KEY_LYRICS_DISABLED] ?: emptySet()
+        prefs[KEY_LYRICS_DISABLED] = if (enabled) disabled - id else disabled + id
+    }
+
+    suspend fun setLyricsPreferSynced(enabled: Boolean) =
+        dataStore.edit { it[KEY_LYRICS_PREFER_SYNCED] = enabled }
+
+    suspend fun setLyricsShowSource(enabled: Boolean) =
+        dataStore.edit { it[KEY_LYRICS_SHOW_SOURCE] = enabled }
 
     suspend fun setYoutubeRegion(region: String) = dataStore.edit { it[KEY_YOUTUBE_REGION] = region }
 
@@ -93,5 +119,21 @@ class SettingsRepository @Inject constructor(
         val KEY_YOUTUBE_SIGNED_IN = booleanPreferencesKey("youtube_signed_in")
         val KEY_QUOTA_DATE = stringPreferencesKey("quota_date")
         val KEY_QUOTA_USED = intPreferencesKey("quota_units_used")
+        val KEY_LYRICS_ORDER = stringPreferencesKey("lyrics_provider_order")
+        val KEY_LYRICS_DISABLED = stringSetPreferencesKey("lyrics_disabled_providers")
+        val KEY_LYRICS_PREFER_SYNCED = booleanPreferencesKey("lyrics_prefer_synced")
+        val KEY_LYRICS_SHOW_SOURCE = booleanPreferencesKey("lyrics_show_source")
+    }
+
+    /**
+     * Order as stored, with providers added since it was written appended at the
+     * bottom: an old string cannot mention a provider that did not exist yet, and
+     * dropping it silently would make the new provider unreachable.
+     */
+    private fun parseLyricsOrder(stored: String?): List<String> {
+        if (stored.isNullOrBlank()) return LyricsProviders.DEFAULT_ORDER
+        val saved = stored.split(',').map { it.trim() }.filter { it in LyricsProviders.KNOWN }
+        val merged = saved + LyricsProviders.KNOWN.filterNot { it in saved }
+        return merged.ifEmpty { LyricsProviders.DEFAULT_ORDER }
     }
 }
