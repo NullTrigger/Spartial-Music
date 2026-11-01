@@ -46,6 +46,12 @@ data class Track(
     val sourceId: SourceId = SourceId.LOCAL,
     /** YouTube video id, used only by the embedded IFrame player. */
     val videoId: String? = null,
+    /**
+     * Set when this row is an album or playlist card rather than a song: the
+     * YouTube Music browse id to open. Tapping it loads that collection
+     * instead of trying to play a track that has no video id.
+     */
+    val collectionId: String? = null,
     /** Human readable page for attribution (YouTube watch page, Jamendo page). */
     val externalUrl: String? = null,
     /** Licence line for CC content, e.g. "CC BY 4.0 · Jamendo". */

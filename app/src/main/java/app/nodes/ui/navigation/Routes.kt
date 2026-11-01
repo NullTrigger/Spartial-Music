@@ -13,6 +13,7 @@ object Routes {
     const val SEARCH = "search"
     const val PLAYER = "player"
     const val SETTINGS = "settings"
+    const val LOGIN = "login"
     const val LIKED = "liked"
     const val DOWNLOADS = "downloads"
 

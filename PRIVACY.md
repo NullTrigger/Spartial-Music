@@ -3,7 +3,7 @@
 Nodes is a local-first music player. There is no Nodes account, no Nodes server,
 no analytics, no crash reporting, no advertising SDK and no tracking of any kind.
 
-Last updated: 2026-10-30.
+Last updated: 2026-11-01.
 
 ## What stays on your device
 
@@ -16,6 +16,7 @@ Last updated: 2026-10-30.
 | Lyrics (`files/lyrics/*.lrc`) | App-private files | No |
 | Google account email (if you sign in) | DataStore | No |
 | OAuth access token | Memory only, for the session | No |
+| YouTube Music session cookie (if you sign in to it) | `EncryptedSharedPreferences`, key in the Android Keystore | Only to `music.youtube.com` |
 | Audio files on your device | Never copied or uploaded | No |
 
 Android's own backup may include the app database if you have device backup
@@ -38,12 +39,18 @@ Nodes only talks to a provider when you browse or play something:
 4. **Artwork CDNs** — cover images are fetched by Coil from the URL the provider
    returned.
 
-If you turn on the unofficial YouTube Music source (Settings → YouTube Music),
-Nodes also calls YouTube's private `youtubei` endpoints on `youtube.com` for
-search, playlists and audio URLs. Those requests are anonymous: no account
-cookie, no OAuth token, no identifier beyond what any request to youtube.com
-carries (your IP address and the request itself). That mode is off by default and
-is outside the YouTube API Services Terms — see YOUTUBE.md.
+The unofficial YouTube Music source (Settings → YouTube Music) is on by default
+in this build. It calls YouTube's private `youtubei` endpoints on
+`music.youtube.com` for home, search, playlists and audio URLs. Signed out, those
+requests are anonymous: no account cookie, no OAuth token, no identifier beyond
+what any request to youtube.com carries (your IP address and the request itself).
+
+Signing in to YouTube Music (Settings → YouTube Music account) opens Google's own
+login page in a WebView and keeps the resulting site cookie, which is what the
+music site itself uses. The cookie is stored encrypted, is sent only to
+`music.youtube.com` with the `SAPISIDHASH` header the site expects, and is never
+logged, backed up or shared with any other host. This mode is outside the YouTube
+API Services Terms — see YOUTUBE.md.
 
 Nodes sends no identifiers of its own, no device fingerprint, no advertising ID,
 and no usage events. Uninstalling the app removes all local data.
@@ -67,6 +74,8 @@ remote sources still work.
   and search history.
 - **Settings → YouTube → Sign out** drops the in-memory token and forgets the
   email.
+- **Settings → YouTube Music account → Sign out of YouTube Music** deletes the
+  stored cookie and clears the WebView cookies, so the next request is anonymous.
 - Uninstalling, or clearing app data in Android settings, deletes everything.
 
 ## Children

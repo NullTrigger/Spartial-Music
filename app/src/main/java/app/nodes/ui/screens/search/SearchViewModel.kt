@@ -13,6 +13,7 @@ import app.nodes.core.model.SourceErrorType
 import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
+import app.nodes.core.source.youtubemusic.YouTubeMusicSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,11 +39,15 @@ class SearchViewModel @Inject constructor(
     private val registry: SourceRegistry,
     private val settings: SettingsRepository,
     private val history: SearchHistoryRepository,
+    private val youTubeMusic: YouTubeMusicSource,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
+
+    private val _suggestions = MutableStateFlow<List<String>>(emptyList())
+    val suggestions: StateFlow<List<String>> = _suggestions.asStateFlow()
 
     val recentQueries = history.recent
 
@@ -53,6 +58,18 @@ class SearchViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collect { term -> runSearch(term) }
         }
+        viewModelScope.launch {
+            _query
+                .debounce(250)
+                .distinctUntilChanged()
+                .collect { term ->
+                    _suggestions.value = if (term.trim().length < 2) {
+                        emptyList()
+                    } else {
+                        youTubeMusic.suggestions(term.trim())
+                    }
+                }
+        }
     }
 
     fun setQuery(value: String) {
@@ -62,9 +79,15 @@ class SearchViewModel @Inject constructor(
 
     fun submit() {
         viewModelScope.launch {
+            _suggestions.value = emptyList()
             runSearch(_query.value)
             history.remember(_query.value)
         }
+    }
+
+    fun useSuggestion(term: String) {
+        _suggestions.value = emptyList()
+        useRecent(term)
     }
 
     fun useRecent(term: String) {

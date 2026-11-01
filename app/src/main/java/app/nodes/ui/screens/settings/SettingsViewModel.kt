@@ -18,6 +18,8 @@ import app.nodes.core.model.SourceId
 import app.nodes.core.source.SourceRegistry
 import app.nodes.core.source.youtube.SignInState
 import app.nodes.core.source.youtube.YouTubeSignIn
+import app.nodes.core.source.youtubemusic.InnerTubeAccount
+import app.nodes.core.source.youtubemusic.InnerTubeAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,6 +37,7 @@ class SettingsViewModel @Inject constructor(
     private val cache: RemoteCache,
     private val searchHistory: SearchHistoryRepository,
     private val signIn: YouTubeSignIn,
+    private val innerTubeAuth: InnerTubeAuth,
 ) : ViewModel() {
 
     val appSettings: StateFlow<AppSettings> = settings.settings
@@ -51,6 +54,9 @@ class SettingsViewModel @Inject constructor(
 
     val isSignInConfigured: Boolean get() = signIn.isConfigured
     val signInState: StateFlow<SignInState> = signIn.state
+
+    /** The Google account whose YouTube Music cookie is stored, if any. */
+    val musicAccount: StateFlow<InnerTubeAccount?> = innerTubeAuth.account
 
     /** The token is memory-only, so after a restart a fresh sign-in is required. */
     val hasSession: Boolean get() = signIn.currentToken() != null
@@ -119,6 +125,18 @@ class SettingsViewModel @Inject constructor(
             signIn.signOut()
             settings.setYoutubeAccount(null, false)
             _message.value = "Signed out. Your local library is untouched."
+        }
+    }
+
+    fun signOutMusic() {
+        innerTubeAuth.signOut()
+        // Drop the WebView cookies too, otherwise the next visit to the login
+        // page would silently sign the same account back in.
+        android.webkit.CookieManager.getInstance().removeAllCookies(null)
+        android.webkit.CookieManager.getInstance().flush()
+        viewModelScope.launch {
+            settings.setYoutubeAccount(null, false)
+            _message.value = "Signed out of YouTube Music. Home is anonymous again."
         }
     }
 

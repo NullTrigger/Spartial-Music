@@ -31,6 +31,7 @@ import app.nodes.ui.components.NodesBottomBar
 import app.nodes.ui.components.NodesNavItems
 import app.nodes.ui.screens.home.HomeScreen
 import app.nodes.ui.screens.library.LibraryScreen
+import app.nodes.ui.screens.login.MusicLoginScreen
 import app.nodes.ui.screens.onboarding.OnboardingScreen
 import app.nodes.ui.screens.player.NowPlayingScreen
 import app.nodes.ui.screens.player.PlayerViewModel
@@ -73,6 +74,9 @@ fun NodesApp() {
                 HomeScreen(
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                    onOpenCollection = { collectionId ->
+                        navController.navigate(Routes.playlist(collectionId))
+                    },
                     onOpenSection = { section ->
                         section.tracks.firstOrNull()?.let { track ->
                             playerViewModel.play(track, section.tracks)
@@ -102,7 +106,14 @@ fun NodesApp() {
             }
 
             composable(Routes.SETTINGS) {
-                SettingsScreen(onBack = { navController.popBackStack() })
+                SettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenLogin = { navController.navigate(Routes.LOGIN) },
+                )
+            }
+
+            composable(Routes.LOGIN) {
+                MusicLoginScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.PLAYLIST_PATTERN) { entry ->

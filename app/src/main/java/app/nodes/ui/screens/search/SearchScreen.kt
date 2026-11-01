@@ -62,6 +62,7 @@ fun SearchScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recent by viewModel.recentQueries.collectAsStateWithLifecycle(initialValue = emptyList())
+    val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
 
     Column(
         Modifier
@@ -89,6 +90,30 @@ fun SearchScreen(
                         Modifier
                             .glass(CircleShape)
                             .clickable { viewModel.useRecent(term) }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    ) {
+                        Text(
+                            text = term,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = NodesWhite,
+                        )
+                    }
+                }
+            }
+        }
+
+        // YouTube Music's own suggestions, offered while typing and dropped as
+        // soon as a search is submitted.
+        if (state.query.isNotBlank() && suggestions.isNotEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(suggestions, key = { it }) { term ->
+                    Box(
+                        Modifier
+                            .glass(CircleShape)
+                            .clickable { viewModel.useSuggestion(term) }
                             .padding(horizontal = 14.dp, vertical = 8.dp),
                     ) {
                         Text(

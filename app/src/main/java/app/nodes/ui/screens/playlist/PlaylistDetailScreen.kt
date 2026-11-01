@@ -37,12 +37,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.nodes.R
 import app.nodes.core.data.LibraryRepository
+import app.nodes.core.model.SourceErrorType
+import app.nodes.core.model.SourceId
+import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
+import app.nodes.core.source.SourceRegistry
 import app.nodes.ui.theme.NodesWhite
 import app.nodes.ui.components.EmptyPanel
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.TrackRow
 import app.nodes.ui.components.glass
+import app.nodes.ui.components.sourceErrorMessage
 import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.theme.NodesBlack
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,11 +61,13 @@ data class PlaylistUiState(
     val title: String = "",
     val tracks: List<Track> = emptyList(),
     val loading: Boolean = true,
+    val error: SourceErrorType? = null,
 )
 
 @HiltViewModel
 class PlaylistDetailViewModel @Inject constructor(
     private val library: LibraryRepository,
+    private val registry: SourceRegistry,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(PlaylistUiState())
@@ -69,11 +76,36 @@ class PlaylistDetailViewModel @Inject constructor(
     fun load(playlistId: String) {
         viewModelScope.launch {
             val detail = library.playlistDetail(playlistId)
-            _state.value = PlaylistUiState(
-                title = detail?.playlist?.title ?: "Playlist",
-                tracks = detail?.tracks.orEmpty(),
-                loading = false,
-            )
+            if (detail != null) {
+                _state.value = PlaylistUiState(
+                    title = detail.playlist.title,
+                    tracks = detail.tracks,
+                    loading = false,
+                )
+                return@launch
+            }
+
+            // Not a local playlist, so it is a YouTube Music album, playlist or
+            // the liked-songs list: load it through the provider.
+            when (val result = registry.byId(SourceId.YOUTUBE_MUSIC)?.getPlaylist(playlistId)) {
+                is SourceResult.Success -> _state.value = PlaylistUiState(
+                    title = result.data.playlist.title,
+                    tracks = result.data.tracks,
+                    loading = false,
+                )
+
+                is SourceResult.Failure -> _state.value = PlaylistUiState(
+                    title = "Playlist",
+                    loading = false,
+                    error = result.type,
+                )
+
+                null -> _state.value = PlaylistUiState(
+                    title = "Playlist",
+                    loading = false,
+                    error = SourceErrorType.UNKNOWN,
+                )
+            }
         }
     }
 }
@@ -138,7 +170,9 @@ fun PlaylistDetailScreen(
                 item(key = "empty") {
                     EmptyPanel(
                         title = state.title,
-                        description = stringResource(R.string.home_empty),
+                        description = state.error
+                            ?.let { sourceErrorMessage(it) }
+                            ?: stringResource(R.string.playlist_load_failed),
                     )
                 }
             }

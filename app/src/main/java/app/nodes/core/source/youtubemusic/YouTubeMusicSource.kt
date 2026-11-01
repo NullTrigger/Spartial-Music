@@ -26,10 +26,10 @@ import javax.inject.Singleton
 /**
  * YouTube Music through the unofficial InnerTube API.
  *
- * Off by default: the user has to enable it in Settings, because it is not
- * covered by the YouTube API Services Terms and can stop working at any time.
- * The official Data API source ([app.nodes.core.source.youtube.YouTubeOfficialSource])
- * stays available and is the one to keep as the default.
+ * On by default in this fork by maintainer decision (recorded in YOUTUBE.md),
+ * because the official Data API cannot show a real music catalogue. It is
+ * outside the YouTube API Services Terms and can stop working at any time; the
+ * official Data API source stays registered and is selectable in Settings.
  *
  * Playback is [PlaybackHandle.Stream] straight into Media3 — no downloading, no
  * ad skipping, and no transcoding.
@@ -57,29 +57,62 @@ class YouTubeMusicSource @Inject constructor(
     override suspend fun search(query: String, limit: Int): SourceResult<List<Track>> {
         if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
         if (query.isBlank()) return SourceResult.Success(emptyList())
-        return innerTube.search(query, limit).asResult()
+        return runCatching { innerTube.search(query, limit) }
+            .fold(
+                onSuccess = { SourceResult.Success(it) },
+                onFailure = { it.asFailure() },
+            )
     }
 
+    /** Suggestions for the search field, best effort. */
+    suspend fun suggestions(input: String): List<String> {
+        if (!enabled()) return emptyList()
+        return innerTube.suggestions(input)
+    }
+
+    /**
+     * Home is `browse(FEmusic_home)`: whatever shelves YouTube Music returns for
+     * this session, in its order. Signed out that is album and playlist cards;
+     * signed in, the personalised song shelves come too.
+     *
+     * Anonymous home can be thin, so when it holds no playable song at all the
+     * Explore page's song shelves are added. That keeps Home useful without
+     * inventing data, and never replaces a real response.
+     */
     override suspend fun getHome(): SourceResult<HomeFeed> {
         if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
 
-        val rails: List<Pair<String, List<Track>>> = HOME_RAILS.mapNotNull { (title, query) ->
-            val tracks: List<Track> = runCatching { innerTube.search(query, 20) }.getOrNull().orEmpty()
-            if (tracks.isEmpty()) null else title to tracks
-        }
-        if (rails.isEmpty()) {
-            return SourceResult.Failure(SourceErrorType.NETWORK, "YouTube Music did not answer.")
+        val home = runCatching { innerTube.home() }
+            .getOrElse { return it.asFailure() }
+
+        var sections = home.sections
+        if (sections.none { section -> section.tracks.any { it.videoId != null } }) {
+            val explore = runCatching { innerTube.explore() }.getOrNull()
+            if (explore != null) {
+                val songShelves = explore.sections.filter { section ->
+                    section.tracks.any { it.videoId != null }
+                }
+                val known = sections.map { it.title }.toSet()
+                sections = sections + songShelves.filter { it.title !in known }
+            }
         }
 
-        val sections = rails.map { (title, tracks) ->
-            HomeSection(id = "ytmusic-${title.lowercase().replace(' ', '-')}", title = title, tracks = tracks)
+        if (sections.isEmpty()) {
+            return SourceResult.Failure(
+                SourceErrorType.NETWORK,
+                "YouTube Music returned no shelves.",
+            )
         }
-        val hero = rails.first().second
+
+        val playable = sections
+            .flatMap { it.tracks }
+            .filter { it.videoId != null }
+            .distinctBy { it.id }
 
         return SourceResult.Success(
             HomeFeed(
-                hero = hero.take(5).map { HeroSlide(track = it) },
-                continuePlaying = hero.drop(5).take(6),
+                hero = playable.take(5).map { HeroSlide(track = it) },
+                continuePlaying = emptyList(),
                 sections = sections,
             ),
         )
@@ -87,25 +120,46 @@ class YouTubeMusicSource @Inject constructor(
 
     override suspend fun getTrending(limit: Int): SourceResult<List<Track>> {
         if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
-        return innerTube.search("trending music", limit).asResult()
+        return runCatching {
+            val songs = innerTube.explore().sections
+                .flatMap { it.tracks }
+                .filter { it.videoId != null }
+                .distinctBy { it.id }
+            if (songs.isNotEmpty()) {
+                songs.take(limit.coerceIn(1, 50))
+            } else {
+                innerTube.search("trending music", limit)
+            }
+        }.fold(
+            onSuccess = { SourceResult.Success(it) },
+            onFailure = { it.asFailure() },
+        )
     }
 
+    /**
+     * A playlist, an album, or the liked-songs list. The id may be a bare
+     * playlist id ("PL…"), a browse id as returned by Home ("VLPL…",
+     * "MPREb…") or "LM" for the signed-in user's liked songs.
+     */
     override suspend fun getPlaylist(playlistId: String): SourceResult<PlaylistDetail> {
         if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
-        return runCatching { innerTube.playlist(playlistId, 100) }
+        return runCatching { innerTube.collection(playlistId, 200) }
             .fold(
                 onSuccess = { tracks ->
                     if (tracks.isEmpty()) {
-                        SourceResult.Failure(SourceErrorType.NOT_FOUND, "That playlist is empty or private.")
+                        SourceResult.Failure(
+                            SourceErrorType.NOT_FOUND,
+                            "That album or playlist is empty or private.",
+                        )
                     } else {
                         SourceResult.Success(
                             PlaylistDetail(
                                 playlist = Playlist(
                                     id = playlistId,
-                                    title = "YouTube Music playlist",
+                                    title = playlistTitle(playlistId),
                                     trackCount = tracks.size,
                                     sourceId = SourceId.YOUTUBE_MUSIC,
-                                    externalUrl = "https://music.youtube.com/playlist?list=$playlistId",
+                                    externalUrl = "https://music.youtube.com/browse/$playlistId",
                                 ),
                                 tracks = tracks,
                             ),
@@ -116,18 +170,28 @@ class YouTubeMusicSource @Inject constructor(
             )
     }
 
+    /** The signed-in user's own playlists; empty when signed out. */
+    suspend fun userPlaylists(): List<Playlist> = runCatching { innerTube.libraryPlaylists() }
+        .getOrDefault(emptyList())
+
+    /** The signed-in user's liked songs; empty when signed out. */
+    suspend fun likedSongs(): List<Track> = runCatching { innerTube.collection(LIKED_SONGS_ID, 200) }
+        .getOrDefault(emptyList())
+
     override suspend fun play(track: Track): SourceResult<PlaybackHandle> {
         if (!enabled()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
         val videoId = track.videoId ?: return SourceResult.Success(
             PlaybackHandle.Unavailable("This track has no YouTube video id."),
         )
         val preferHighQuality = settings.current().highQualityAudio
-        val outcome = runCatching { innerTube.audioUrl(videoId, preferHighQuality) }.getOrNull()
-            ?: return SourceResult.Success(
-                PlaybackHandle.Unavailable(
-                    "Could not reach YouTube Music. Check your connection and try again.",
-                ),
-            )
+        val outcome = runCatching { innerTube.audioUrl(videoId, preferHighQuality) }
+            .getOrElse {
+                return SourceResult.Success(
+                    PlaybackHandle.Unavailable(
+                        "Could not reach YouTube Music. Check your connection and try again.",
+                    ),
+                )
+            }
 
         return when (outcome) {
             is InnerTubeStream.Playable -> SourceResult.Success(PlaybackHandle.Stream(outcome.url))
@@ -141,22 +205,21 @@ class YouTubeMusicSource @Inject constructor(
         }
     }
 
-    private fun List<Track>.asResult(): SourceResult<List<Track>> =
-        SourceResult.Success(this)
+    private fun playlistTitle(playlistId: String): String = when {
+        playlistId == LIKED_SONGS_ID -> "Liked songs"
+        playlistId.startsWith("MPRE") -> "YouTube Music album"
+        else -> "YouTube Music playlist"
+    }
 
     private fun Throwable.asFailure(): SourceResult.Failure =
         if (this is IOException) {
             SourceResult.Failure(SourceErrorType.NETWORK, message)
         } else {
-            SourceResult.Failure(SourceErrorType.UNKNOWN, message)
+            SourceResult.Failure(SourceErrorType.PARSE, message)
         }
 
     private companion object {
-        /** Queries that make a plausible music home without a recommendations feed. */
-        val HOME_RAILS = listOf(
-            "Trending music" to "trending music videos this week",
-            "New releases" to "new music releases",
-            "Chill mix" to "chill lo-fi mix",
-        )
+        /** YouTube Music's own id for the signed-in user's liked songs. */
+        const val LIKED_SONGS_ID = "LM"
     }
 }

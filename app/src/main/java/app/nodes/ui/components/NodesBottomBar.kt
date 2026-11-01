@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesWhite
 
@@ -119,7 +120,10 @@ private fun NavTab(
                 .clip(CircleShape)
                 .background(if (selected) Color.White.copy(alpha = 0.14f) else Color.Transparent)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                // The four tabs share one pill beside the round search button;
+                // 14dp of side padding left too little room for "Trending" and
+                // Android clipped the labels to "Tren".
+                .padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
@@ -131,10 +135,14 @@ private fun NavTab(
             Spacer(Modifier.height(3.dp))
             Text(
                 text = item.label,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    letterSpacing = 0.sp,
+                ),
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 color = tint,
                 maxLines = 1,
+                softWrap = false,
             )
         }
     }
