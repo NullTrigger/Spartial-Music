@@ -36,6 +36,7 @@ import app.nodes.BuildConfig
 import app.nodes.R
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.PageHeader
+import app.nodes.ui.screens.crash.CrashActivity
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesTeal
@@ -129,6 +130,17 @@ fun SettingsScreen(
                     title = stringResource(R.string.settings_clear_cache),
                     subtitle = null,
                     onClick = viewModel::clearCache,
+                )
+            }
+
+            item(key = "support") {
+                SettingsSection(stringResource(R.string.settings_support))
+                SettingsActionRow(
+                    title = stringResource(R.string.settings_crash_reports),
+                    subtitle = stringResource(R.string.settings_crash_reports_subtitle),
+                    onClick = {
+                        context.startActivity(Intent(context, CrashActivity::class.java))
+                    },
                 )
             }
 

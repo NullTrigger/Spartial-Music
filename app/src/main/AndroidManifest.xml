@@ -47,6 +47,26 @@
             </intent-filter>
         </activity>
 
+        <!-- Crash report page. A plain ComponentActivity with its own theme, so
+             it still draws when the screen that crashed is gone. -->
+        <activity
+            android:name=".ui.screens.crash.CrashActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Nodes" />
+
+        <!-- Shares the crash report as a text file. Only cache/crash is exposed;
+             see res/xml/crash_paths.xml. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.crashreports"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/crash_paths" />
+        </provider>
+
         <service
             android:name=".playback.PlaybackService"
             android:exported="true"
