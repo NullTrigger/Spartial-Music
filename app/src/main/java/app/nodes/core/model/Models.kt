@@ -67,13 +67,29 @@ data class HeroSlide(
     val kicker: String = "NOW PLAYING",
 )
 
+/** One timed word inside a line, when the provider supplies word timings. */
+data class LyricWord(
+    val text: String,
+    val startMs: Long,
+    val endMs: Long,
+)
+
 /**
- * One time-synced lyric line. Lyrics come only from a local `.lrc` sidecar
- * file the user supplies - Nodes never downloads lyrics from a third party.
+ * One lyric line.
+ *
+ * Lyrics come from a local `.lrc` sidecar the user supplies or from one of the
+ * lyrics providers in `core/lyrics/providers` (LRCLIB, SimpMusic, YouLyPlus),
+ * whichever the user has enabled and ordered in Settings. See docs/LYRICS.md for
+ * each provider's terms.
+ *
+ * [endMs] is filled in from the next line's start so a highlight can have a
+ * duration, and [words] is empty for plain and line-timed lyrics.
  */
 data class LyricLine(
     val timeMs: Long,
     val text: String,
+    val endMs: Long = 0L,
+    val words: List<LyricWord> = emptyList(),
 )
 
 /** A horizontal rail on Home. */
