@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -54,6 +55,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenPlayer: () -> Unit,
     onOpenSection: (HomeSection) -> Unit,
+    onOpenCollection: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
     avatarInitial: String = "N",
@@ -76,6 +78,20 @@ fun HomeScreen(
                     onPlay = { track -> playerViewModel.play(track, heroTracks) },
                     onNext = { playerViewModel.next() },
                 )
+            }
+
+            // The top bar floats over the hero artwork by design. Without a
+            // hero there is nothing under it, so the first banner would be
+            // drawn beneath the "Home" title; reserve that space instead.
+            if (heroTracks.isEmpty()) {
+                item(key = "top-space") {
+                    Spacer(
+                        Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .height(72.dp),
+                    )
+                }
             }
 
             state.error?.let { error ->
@@ -101,7 +117,14 @@ fun HomeScreen(
             items(items = state.feed.sections, key = { it.id }) { section ->
                 AlbumRail(
                     section = section,
-                    onTrackClick = { track -> playerViewModel.play(track, section.tracks) },
+                    onTrackClick = { track ->
+                        val collection = track.collectionId
+                        if (collection != null) {
+                            onOpenCollection(collection)
+                        } else {
+                            playerViewModel.play(track, section.tracks)
+                        }
+                    },
                     onSeeAll = { onOpenSection(section) },
                 )
             }

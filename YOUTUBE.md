@@ -122,9 +122,19 @@ Terms, and it can break.
 
 | Feature | Endpoint | Notes |
 | --- | --- | --- |
-| Search | `POST /youtubei/v1/search` (WEB client, songs filter) | no Data API quota used |
+| Home | `POST /youtubei/v1/browse` (`FEmusic_home`) | WEB_REMIX client, real shelves |
+| Search | `POST /youtubei/v1/search` (WEB_REMIX, songs filter) | no Data API quota used |
 | Playlist contents | `POST /youtubei/v1/browse` (`VL<id>`) | |
 | Playback | `POST /youtubei/v1/player` (several app identities) | plain `googlevideo` audio URL |
+
+Every request is a `POST` to `https://music.youtube.com/youtubei/v1/<method>`
+whose body carries `context.client` (`clientName` + a current `clientVersion`,
+`hl`, `gl`) and whose headers include the matching `X-YouTube-Client-Name` and
+`X-YouTube-Client-Version`, `X-Origin`/`Referer` for the music site, and
+`X-Goog-Visitor-Id` once the anonymous visitor data has been fetched from
+`music.youtube.com/sw.js_data`. Sending the body without the matching headers is
+what makes YouTube answer with the wrong renderers (plain YouTube results, no
+music shelves).
 
 No single client identity serves every track any more, so playback asks several
 in turn and takes the first usable answer:
@@ -142,6 +152,7 @@ video cannot reach a music player's results at all.
 | 3 | `ANDROID_VR` | 1.43.32 | older build with different limits |
 | 4 | `IOS` | 21.03.1 | plain URLs, muxed formats |
 | 5 | `IOS` (iPadOS) | 21.03.3 | last resort |
+| 6 | `TVHTML5_SIMPLY_EMBEDDED_PLAYER` | 2.0 | embedded player, plain URLs |
 
 Each candidate URL is checked before Media3 sees it: a one-byte ranged `GET` must
 answer `200`/`206`. (`HEAD` returns `403` from `googlevideo` for every candidate,
@@ -161,7 +172,30 @@ If YouTube closes the plain-URL door as well, playback stops and the source has
 to be fixed or removed — not patched with a cipher solver.
 
 What it still does not do: no downloading, no caching of media, no ad or sponsor
-blocking, no attestation bypass, no cookie harvesting, no account scraping.
+blocking, no attestation bypass, no account scraping.
+
+### Signing in
+
+**Maintainer decision, 1 November 2026:** Mode 2 may keep the user's own YouTube
+Music session cookie. Personalised Home shelves, the user's Library and playback
+of their uploads have no anonymous equivalent on InnerTube, and parity with the
+reference player was the requirement. This is the cookie-harvesting exception
+that rule 1 of `AGENTS.md` requires to be recorded here.
+
+How it works, and what keeps it bounded:
+
+- Settings → YouTube Music account opens Google's own login page in a WebView.
+  Nodes never sees the password; it only reads the cookie the music site sets
+  after the redirect, plus the page's `VISITOR_DATA` and `DATASYNC_ID`.
+- The cookie is validated with `account/account_menu` before it is stored, so a
+  cookie that is not a session is never kept.
+- It is stored in `EncryptedSharedPreferences` (Android Keystore key), is sent
+  only to `music.youtube.com`, and is never logged, backed up or cached.
+- Authenticated requests carry `Cookie`, `Authorization: SAPISIDHASH
+  <ts>_<sha1(ts + " " + SAPISID + " " + origin)>`, `X-Goog-AuthUser: 0` and
+  `X-Origin`.
+- **Sign out of YouTube Music** deletes the stored cookie and clears the WebView
+  cookies.
 
 ### The legal reality, stated plainly
 

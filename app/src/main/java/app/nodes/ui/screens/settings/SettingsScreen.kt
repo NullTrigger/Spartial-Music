@@ -61,6 +61,7 @@ import app.nodes.ui.theme.NodesWhite
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenLogin: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
@@ -68,6 +69,7 @@ fun SettingsScreen(
     val quotaRemaining by viewModel.quotaRemaining.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val signInState by viewModel.signInState.collectAsStateWithLifecycle()
+    val musicAccount by viewModel.musicAccount.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val signInLauncher = rememberLauncherForActivityResult(
@@ -214,6 +216,33 @@ fun SettingsScreen(
                     color = NodesGrey,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
                 )
+            }
+
+            item(key = "ytmusic-account") {
+                SettingsSection(stringResource(R.string.settings_ytmusic_account))
+                Text(
+                    text = stringResource(R.string.settings_ytmusic_account_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NodesGrey,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                )
+                val account = musicAccount
+                if (account != null) {
+                    SettingsActionRow(
+                        title = stringResource(R.string.settings_ytmusic_signout),
+                        subtitle = stringResource(
+                            R.string.settings_ytmusic_signed_in_as,
+                            account.email ?: account.name,
+                        ),
+                        onClick = viewModel::signOutMusic,
+                    )
+                } else {
+                    SettingsActionRow(
+                        title = stringResource(R.string.settings_ytmusic_signin),
+                        subtitle = null,
+                        onClick = onOpenLogin,
+                    )
+                }
             }
 
             item(key = "storage") {

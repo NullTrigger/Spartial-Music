@@ -32,6 +32,7 @@ add or bump a dependency.
 | androidx.media3:{exoplayer, session, common, datasource-okhttp} | Apache-2.0 |
 | androidx.room:{runtime, ktx, compiler} | Apache-2.0 |
 | androidx.datastore:datastore-preferences | Apache-2.0 |
+| androidx.security:security-crypto (EncryptedSharedPreferences) | Apache-2.0 |
 | androidx.hilt:hilt-navigation-compose | Apache-2.0 |
 | androidx.annotation, androidx.collection, androidx.tracing, androidx.profileinstaller (transitive) | Apache-2.0 |
 

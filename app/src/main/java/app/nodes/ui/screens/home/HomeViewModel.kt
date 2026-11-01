@@ -15,6 +15,7 @@ import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceResult
 import app.nodes.core.source.SourceRegistry
 import app.nodes.core.source.youtube.YouTubeSignIn
+import app.nodes.core.source.youtubemusic.InnerTubeAuth
 import app.nodes.playback.LoadingSound
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +44,7 @@ class HomeViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val library: LibraryRepository,
     private val signIn: YouTubeSignIn,
+    private val musicAuth: InnerTubeAuth,
     private val loadingSound: LoadingSound,
 ) : ViewModel() {
 
@@ -60,6 +62,13 @@ class HomeViewModel @Inject constructor(
         // than making the user restart the app to see their own music.
         viewModelScope.launch {
             signIn.state
+                .drop(1)
+                .collect { load(_state.value.sourceId) }
+        }
+        // The same for the YouTube Music cookie: signing in makes Home personal,
+        // signing out returns it to the anonymous shelves.
+        viewModelScope.launch {
+            musicAuth.account
                 .drop(1)
                 .collect { load(_state.value.sourceId) }
         }
