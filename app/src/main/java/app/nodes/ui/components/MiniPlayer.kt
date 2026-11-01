@@ -58,6 +58,7 @@ fun MiniPlayer(
             title = track.title,
             modifier = Modifier.size(44.dp),
             shape = RoundedCornerShape(50),
+            targetPx = 256,
         )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {

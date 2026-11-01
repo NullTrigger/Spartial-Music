@@ -82,6 +82,7 @@ fun HeroCarousel(
                     title = slides[page].track.title,
                     modifier = Modifier.fillMaxSize(),
                     shape = RectangleShape,
+                    targetPx = 1280,
                 )
                 Box(Modifier.fillMaxSize().centreVignette())
                 Box(Modifier.fillMaxSize().bottomFade())

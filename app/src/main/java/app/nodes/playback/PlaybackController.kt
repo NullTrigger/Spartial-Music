@@ -298,7 +298,14 @@ class PlaybackController @Inject constructor(
             .setTitle(title)
             .setArtist(artist)
             .setAlbumTitle(album)
-            .apply { artworkUri?.let { setArtworkUri(Uri.parse(it)) } }
+            .apply {
+                // The notification and lock screen read this URI themselves, so
+                // it has to be a large copy (>= 512px), not the 60px the
+                // provider advertised for a list row.
+                artworkUri?.let { art ->
+                    setArtworkUri(Uri.parse(app.nodes.core.util.upgradeThumbnail(art, 1080) ?: art))
+                }
+            }
             .build()
         return MediaItem.Builder()
             .setMediaId(id)

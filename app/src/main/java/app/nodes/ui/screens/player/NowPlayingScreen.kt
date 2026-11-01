@@ -169,6 +169,7 @@ fun NowPlayingScreen(
                         .fillMaxWidth()
                         .aspectRatio(1f),
                     shape = RoundedCornerShape(28.dp),
+                    targetPx = 1280,
                 )
             }
 
