@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
 import app.nodes.ui.components.EmptyPanel
 import app.nodes.ui.components.PageHeader
+import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.TrackRow
 import app.nodes.ui.components.glass
 import app.nodes.ui.components.sourceErrorMessage
@@ -140,7 +141,16 @@ fun SearchScreen(
             }
 
             items(items = state.results, key = { it.id }) { track ->
-                TrackRow(track = track, onClick = { playerViewModel.play(track, state.results) })
+                TrackRow(
+                    track = track,
+                    onClick = { playerViewModel.play(track, state.results) },
+                    trailing = {
+                        TrackMenuButton(
+                            onPlayNext = { playerViewModel.playNext(track) },
+                            onAddToQueue = { playerViewModel.addToQueue(track) },
+                        )
+                    },
+                )
             }
 
             if (state.searched && !state.loading && state.results.isEmpty() && state.error == null) {

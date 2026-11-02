@@ -40,6 +40,14 @@ class PlaybackService : MediaSessionService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var mediaSession: MediaSession? = null
 
+    /**
+     * Cached copy of the "stop when swiped away" preference. [onTaskRemoved] is
+     * a synchronous callback on the main thread, so it cannot read DataStore
+     * itself; the settings collector below keeps this in sync instead.
+     */
+    @Volatile
+    private var stopOnTaskClear = false
+
     // setSkipSilenceEnabled is still an unstable Media3 surface, so the opt-in
     // is declared here instead of at every call site.
     @androidx.annotation.OptIn(UnstableApi::class)
@@ -60,6 +68,7 @@ class PlaybackService : MediaSessionService() {
 
         scope.launch {
             settings.settings.collect { current ->
+                stopOnTaskClear = current.stopMusicOnTaskClear
                 runCatching {
                     player.setPlaybackSpeed(current.playbackSpeed)
                     player.skipSilenceEnabled = current.skipSilence
@@ -70,7 +79,17 @@ class PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
+    @androidx.annotation.OptIn(UnstableApi::class)
     override fun onTaskRemoved(rootIntent: Intent?) {
+        if (stopOnTaskClear) {
+            // Opted in: the swiped-away app must not keep a media session (or
+            // its notification) alive in the background. Stop the player first
+            // so Media3 tears the notification down from a stopped state, then
+            // let the service pause everything and finish.
+            mediaSession?.player?.stop()
+            pauseAllPlayersAndStopSelf()
+            return
+        }
         val player = mediaSession?.player
         if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
             stopSelf()

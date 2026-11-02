@@ -79,6 +79,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settings.setKeepScreenOn(enabled) }
     }
 
+    fun setStopMusicOnTaskClear(enabled: Boolean) {
+        viewModelScope.launch { settings.setStopMusicOnTaskClear(enabled) }
+    }
+
     fun setPlaybackSpeed(speed: Float) {
         viewModelScope.launch { settings.setPlaybackSpeed(speed) }
     }
@@ -97,6 +101,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setLyricsShowSource(enabled: Boolean) {
         viewModelScope.launch { settings.setLyricsShowSource(enabled) }
+    }
+
+    fun setLyricsAutoScroll(enabled: Boolean) {
+        viewModelScope.launch { settings.setLyricsAutoScroll(enabled) }
+    }
+
+    fun setQueuePreventDuplicates(enabled: Boolean) {
+        viewModelScope.launch { settings.setQueuePreventDuplicates(enabled) }
     }
 
     fun setLyricsProviderEnabled(id: String, enabled: Boolean) {

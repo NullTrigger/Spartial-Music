@@ -68,6 +68,7 @@ import app.nodes.core.source.SourceRegistry
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.EmptyPanel
 import app.nodes.ui.components.GeneratedArt
+import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
 import app.nodes.ui.components.sourceErrorMessage
 import app.nodes.ui.screens.player.PlayerViewModel
@@ -200,6 +201,8 @@ fun PlaylistDetailScreen(
                             playing = playerState.isPlaying,
                             last = index == tracks.lastIndex,
                             onClick = { playerViewModel.play(track, tracks) },
+                            onPlayNext = { playerViewModel.playNext(track) },
+                            onAddToQueue = { playerViewModel.addToQueue(track) },
                         )
                     }
                 } else if (!state.loading) {
@@ -389,6 +392,8 @@ private fun LedgerRow(
     playing: Boolean,
     last: Boolean,
     onClick: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -480,6 +485,10 @@ private fun LedgerRow(
                 color = NodesGreyDim,
             )
         }
+        TrackMenuButton(
+            onPlayNext = onPlayNext,
+            onAddToQueue = onAddToQueue,
+        )
     }
 }
 

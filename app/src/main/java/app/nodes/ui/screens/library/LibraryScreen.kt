@@ -50,6 +50,7 @@ import app.nodes.R
 import app.nodes.ui.components.ArtworkSwatch
 import app.nodes.ui.components.EmptyPanel
 import app.nodes.ui.components.PageHeader
+import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.TrackRow
 import app.nodes.ui.components.glass
 import app.nodes.ui.components.glassPill
@@ -217,6 +218,12 @@ fun LibraryScreen(
                         TrackRow(
                             track = track,
                             onClick = { playerViewModel.play(track, liked) },
+                            trailing = {
+                                TrackMenuButton(
+                                    onPlayNext = { playerViewModel.playNext(track) },
+                                    onAddToQueue = { playerViewModel.addToQueue(track) },
+                                )
+                            },
                         )
                     }
                     if (liked.isEmpty()) {

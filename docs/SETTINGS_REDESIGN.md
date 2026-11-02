@@ -8,8 +8,8 @@ Design mockup: [`docs/preview/settings-redesign.html`](preview/settings-redesign
 | Screen | State |
 |---|---|
 | Settings root | Grouped cards, account status card, value-in-row summaries |
-| Playback | Quality, Wi-Fi only, skip silence, speed picker, sleep timer, keep screen on |
-| Lyrics | Provider order, on/off, prefer synced, show source — all previously stored but unreachable |
+| Playback | Quality, Wi-Fi only, skip silence, speed picker, sleep timer, keep screen on, keep the queue unique, stop music when cleared from recents |
+| Lyrics | Provider order, on/off, prefer synced, show source, auto-scroll |
 | Content | Source explanation with the unofficial warning, trending region picker, account |
 | Appearance | Theme, system colours |
 | Privacy & data | Cache, search history, crash reports, diagnostics |

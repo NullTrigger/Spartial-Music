@@ -5,8 +5,12 @@
 
 package app.nodes.ui.screens.player
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +28,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,6 +39,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -45,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +72,7 @@ import app.nodes.core.util.formatDuration
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.ArtworkBackdrop
 import app.nodes.ui.components.KeepScreenOn
+import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.TrackRow
 import app.nodes.ui.components.glass
 import app.nodes.ui.theme.NodesBlack
@@ -75,6 +83,7 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
+import kotlinx.coroutines.CancellationException
 
 private enum class PlayerTab { QUEUE, LYRICS }
 
@@ -104,13 +113,56 @@ fun NowPlayingScreen(
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val liked by viewModel.liked.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
+    val lyricsAutoScroll by viewModel.lyricsAutoScroll.collectAsStateWithLifecycle()
     val track = playerState.current
 
     KeepScreenOn(keepScreenOn)
 
     var tab by remember { mutableStateOf(PlayerTab.QUEUE) }
+    val listState = rememberLazyListState()
 
-    LaunchedEffect(track?.id) { viewModel.onTrackChanged(track) }
+    // Following is a per-song decision: the preference decides how a song
+    // starts, and a manual drag pauses it until the chip is tapped or the next
+    // track begins.
+    var followLyrics by rememberSaveable { mutableStateOf(true) }
+    val autoScroll = lyricsAutoScroll && followLyrics
+    val isDraggingLyrics by listState.interactionSource.collectIsDraggedAsState()
+
+    LaunchedEffect(track?.id) {
+        viewModel.onTrackChanged(track)
+        followLyrics = true
+    }
+
+    LaunchedEffect(isDraggingLyrics, tab) {
+        if (isDraggingLyrics && tab == PlayerTab.LYRICS) followLyrics = false
+    }
+
+    val activeLyricIndex = if (lyrics.lines.isEmpty()) {
+        -1
+    } else {
+        lyrics.lines.indexOfLast { it.timeMs <= playerState.positionMs.coerceAtLeast(0L) }
+            .coerceIn(0, lyrics.lines.lastIndex)
+    }
+
+    // Lyrics are items of the screen's own lazy list, so the item to scroll to
+    // is the active line plus every item above the lyrics section. The header
+    // count changes when the embedded YouTube card replaces the seek bar.
+    LaunchedEffect(tab, autoScroll, activeLyricIndex, playerState.embeddedVideoId, lyrics.lines.size) {
+        if (tab != PlayerTab.LYRICS || !autoScroll || activeLyricIndex < 0) return@LaunchedEffect
+        val headerItems = if (playerState.embeddedVideoId == null) 6 else 5
+        val viewport = listState.layoutInfo.viewportSize.height
+        val offset = if (viewport > 0) -(viewport / 3) else 0
+        try {
+            // A third of the viewport below the top keeps the current line
+            // near the middle instead of pinning it to the very top.
+            listState.animateScrollToItem(headerItems + activeLyricIndex, offset)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // The lyrics can be replaced while the animation runs; the next
+            // line change starts a fresh scroll.
+        }
+    }
 
     if (track == null) {
         Column(
@@ -139,6 +191,7 @@ fun NowPlayingScreen(
         )
 
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
@@ -376,10 +429,14 @@ fun NowPlayingScreen(
                         itemsIndexed(
                             items = playerState.queue,
                             key = { index, item -> "queue-$index-${item.id}" },
-                        ) { _, item ->
+                        ) { index, item ->
                             QueueRow(
                                 item = item,
-                                onClick = { playerViewModel.play(item, playerState.queue) },
+                                isCurrent = index == playerState.queueIndex,
+                                onClick = { playerViewModel.playQueueIndex(index) },
+                                onPlayNext = { playerViewModel.playNext(item) },
+                                onAddToQueue = { playerViewModel.addToQueue(item) },
+                                onRemove = { playerViewModel.removeFromQueue(index) },
                             )
                         }
                     }
@@ -393,6 +450,44 @@ fun NowPlayingScreen(
 
             item(key = "bottom") {
                 Spacer(Modifier.navigationBarsPadding().height(8.dp))
+            }
+        }
+
+        // Glossy's re-sync affordance: a manual scroll pauses following, and
+        // this chip puts the current line back under the thumb. It is only
+        // shown while the preference is on; turning it off is a settings
+        // decision, not an accidental drag.
+        AnimatedVisibility(
+            visible = tab == PlayerTab.LYRICS &&
+                lyricsAutoScroll &&
+                !followLyrics &&
+                lyrics.lines.isNotEmpty(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp),
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            Row(
+                modifier = Modifier
+                    .glass(CircleShape)
+                    .clickable { followLyrics = true }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Sync,
+                    contentDescription = null,
+                    tint = NodesWhite,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    text = stringResource(R.string.player_auto_scroll),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = NodesWhite,
+                )
             }
         }
     }
@@ -417,9 +512,27 @@ private fun BackButton(onBack: () -> Unit) {
 }
 
 @Composable
-private fun QueueRow(item: Track, onClick: () -> Unit) {
+private fun QueueRow(
+    item: Track,
+    isCurrent: Boolean,
+    onClick: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onRemove: () -> Unit,
+) {
     Column {
-        TrackRow(track = item, onClick = onClick)
+        TrackRow(
+            track = item,
+            onClick = onClick,
+            trailing = {
+                TrackMenuButton(
+                    onPlayNext = onPlayNext,
+                    onAddToQueue = onAddToQueue,
+                    onRemoveFromQueue = onRemove,
+                    removeEnabled = !isCurrent,
+                )
+            },
+        )
         Box(
             Modifier
                 .fillMaxWidth()
