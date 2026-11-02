@@ -191,7 +191,7 @@
     <string name="settings_lyrics_title">Lyrics</string>
     <string name="settings_lyrics_summary">%1$s first · %2$d of %3$d on</string>
     <string name="settings_lyrics_sources">Sources</string>
-    <string name="settings_lyrics_local_hint">Read from the track's folder</string>
+    <string name="settings_lyrics_local_hint">Read from the track\'s folder</string>
     <string name="settings_lyrics_local_value">Always first</string>
     <string name="settings_lyrics_display">Display</string>
     <string name="settings_lyrics_prefer_synced">Prefer synced lyrics</string>
