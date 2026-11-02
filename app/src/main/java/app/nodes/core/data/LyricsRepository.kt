@@ -67,7 +67,15 @@ class LyricsRepository @Inject constructor(
 
         if (!refresh) {
             memory[key]?.let { return it.toResult(fromCache = true) }
-            readCache(key)?.let { cached ->
+            val cached = try {
+                readCache(key)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                AppLogger.e("Lyrics", "Reading the lyrics cache failed", error)
+                null
+            }
+            if (cached != null) {
                 memory[key] = cached
                 return cached.toResult(fromCache = true)
             }
@@ -86,7 +94,12 @@ class LyricsRepository @Inject constructor(
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
+            // Throwable, not Exception: a static initialiser failure arrives as
+            // ExceptionInInitializerError, which is an Error. Catching only
+            // Exception is exactly how 0.1.0 died when a lyrics regex was
+            // rejected by Android's regex engine.
+            //
             // This runs while a track is playing. A provider, a settings read or
             // the parser failing must cost the lyrics, nothing more - but it is
             // recorded, because "no lyrics" and "the provider crashed" look
