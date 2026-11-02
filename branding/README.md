@@ -40,8 +40,11 @@ the mark outside Nodes, check its provenance first.
 Start from the square master artwork (the supplied image, centred on black) and
 scale the mark into the safe areas:
 
-- adaptive foreground/monochrome: 432×432, ink inside the 66dp safe circle;
-- splash/onboarding: 512×512 transparent;
-- store icon: 512×512 opaque on `#050506`, 8% padding around the ink.
+- adaptive foreground/monochrome: 432×432, mark ink 46 dp wide so its square
+  corners sit inside the 66 dp launcher safe circle (66/√2 = 46.7 dp);
+- splash/onboarding: 512×512 transparent, mark ink 236 px so it sits inside the
+  circle two-thirds the width of the drawable that Android 12 uses as a splash
+  mask (512 × 2/3 / √2 = 241 px);
+- store icon: 512×512 opaque on `#050506`, mark ink 430 px (8% padding).
 
 Do not trace or redraw the mark by hand; keep the supplied curves.
