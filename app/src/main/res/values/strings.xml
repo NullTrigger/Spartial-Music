@@ -157,8 +157,81 @@
     <string name="settings_source_of_truth">Open source under GPL-3.0-or-later</string>
     <string name="settings_powered_by_youtube">Powered by YouTube</string>
     <string name="settings_storage">Cache</string>
+    <string name="settings_storage_hint">Shelves, artwork and lyrics fetched from the network</string>
     <string name="settings_clear_cache">Clear cached responses</string>
     <string name="settings_cache_cleared">Cache cleared</string>
+
+    <!-- Settings groups and rows -->
+    <string name="settings_group_playback">Playback</string>
+    <string name="settings_group_content">Content</string>
+    <string name="settings_group_data">Privacy &amp; data</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_colour">Colour</string>
+    <string name="settings_audio_quality_hint">Uses the best stream the source offers</string>
+    <string name="settings_wifi_only_hint">Mobile data is never used for audio</string>
+    <string name="settings_dynamic_color_hint">Follow the wallpaper colours from Android 12</string>
+    <string name="settings_dynamic_color_unsupported">Needs Android 12 or newer</string>
+    <string name="settings_dynamic_color_note">System colours replace the teal accent. Glass surfaces and the dark base stay the same.</string>
+    <string name="settings_status_signed_out">Not signed in</string>
+    <string name="settings_status_signed_out_hint">Tap to sign in to YouTube Music</string>
+    <string name="settings_status_signed_in_hint">Signed in to YouTube Music</string>
+    <string name="settings_signed_out">Signed out of YouTube Music. Home is anonymous again.</string>
+    <string name="settings_about_title">About Nodes</string>
+    <string name="settings_version_label">This build</string>
+    <string name="settings_legal">Legal</string>
+
+    <!-- Music source -->
+    <string name="settings_source_title">Music source</string>
+    <string name="settings_source_innertube">YouTube Music</string>
+    <string name="settings_source_unofficial">Unofficial</string>
+    <string name="settings_source_hint">Streaming through the InnerTube client</string>
+
+    <!-- Lyrics settings -->
+    <string name="settings_lyrics_title">Lyrics</string>
+    <string name="settings_lyrics_summary">%1$s first · %2$d of %3$d on</string>
+    <string name="settings_lyrics_sources">Sources</string>
+    <string name="settings_lyrics_local_hint">Read from the track's folder</string>
+    <string name="settings_lyrics_local_value">Always first</string>
+    <string name="settings_lyrics_display">Display</string>
+    <string name="settings_lyrics_prefer_synced">Prefer synced lyrics</string>
+    <string name="settings_lyrics_prefer_synced_hint">Plain text is used only when nothing is timed</string>
+    <string name="settings_lyrics_show_source">Show which source was used</string>
+    <string name="settings_lyrics_show_source_hint">A small label under the lyrics</string>
+    <string name="settings_lyrics_about">How this works</string>
+    <string name="settings_lyrics_about_note">Sources are tried top to bottom. Lyrics are cached on this device and never uploaded. Local files always win because you put them there on purpose.</string>
+    <string name="settings_lyrics_source_on">Used when the source above has nothing</string>
+    <string name="settings_lyrics_source_off">Switched off — nothing is requested</string>
+    <string name="settings_lyrics_move_up">Move up</string>
+    <string name="settings_lyrics_move_down">Move down</string>
+    <string name="lyrics_provider_local">Local files</string>
+    <string name="lyrics_provider_lrclib">LRCLIB</string>
+    <string name="lyrics_provider_simp_music">SimpMusic</string>
+    <string name="lyrics_provider_youly_plus">YouLy+</string>
+    <string name="lyrics_provider_none">No source enabled</string>
+
+    <!-- Search history -->
+    <string name="settings_search_history">Search history</string>
+    <string name="settings_search_history_clear">Clear search history</string>
+    <string name="settings_search_history_count">%1$d recent searches remembered</string>
+    <string name="settings_search_history_empty">Nothing remembered right now</string>
+    <string name="settings_search_history_cleared">Search history cleared</string>
+
+    <string name="settings_crash_reports_short">Stored on this device only</string>
+    <string name="settings_crash_reports_toggle">Write a report when Nodes crashes</string>
+    <string name="settings_crash_reports_open">Open diagnostics</string>
+
+    <!-- Trending regions -->
+    <string name="region_us">United States</string>
+    <string name="region_gb">United Kingdom</string>
+    <string name="region_ca">Canada</string>
+    <string name="region_au">Australia</string>
+    <string name="region_in">India</string>
+    <string name="region_de">Germany</string>
+    <string name="region_fr">France</string>
+    <string name="region_jp">Japan</string>
+    <string name="region_br">Brazil</string>
+    <string name="region_kr">South Korea</string>
 
     <string name="playback_could_not_start">This track could not be started. Check your connection and try again.</string>
 
