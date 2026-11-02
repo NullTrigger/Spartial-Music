@@ -70,7 +70,7 @@ fun HomeScreen(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 150.dp),
+            contentPadding = PaddingValues(bottom = 176.dp),
         ) {
             item(key = "hero") {
                 HeroCarousel(
