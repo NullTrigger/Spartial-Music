@@ -147,6 +147,8 @@ fun DiagnosticsScreen(
     val openedText = state.openedText
     val openedName = state.openedName
     if (openedName != null && openedText != null) {
+        val shareSubject = stringResource(R.string.crash_share_subject)
+        val shareTitle = stringResource(R.string.crash_share_title)
         AlertDialog(
             onDismissRequest = viewModel::closeOpened,
             containerColor = Color(0xFF15171B),
@@ -180,8 +182,8 @@ fun DiagnosticsScreen(
                         CrashShare.share(
                             context = context,
                             report = openedText,
-                            subject = context.getString(R.string.crash_share_subject),
-                            title = context.getString(R.string.crash_share_title),
+                            subject = shareSubject,
+                            title = shareTitle,
                         )
                     },
                 ) {
@@ -273,6 +275,7 @@ private fun ReportRow(
 @Composable
 private fun DebugCrashRow(onCreate: () -> Unit) {
     val context = LocalContext.current
+    val testLabel = stringResource(R.string.diagnostics_test_crash)
     Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
         Text(
             text = stringResource(R.string.diagnostics_test_crash_hint),
@@ -283,7 +286,7 @@ private fun DebugCrashRow(onCreate: () -> Unit) {
             onClick = {
                 Toast.makeText(
                     context,
-                    context.getString(R.string.diagnostics_test_crash),
+                    testLabel,
                     Toast.LENGTH_SHORT,
                 ).show()
                 onCreate()
