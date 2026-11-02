@@ -25,10 +25,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import app.nodes.core.crash.AppSnapshot
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.MiniPlayer
 import app.nodes.ui.components.NodesBottomBar
 import app.nodes.ui.components.NodesNavItems
+import app.nodes.ui.screens.diagnostics.DiagnosticsScreen
 import app.nodes.ui.screens.home.HomeScreen
 import app.nodes.ui.screens.library.LibraryScreen
 import app.nodes.ui.screens.login.MusicLoginScreen
@@ -59,6 +61,10 @@ fun NodesApp() {
             playerViewModel.clearMessage()
         }
     }
+
+    // The crash handler cannot ask the nav controller anything, so the current
+    // route is copied somewhere a dying process can still read it.
+    LaunchedEffect(route) { AppSnapshot.route = route }
 
     Box(
         Modifier
@@ -109,7 +115,12 @@ fun NodesApp() {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
                     onOpenLogin = { navController.navigate(Routes.LOGIN) },
+                    onOpenDiagnostics = { navController.navigate(Routes.DIAGNOSTICS) },
                 )
+            }
+
+            composable(Routes.DIAGNOSTICS) {
+                DiagnosticsScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.LOGIN) {

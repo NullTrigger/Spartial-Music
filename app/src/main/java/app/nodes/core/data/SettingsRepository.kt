@@ -44,6 +44,8 @@ data class AppSettings(
     /** Local YouTube quota bookkeeping, see YOUTUBE.md. */
     val quotaDate: String = "",
     val quotaUnitsUsed: Int = 0,
+    /** Write a crash report to disk when the app dies. On by default. */
+    val crashReportsEnabled: Boolean = true,
 )
 
 /**
@@ -69,6 +71,7 @@ class SettingsRepository @Inject constructor(
             youtubeSignedIn = prefs[KEY_YOUTUBE_SIGNED_IN] ?: false,
             quotaDate = prefs[KEY_QUOTA_DATE] ?: "",
             quotaUnitsUsed = prefs[KEY_QUOTA_USED] ?: 0,
+            crashReportsEnabled = prefs[KEY_CRASH_REPORTS] ?: true,
         )
     }
 
@@ -104,6 +107,9 @@ class SettingsRepository @Inject constructor(
         prefs[KEY_YOUTUBE_SIGNED_IN] = signedIn
     }
 
+    suspend fun setCrashReportsEnabled(enabled: Boolean) =
+        dataStore.edit { it[KEY_CRASH_REPORTS] = enabled }
+
     suspend fun setQuota(date: String, used: Int) = dataStore.edit { prefs ->
         prefs[KEY_QUOTA_DATE] = date
         prefs[KEY_QUOTA_USED] = used
@@ -123,6 +129,7 @@ class SettingsRepository @Inject constructor(
         val KEY_LYRICS_DISABLED = stringSetPreferencesKey("lyrics_disabled_providers")
         val KEY_LYRICS_PREFER_SYNCED = booleanPreferencesKey("lyrics_prefer_synced")
         val KEY_LYRICS_SHOW_SOURCE = booleanPreferencesKey("lyrics_show_source")
+        val KEY_CRASH_REPORTS = booleanPreferencesKey("crash_reports_enabled")
     }
 
     /**

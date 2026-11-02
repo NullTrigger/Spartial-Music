@@ -171,7 +171,27 @@
     <string name="crash_copied">Crash report copied</string>
     <string name="settings_support">Support</string>
     <string name="settings_crash_reports">Crash reports</string>
-    <string name="settings_crash_reports_subtitle">View the last crash report</string>
+    <string name="settings_crash_reports_subtitle">View and manage crash logs</string>
+    <string name="settings_diagnostics">Diagnostics</string>
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_save_reports">Save crash reports</string>
+    <string name="diagnostics_save_reports_subtitle">Write a text file when Nodes crashes.</string>
+    <string name="diagnostics_empty">No crash reports on this device.</string>
+    <string name="diagnostics_copy_last">Copy last crash</string>
+    <string name="diagnostics_delete_all">Delete all</string>
+    <string name="diagnostics_delete">Delete</string>
+    <string name="diagnostics_share">Share</string>
+    <string name="diagnostics_deleted_all">Crash reports deleted</string>
+    <string name="diagnostics_copied">Crash report copied</string>
+    <string name="diagnostics_test_crash">Create a test crash</string>
+    <string name="diagnostics_test_crash_hint">Debug builds only. Nodes will close on purpose so the saved report and the next-launch dialog can be checked.</string>
+    <string name="crash_last_time_title">Nodes crashed last time</string>
+    <string name="crash_last_time_body">A report was saved on this device. Nothing was sent anywhere. View it, share it, or copy it to Downloads to open it in your file manager.</string>
+    <string name="crash_view">View</string>
+    <string name="crash_save_downloads">Save to Downloads</string>
+    <string name="crash_saved_downloads">Saved to Downloads/Nodes</string>
+    <string name="crash_save_failed">Could not save to Downloads. This needs Android 10 or newer.</string>
+    <string name="crash_dismiss">Dismiss</string>
 
     <!-- Common -->
     <string name="action_retry">Retry</string>

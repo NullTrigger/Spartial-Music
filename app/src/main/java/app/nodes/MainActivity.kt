@@ -31,9 +31,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import app.nodes.core.data.AppSettings
 import app.nodes.core.crash.CrashReport
+import app.nodes.core.crash.CrashStore
 import app.nodes.core.data.SettingsRepository
 import app.nodes.ui.navigation.NodesApp
 import app.nodes.ui.screens.crash.CrashActivity
+import app.nodes.ui.screens.crash.CrashDialog
 import app.nodes.ui.screens.onboarding.OnboardingScreen
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesTheme
@@ -56,13 +58,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // The previous run died: show what happened before Home appears. The
-        // page reads the saved report itself and clears the pending marker.
-        if (CrashReport.hasPending(this)) {
-            startActivity(Intent(this, CrashActivity::class.java))
-        }
-
         setContent {
+            // The previous run died: ask before Home appears. The report itself
+            // is only read if the user decides to look at it.
+            var pendingCrash by remember {
+                mutableStateOf(CrashReport.pendingReport(this@MainActivity))
+            }
             var appSettings by remember { mutableStateOf<AppSettings?>(null) }
             val scope = rememberCoroutineScope()
 
@@ -90,6 +91,25 @@ class MainActivity : ComponentActivity() {
 
                     else -> NodesApp()
                 }
+            }
+
+            val crash = pendingCrash
+            if (crash != null) {
+                CrashDialog(
+                    report = crash,
+                    onView = {
+                        val text = CrashStore.read(crash.file)
+                        CrashReport.markSeen(this@MainActivity)
+                        pendingCrash = null
+                        val intent = Intent(this@MainActivity, CrashActivity::class.java)
+                        if (text != null) intent.putExtra(CrashActivity.EXTRA_REPORT, text)
+                        startActivity(intent)
+                    },
+                    onDismiss = {
+                        CrashReport.markSeen(this@MainActivity)
+                        pendingCrash = null
+                    },
+                )
             }
 
             NotificationPermissionRequest()

@@ -7,6 +7,7 @@ package app.nodes.ui.screens.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.nodes.core.crash.AppLogger
 import app.nodes.core.data.LibraryRepository
 import app.nodes.core.data.LyricsRepository
 import app.nodes.core.data.LyricsResult
@@ -60,7 +61,8 @@ class NowPlayingViewModel @Inject constructor(
                 library.isLiked(track.id).collect { _liked.value = it }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                AppLogger.w("Player", "Reading the liked flag failed", error)
                 _liked.value = false
             }
         }
@@ -80,7 +82,8 @@ class NowPlayingViewModel @Inject constructor(
             repository.lyricsFor(track, refresh)
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            AppLogger.w("Lyrics", "Showing lyrics failed for ${track.id}", error)
             LyricsResult()
         }
 
