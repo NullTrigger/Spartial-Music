@@ -50,6 +50,12 @@ fun CrashDialog(
     if (report == null) return
 
     val context = LocalContext.current
+    // Read in composition: LocalContext is not configuration-aware, so
+    // querying it from a click lambda can hand back a stale string.
+    val shareSubject = stringResource(R.string.crash_share_subject)
+    val shareTitle = stringResource(R.string.crash_share_title)
+    val savedMessage = stringResource(R.string.crash_saved_downloads)
+    val failedMessage = stringResource(R.string.crash_save_failed)
     var text by remember(report.name) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(report.name) {
@@ -85,8 +91,8 @@ fun CrashDialog(
                             CrashShare.share(
                                 context = context,
                                 report = body,
-                                subject = context.getString(R.string.crash_share_subject),
-                                title = context.getString(R.string.crash_share_title),
+                                subject = shareSubject,
+                                title = shareTitle,
                             )
                         },
                     ) {
@@ -104,9 +110,7 @@ fun CrashDialog(
                             val saved = CrashShare.saveToDownloads(context, report.name, body)
                             Toast.makeText(
                                 context,
-                                context.getString(
-                                    if (saved) R.string.crash_saved_downloads else R.string.crash_save_failed,
-                                ),
+                                if (saved) savedMessage else failedMessage,
                                 Toast.LENGTH_LONG,
                             ).show()
                         },
