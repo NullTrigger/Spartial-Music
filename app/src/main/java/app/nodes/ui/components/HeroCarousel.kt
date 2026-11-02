@@ -5,7 +5,9 @@
 
 package app.nodes.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,7 +60,9 @@ import app.nodes.core.model.Track
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesWhite
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -74,6 +78,13 @@ import kotlinx.coroutines.launch
  * cannot keep scrolling a carousel nobody is looking at. It also pauses while a
  * finger is dragging, and resumes three seconds after the finger lifts instead
  * of four.
+ *
+ * The slide itself is smoothed twice: the pages either side of the visible one
+ * are composed ahead of time so the next poster is already decoded when the
+ * auto-advance starts, and the advance uses a slow eased tween rather than the
+ * default spring. The title, artist and play pill live inside their page and
+ * travel with the artwork instead of snapping when the page settles; only the
+ * dots stay pinned.
  */
 @Composable
 fun HeroCarousel(
@@ -101,7 +112,6 @@ fun HeroCarousel(
     val scope = rememberCoroutineScope()
 
     val index = pagerState.currentPage.mod(count)
-    val current = slides[index]
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateAsState()
@@ -119,10 +129,15 @@ fun HeroCarousel(
         delay(if (hasDragged) 3_000L else 4_000L)
         while (true) {
             try {
-                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                pagerState.animateScrollToPage(
+                    page = pagerState.currentPage + 1,
+                    animationSpec = HeroSlideAnimation,
+                )
             } catch (cancelled: CancellationException) {
-                // A drag or a screen change cancelled the slide: expected.
-                throw cancelled
+                // A dot tap interrupts the slide without cancelling this
+                // effect, so keep the loop alive; only a real cancellation
+                // (screen left, feed resized) should end it.
+                if (!currentCoroutineContext().isActive) throw cancelled
             } catch (error: Exception) {
                 // A pager that cannot scroll must not take the process down.
                 AppLogger.w("Hero", "Auto-advance failed", error)
@@ -140,6 +155,9 @@ fun HeroCarousel(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
+            // Keep the pages either side of the visible one composed, so their
+            // artwork is decoded well before the next auto-advance starts.
+            beyondViewportPageCount = 1,
             key = { page -> "hero-$page-${slides[page.mod(count)].track.id}" },
         ) { page ->
             val slide = slides[page.mod(count)]
@@ -153,84 +171,100 @@ fun HeroCarousel(
                 )
                 Box(Modifier.fillMaxSize().centreVignette())
                 Box(Modifier.fillMaxSize().bottomFade())
+
+                // The copy belongs to its poster, so it slides in and out with
+                // the artwork instead of snapping once the pager settles. The
+                // 27dp leaves the pinned dots their own strip at the bottom.
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(bottom = 27.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = slide.track.title,
+                        style = MaterialTheme.typography.displayLarge,
+                        color = NodesWhite,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = slide.track.artist,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = NodesGrey,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+
+                    Spacer(Modifier.height(18.dp))
+
+                    // Compact pill: wrap-content, 42dp tall, centred under the artist.
+                    Row(
+                        modifier = Modifier
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(21.dp))
+                            .background(Color.White.copy(alpha = 0.13f))
+                            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(21.dp))
+                            .clickable { onPlay(slide.track) }
+                            .padding(horizontal = 26.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            tint = NodesWhite,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.action_play),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = NodesWhite,
+                        )
+                    }
+                }
             }
         }
 
-        Column(
+        PagerDots(
+            count = count,
+            selected = index,
+            onSelect = { target ->
+                scope.launch {
+                    // Shortest way round, always still travelling forwards.
+                    val delta = (target - index + count) % count
+                    try {
+                        pagerState.animateScrollToPage(
+                            page = pagerState.currentPage + delta,
+                            animationSpec = HeroSlideAnimation,
+                        )
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        AppLogger.w("Hero", "Selecting a page failed", error)
+                    }
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
                 .padding(bottom = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = current.track.title,
-                style = MaterialTheme.typography.displayLarge,
-                color = NodesWhite,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = current.track.artist,
-                style = MaterialTheme.typography.bodyLarge,
-                color = NodesGrey,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
-
-            Spacer(Modifier.height(18.dp))
-
-            // Compact pill: wrap-content, 42dp tall, centred under the artist.
-            Row(
-                modifier = Modifier
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(21.dp))
-                    .background(Color.White.copy(alpha = 0.13f))
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(21.dp))
-                    .clickable { onPlay(current.track) }
-                    .padding(horizontal = 26.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = null,
-                    tint = NodesWhite,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = stringResource(R.string.action_play),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = NodesWhite,
-                )
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            PagerDots(
-                count = count,
-                selected = index,
-                onSelect = { target ->
-                    scope.launch {
-                        // Shortest way round, always still travelling forwards.
-                        val delta = (target - index + count) % count
-                        try {
-                            pagerState.animateScrollToPage(pagerState.currentPage + delta)
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (error: Exception) {
-                            AppLogger.w("Hero", "Selecting a page failed", error)
-                        }
-                    }
-                },
-            )
-        }
+        )
     }
 }
+
+/**
+ * A slow eased slide. The default spring starts and stops too abruptly for a
+ * full-bleed poster; this travels for 700ms and settles gently.
+ */
+private val HeroSlideAnimation = tween<Float>(
+    durationMillis = 700,
+    easing = FastOutSlowInEasing,
+)
 
 /** A page in the middle of the range that is a whole multiple of [count]. */
 private fun loopStart(count: Int): Int {
