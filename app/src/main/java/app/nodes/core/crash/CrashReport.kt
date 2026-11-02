@@ -39,7 +39,9 @@ object CrashReport {
     var enabled: Boolean = true
 
     private const val LOGCAT_LINES = "300"
-    private const val SECTION = "=".repeat(56)
+    /** 56 `=` characters; a literal so it can stay a compile-time constant. */
+    private const val SECTION =
+        "========================================================"
 
     /** Installs the process-wide handler; safe to call more than once. */
     fun install(context: Context) {
