@@ -44,6 +44,15 @@ class NowPlayingViewModel @Inject constructor(
         .map { it.keepScreenOn }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /**
+     * Whether lyrics follow the current line. The player can still pause
+     * following for the rest of a song when the user scrolls by hand, but the
+     * preference is the starting point for every track.
+     */
+    val lyricsAutoScroll: StateFlow<Boolean> = settings.settings
+        .map { it.lyricsAutoScroll }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     private val _lyrics = MutableStateFlow(LyricsResult())
     val lyrics: StateFlow<LyricsResult> = _lyrics.asStateFlow()
 

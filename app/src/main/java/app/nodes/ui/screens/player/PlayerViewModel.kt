@@ -35,6 +35,14 @@ class PlayerViewModel @Inject constructor(
 
     fun play(track: Track, queue: List<Track> = listOf(track)) = player.playNow(track, queue)
 
+    fun playNext(track: Track) = player.playNext(track)
+
+    fun addToQueue(track: Track) = player.addToQueue(track)
+
+    fun playQueueIndex(index: Int) = player.playQueueIndex(index)
+
+    fun removeFromQueue(index: Int) = player.removeFromQueue(index)
+
     fun togglePlayPause() = player.togglePlayPause()
 
     fun next() = player.next()

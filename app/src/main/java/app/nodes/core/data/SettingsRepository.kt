@@ -39,6 +39,14 @@ data class AppSettings(
     val lyricsDisabledProviders: Set<String> = emptySet(),
     val lyricsPreferSynced: Boolean = true,
     val lyricsShowSource: Boolean = true,
+    /** Follow the current line while a track plays. Glossy's default. */
+    val lyricsAutoScroll: Boolean = true,
+    /**
+     * Keep one copy of a track in the queue. Adding something already queued
+     * moves it instead of listing it twice, which is what made the old queue
+     * look like it was repeating the same collection.
+     */
+    val queuePreventDuplicates: Boolean = true,
     val youtubeRegion: String = "US",
     val onboardingCompleted: Boolean = false,
     val youtubeAccountEmail: String? = null,
@@ -52,6 +60,12 @@ data class AppSettings(
     val playbackSpeed: Float = 1f,
     val skipSilence: Boolean = false,
     val keepScreenOn: Boolean = false,
+    /**
+     * Stop playback and take the media service down when the app is swiped out
+     * of recents. Off by default: background playback is the expected behaviour
+     * for a music player, and this is an opt-in.
+     */
+    val stopMusicOnTaskClear: Boolean = false,
     /** Epoch millis at which the sleep timer pauses playback; 0 means off. */
     val sleepTimerEndsAt: Long = 0L,
 )
@@ -73,6 +87,8 @@ class SettingsRepository @Inject constructor(
             lyricsDisabledProviders = prefs[KEY_LYRICS_DISABLED] ?: emptySet(),
             lyricsPreferSynced = prefs[KEY_LYRICS_PREFER_SYNCED] ?: true,
             lyricsShowSource = prefs[KEY_LYRICS_SHOW_SOURCE] ?: true,
+            lyricsAutoScroll = prefs[KEY_LYRICS_AUTO_SCROLL] ?: true,
+            queuePreventDuplicates = prefs[KEY_QUEUE_PREVENT_DUPLICATES] ?: true,
             youtubeRegion = prefs[KEY_YOUTUBE_REGION] ?: "US",
             onboardingCompleted = prefs[KEY_ONBOARDING] ?: false,
             youtubeAccountEmail = prefs[KEY_YOUTUBE_EMAIL],
@@ -83,6 +99,7 @@ class SettingsRepository @Inject constructor(
             playbackSpeed = prefs[KEY_PLAYBACK_SPEED] ?: 1f,
             skipSilence = prefs[KEY_SKIP_SILENCE] ?: false,
             keepScreenOn = prefs[KEY_KEEP_SCREEN_ON] ?: false,
+            stopMusicOnTaskClear = prefs[KEY_STOP_MUSIC_ON_TASK_CLEAR] ?: false,
             sleepTimerEndsAt = prefs[KEY_SLEEP_TIMER_ENDS_AT] ?: 0L,
         )
     }
@@ -109,6 +126,12 @@ class SettingsRepository @Inject constructor(
     suspend fun setLyricsShowSource(enabled: Boolean) =
         dataStore.edit { it[KEY_LYRICS_SHOW_SOURCE] = enabled }
 
+    suspend fun setLyricsAutoScroll(enabled: Boolean) =
+        dataStore.edit { it[KEY_LYRICS_AUTO_SCROLL] = enabled }
+
+    suspend fun setQueuePreventDuplicates(enabled: Boolean) =
+        dataStore.edit { it[KEY_QUEUE_PREVENT_DUPLICATES] = enabled }
+
     suspend fun setYoutubeRegion(region: String) = dataStore.edit { it[KEY_YOUTUBE_REGION] = region }
 
     suspend fun setOnboardingCompleted(completed: Boolean) =
@@ -130,6 +153,9 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setKeepScreenOn(enabled: Boolean) =
         dataStore.edit { it[KEY_KEEP_SCREEN_ON] = enabled }
+
+    suspend fun setStopMusicOnTaskClear(enabled: Boolean) =
+        dataStore.edit { it[KEY_STOP_MUSIC_ON_TASK_CLEAR] = enabled }
 
     suspend fun setSleepTimerEndsAt(endsAt: Long) =
         dataStore.edit { it[KEY_SLEEP_TIMER_ENDS_AT] = endsAt }
@@ -153,10 +179,13 @@ class SettingsRepository @Inject constructor(
         val KEY_LYRICS_DISABLED = stringSetPreferencesKey("lyrics_disabled_providers")
         val KEY_LYRICS_PREFER_SYNCED = booleanPreferencesKey("lyrics_prefer_synced")
         val KEY_LYRICS_SHOW_SOURCE = booleanPreferencesKey("lyrics_show_source")
+        val KEY_LYRICS_AUTO_SCROLL = booleanPreferencesKey("lyrics_auto_scroll")
+        val KEY_QUEUE_PREVENT_DUPLICATES = booleanPreferencesKey("queue_prevent_duplicates")
         val KEY_CRASH_REPORTS = booleanPreferencesKey("crash_reports_enabled")
         val KEY_PLAYBACK_SPEED = floatPreferencesKey("playback_speed")
         val KEY_SKIP_SILENCE = booleanPreferencesKey("skip_silence")
         val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val KEY_STOP_MUSIC_ON_TASK_CLEAR = booleanPreferencesKey("stop_music_on_task_clear")
         val KEY_SLEEP_TIMER_ENDS_AT = longPreferencesKey("sleep_timer_ends_at")
 
         const val MIN_SPEED = 0.5f

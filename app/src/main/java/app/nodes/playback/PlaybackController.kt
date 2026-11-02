@@ -51,6 +51,11 @@ import javax.inject.Singleton
  *    as [PlayerUiState.embeddedVideoId]. No stream URL is ever resolved and
  *    ExoPlayer is stopped, so nothing keeps playing audio the player is not
  *    showing.
+ *
+ * The queue is the list of tracks the user is listening through, in the order
+ * they chose. It follows Glossy's model rather than a provider's list: Play next
+ * inserts after the current track, Add to queue appends, and neither replaces
+ * the queue with the collection a track happened to be tapped from.
  */
 @Singleton
 class PlaybackController @Inject constructor(
@@ -65,6 +70,18 @@ class PlaybackController @Inject constructor(
 
     private var controller: MediaController? = null
     private var queue: List<Track> = emptyList()
+
+    /**
+     * Index in [queue] of the entry the player is on. Kept separately from
+     * `indexOfFirst { it.id == current.id }` so a deliberately repeated track
+     * advances to the next copy instead of jumping back to the first one.
+     */
+    private var queuePosition: Int = 0
+
+    /** Mirrors the "keep the queue unique" preference without a suspend read. */
+    @Volatile
+    private var preventDuplicates = true
+
     private var sleepJob: Job? = null
 
     /**
@@ -110,11 +127,10 @@ class PlaybackController @Inject constructor(
             }
             if (playbackState != Player.STATE_ENDED) return
             if (_state.value.embeddedVideoId != null) return
-            val index = queue.indexOfFirst { it.id == _state.value.current?.id }
-            val next = queue.getOrNull(index + 1) ?: return
-            // Tracks whose URL is minted per play are not in the player's item
-            // list, so the player ends instead of advancing; keep the queue going.
-            if (next.mediaUri == null) playNow(next, queue)
+            // Tracks whose URL is minted per play are not all in the player's
+            // item list, so the player ends instead of advancing. Walk the
+            // canonical queue instead of trusting the player's timeline.
+            moveTo(queuePosition + 1)
         }
     }
 
@@ -123,6 +139,11 @@ class PlaybackController @Inject constructor(
         // A timer set in an earlier session is an absolute timestamp, so it
         // survives the process being killed instead of restarting on launch.
         scope.launch { scheduleSleep(settings.current().sleepTimerEndsAt) }
+        // Queue edits happen on the main thread; cache the preference so
+        // playNext() and addToQueue() can honour it without suspending.
+        scope.launch {
+            settings.settings.collect { preventDuplicates = it.queuePreventDuplicates }
+        }
         // Copy the interesting parts of the player state somewhere the crash
         // handler can read them from a dying thread.
         scope.launch {
@@ -255,13 +276,24 @@ class PlaybackController @Inject constructor(
                 // through the source instead of Media3 skipping to nothing.
                 val resolved = track.copy(mediaUri = handle.url)
                 val withUrls = playbackQueue.map { if (it.id == track.id) resolved else it }
-                val playable = withUrls.filter { it.mediaUri != null }
+                // Media3 identifies an item by media id, so a queue that
+                // deliberately repeats a track cannot be represented in its
+                // timeline. In that case play just the current item and let
+                // moveTo() walk the canonical queue; otherwise every resolved
+                // track can travel in the player for gapless playback.
+                val repeatsTrack = withUrls.map { it.id }.distinct().size != withUrls.size
+                val playable = if (repeatsTrack) {
+                    listOf(resolved)
+                } else {
+                    withUrls.filter { it.mediaUri != null }
+                }
                 if (playable.isEmpty()) {
                     _state.update { it.copy(message = "Nothing in this list can be streamed.") }
                     return
                 }
                 val startIndex = playable.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
                 queue = withUrls
+                queuePosition = positionOf(track, withUrls)
                 player.setMediaItems(playable.map { it.toMediaItem() }, startIndex, 0L)
                 player.prepare()
                 player.play()
@@ -269,6 +301,7 @@ class PlaybackController @Inject constructor(
                     it.copy(
                         current = resolved,
                         queue = withUrls,
+                        queueIndex = queuePosition,
                         embeddedVideoId = null,
                         isPlaying = true,
                         isBuffering = true,
@@ -281,11 +314,17 @@ class PlaybackController @Inject constructor(
 
             is PlaybackHandle.EmbeddedVideo -> {
                 controller?.pause()
-                queue = listOf(track)
+                // Keep the collection the track was opened from so Next and
+                // Previous still walk it; the embedded player only ever shows
+                // one video at a time.
+                val nextQueue = playbackQueue.ifEmpty { listOf(track) }
+                queue = nextQueue
+                queuePosition = positionOf(track, nextQueue)
                 _state.update {
                     it.copy(
                         current = track,
-                        queue = listOf(track),
+                        queue = nextQueue,
+                        queueIndex = queuePosition,
                         embeddedVideoId = handle.videoId,
                         isPlaying = false,
                         isBuffering = false,
@@ -301,6 +340,177 @@ class PlaybackController @Inject constructor(
             null -> _state.update {
                 it.copy(message = "This track cannot be played from ${track.sourceId.key}.")
             }
+        }
+    }
+
+    /**
+     * Glossy-style "play next": insert directly after whatever is playing
+     * instead of replacing the queue with the list the track came from. The
+     * queue is the order the user built, not a provider's ordering.
+     */
+    fun playNext(track: Track) = insertQueue(track, afterCurrent = true)
+
+    /** Glossy-style "add to queue": append to the end of the current queue. */
+    fun addToQueue(track: Track) = insertQueue(track, afterCurrent = false)
+
+    /** Jump to a row of the queue without disturbing the rows around it. */
+    fun playQueueIndex(index: Int) {
+        if (index !in queue.indices || index == queuePosition) return
+        moveTo(index)
+    }
+
+    /**
+     * Removes a queued track. The playing row is intentionally not removable:
+     * deleting it would leave the player pointing at a vanished item. Skip
+     * first, then remove it from its new (non-current) position.
+     */
+    fun removeFromQueue(index: Int) {
+        val item = queue.getOrNull(index) ?: return
+        if (item.id == _state.value.current?.id) return
+        val next = queue.toMutableList()
+        next.removeAt(index)
+        if (index < queuePosition) queuePosition--
+        publishQueue(next)
+    }
+
+    private fun insertQueue(track: Track, afterCurrent: Boolean) {
+        val current = _state.value.current
+        if (current == null || queue.isEmpty()) {
+            playNow(track, listOf(track))
+            return
+        }
+        if (track.id == current.id) {
+            _state.update { it.copy(message = context.getString(R.string.player_already_playing)) }
+            return
+        }
+        val next = QueueEdits.insert(
+            queue = queue,
+            playingId = current.id,
+            track = track,
+            afterCurrent = afterCurrent,
+            preventDuplicates = preventDuplicates,
+        )
+        publishQueue(next)
+        _state.update {
+            it.copy(
+                message = context.getString(
+                    if (afterCurrent) R.string.player_playing_next else R.string.player_added_to_queue,
+                    track.title,
+                ),
+            )
+        }
+    }
+
+    private fun publishQueue(next: List<Track>) {
+        val currentId = _state.value.current?.id
+        queue = next
+        if (currentId != null) {
+            val forward = (queuePosition.coerceAtLeast(0) until next.size)
+                .firstOrNull { next[it].id == currentId }
+            queuePosition = forward ?: next.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        }
+        _state.update { it.copy(queue = next, queueIndex = queuePosition) }
+        reconcilePlayerQueue()
+    }
+
+    /**
+     * Moves to the queue entry at [index]. A track already in the player's item
+     * list is reused, so skipping does not re-mint a stream that is still valid
+     * and does not reload a local file; everything else goes through [playNow].
+     */
+    private fun moveTo(index: Int) {
+        val track = queue.getOrNull(index) ?: return
+        val current = _state.value
+        if (index == queuePosition && track.id == current.current?.id) return
+        queuePosition = index
+        _state.update { it.copy(queueIndex = index) }
+        val player = controller
+        val playerIndex = if (player != null &&
+            current.embeddedVideoId == null &&
+            track.id != current.current?.id
+        ) {
+            (0 until player.mediaItemCount).firstOrNull {
+                player.getMediaItemAt(it).mediaId == track.id
+            }
+        } else {
+            null
+        }
+        if (player != null && playerIndex != null) {
+            try {
+                player.seekTo(playerIndex, 0L)
+                if (player.playbackState == Player.STATE_IDLE ||
+                    player.playbackState == Player.STATE_ENDED
+                ) {
+                    player.prepare()
+                }
+                player.play()
+                syncFromController()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                AppLogger.e("Player", "Skipping inside the queue failed", error)
+                playNow(track, queue)
+            }
+        } else {
+            playNow(track, queue)
+        }
+    }
+
+    /**
+     * Index of [track] in [list], starting from the last known queue position.
+     * Forward first (the normal case: playback advanced), then backwards (the
+     * user pressed Previous), and only then the first copy.
+     */
+    private fun positionOf(track: Track, list: List<Track>): Int {
+        if (list.isEmpty()) return 0
+        val hint = queuePosition.coerceIn(0, list.lastIndex)
+        if (list[hint].id == track.id) return hint
+        val forward = (hint until list.size).firstOrNull { list[it].id == track.id }
+        if (forward != null) return forward
+        val backward = (hint - 1 downTo 0).firstOrNull { list[it].id == track.id }
+        return backward ?: list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+    }
+
+    /**
+     * Mirrors the canonical queue into the player's item list after an edit.
+     *
+     * Media3 identifies items by media id, so a queue that deliberately holds
+     * the same track twice cannot be represented; those are left to [moveTo]
+     * and skipped here. Removing and inserting items does not interrupt the
+     * track that is currently playing.
+     */
+    private fun reconcilePlayerQueue() {
+        val player = controller ?: return
+        val currentId = _state.value.current?.id ?: return
+        if (_state.value.embeddedVideoId != null) return
+        val desired = queue.filter { it.mediaUri != null }
+        if (desired.isEmpty() || desired.none { it.id == currentId }) return
+        if (desired.map { it.id }.distinct().size != desired.size) return
+        val canEdit = runCatching {
+            player.isCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+        }.getOrDefault(false)
+        if (!canEdit) return
+        try {
+            for (index in player.mediaItemCount - 1 downTo 0) {
+                val id = player.getMediaItemAt(index).mediaId
+                if (desired.none { it.id == id }) player.removeMediaItem(index)
+            }
+            desired.forEachIndexed { index, track ->
+                val existing = (0 until player.mediaItemCount).firstOrNull {
+                    player.getMediaItemAt(it).mediaId == track.id
+                }
+                when {
+                    existing == null ->
+                        player.addMediaItems(
+                            index.coerceAtMost(player.mediaItemCount),
+                            listOf(track.toMediaItem()),
+                        )
+
+                    existing != index -> player.moveMediaItem(existing, index)
+                }
+            }
+        } catch (error: Exception) {
+            AppLogger.w("Player", "Updating the player queue failed", error)
         }
     }
 
@@ -320,14 +530,7 @@ class PlaybackController @Inject constructor(
 
     fun next() {
         try {
-            val current = _state.value
-            val index = queue.indexOfFirst { it.id == current.current?.id }
-            val candidate = queue.getOrNull(index + 1)
-            if (candidate != null && (current.embeddedVideoId != null || candidate.mediaUri == null)) {
-                playNow(candidate, queue)
-                return
-            }
-            controller?.seekToNextMediaItem()
+            moveTo(queuePosition + 1)
         } catch (error: Exception) {
             AppLogger.e("Player", "Skipping to the next track failed", error)
         }
@@ -336,13 +539,13 @@ class PlaybackController @Inject constructor(
     fun previous() {
         try {
             val current = _state.value
-            val index = queue.indexOfFirst { it.id == current.current?.id }
-            val candidate = queue.getOrNull(index - 1)
-            if (candidate != null && (current.embeddedVideoId != null || candidate.mediaUri == null)) {
-                playNow(candidate, queue)
+            // Standard behaviour, and what Glossy does: after a few seconds
+            // Previous restarts the song instead of leaving it.
+            if (current.positionMs > 3_000L || queuePosition <= 0) {
+                seekTo(0L)
                 return
             }
-            controller?.seekToPreviousMediaItem()
+            moveTo(queuePosition - 1)
         } catch (error: Exception) {
             AppLogger.e("Player", "Skipping to the previous track failed", error)
         }
@@ -411,10 +614,12 @@ class PlaybackController @Inject constructor(
         // is the reliable way to find which track is actually playing.
         val track = queue.firstOrNull { it.id == player.currentMediaItem?.mediaId }
             ?: queue.getOrNull(player.currentMediaItemIndex)
+        if (track != null) queuePosition = positionOf(track, queue)
         _state.update { state ->
             state.copy(
                 current = track ?: state.current,
                 queue = queue.ifEmpty { state.queue },
+                queueIndex = queuePosition,
                 isPlaying = player.isPlaying,
                 isBuffering = player.playbackState == Player.STATE_BUFFERING,
                 positionMs = player.currentPosition.coerceAtLeast(0L),

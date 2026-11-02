@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
 import app.nodes.ui.components.EmptyPanel
 import app.nodes.ui.components.PageHeader
+import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.TrackRow
 import app.nodes.ui.components.sourceErrorMessage
 import app.nodes.ui.screens.player.PlayerViewModel
@@ -74,6 +75,12 @@ fun TrendingScreen(
                     track = track,
                     position = index + 1,
                     onClick = { playerViewModel.play(track, state.tracks) },
+                    trailing = {
+                        TrackMenuButton(
+                            onPlayNext = { playerViewModel.playNext(track) },
+                            onAddToQueue = { playerViewModel.addToQueue(track) },
+                        )
+                    },
                 )
             }
 

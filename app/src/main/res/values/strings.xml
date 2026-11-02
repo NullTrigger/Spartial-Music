@@ -109,6 +109,14 @@
     <string name="player_youtube_card">YouTube video</string>
     <string name="player_like">Like</string>
     <string name="player_add_to_playlist">Add to playlist</string>
+    <string name="player_queue_options">Queue options</string>
+    <string name="player_play_next">Play next</string>
+    <string name="player_add_to_queue">Add to queue</string>
+    <string name="player_remove_from_queue">Remove from queue</string>
+    <string name="player_auto_scroll">Auto-scroll</string>
+    <string name="player_playing_next">Playing next: %1$s</string>
+    <string name="player_added_to_queue">Added to queue: %1$s</string>
+    <string name="player_already_playing">Already playing this track</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -198,6 +206,8 @@
     <string name="settings_lyrics_prefer_synced_hint">Plain text is used only when nothing is timed</string>
     <string name="settings_lyrics_show_source">Show which source was used</string>
     <string name="settings_lyrics_show_source_hint">A small label under the lyrics</string>
+    <string name="settings_lyrics_auto_scroll">Auto-scroll lyrics</string>
+    <string name="settings_lyrics_auto_scroll_hint">Follow the current line while a song plays. Scrolling by hand pauses it until you tap the chip in the player</string>
     <string name="settings_lyrics_about">How this works</string>
     <string name="settings_lyrics_about_note">Sources are tried top to bottom. Lyrics are cached on this device and never uploaded. Local files always win because you put them there on purpose.</string>
     <string name="settings_lyrics_source_on">Used when the source above has nothing</string>
@@ -231,6 +241,12 @@
     <string name="settings_sleep_timer_off">Off</string>
     <string name="settings_sleep_timer_minutes">%1$d minutes</string>
     <string name="settings_sleep_timer_remaining">%1$d min left</string>
+    <string name="settings_group_background">Background</string>
+    <string name="settings_group_queue">Queue</string>
+    <string name="settings_queue_prevent_duplicates">Keep the queue unique</string>
+    <string name="settings_queue_prevent_duplicates_hint">Adding a track that is already queued moves it instead of listing it twice</string>
+    <string name="settings_stop_music_on_task_clear">Stop music when cleared from recents</string>
+    <string name="settings_stop_music_on_task_clear_hint">Swiping Nodes away from recent apps ends playback and removes the notification</string>
     <string name="settings_keep_screen_on">Keep the screen on in the player</string>
     <string name="settings_keep_screen_on_hint">Only while Now Playing is open</string>
     <string name="settings_close">Close</string>

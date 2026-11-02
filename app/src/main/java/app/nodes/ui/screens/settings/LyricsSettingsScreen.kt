@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -76,6 +77,14 @@ fun LyricsSettingsScreen(
 
         item(key = "display") {
             SettingsGroup(stringResource(R.string.settings_lyrics_display)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_lyrics_auto_scroll),
+                    subtitle = stringResource(R.string.settings_lyrics_auto_scroll_hint),
+                    icon = Icons.Rounded.Sync,
+                    checked = settings.lyricsAutoScroll,
+                    onCheckedChange = viewModel::setLyricsAutoScroll,
+                )
+                SettingsDivider()
                 SettingsSwitchRow(
                     title = stringResource(R.string.settings_lyrics_prefer_synced),
                     subtitle = stringResource(R.string.settings_lyrics_prefer_synced_hint),

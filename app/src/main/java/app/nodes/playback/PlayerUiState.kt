@@ -10,6 +10,12 @@ import app.nodes.core.model.Track
 data class PlayerUiState(
     val current: Track? = null,
     val queue: List<Track> = emptyList(),
+    /**
+     * Position of [current] in [queue]. This is not always the first matching
+     * id: a queue may legitimately hold the same track twice when "keep the
+     * queue unique" is off, and then the second copy must be highlighted.
+     */
+    val queueIndex: Int = 0,
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
     val positionMs: Long = 0L,

@@ -8,7 +8,9 @@ package app.nodes.ui.screens.settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.ScreenLockPortrait
 import androidx.compose.material.icons.rounded.SpaceBar
 import androidx.compose.material.icons.rounded.Speed
@@ -41,7 +43,8 @@ private val SleepOptions = listOf(0, 15, 30, 45, 60)
  * because a MediaController cannot set them, so they survive the session and
  * apply to the next track too. The sleep timer is an absolute deadline owned by
  * the playback controller, which is why it keeps counting while the app is in
- * the background.
+ * the background. "Stop when cleared from recents" is enforced by the service
+ * as well, since only it receives `onTaskRemoved`.
  */
 @Composable
 fun PlaybackSettingsScreen(
@@ -117,6 +120,30 @@ fun PlaybackSettingsScreen(
                     value = sleepText,
                     icon = Icons.Rounded.Timer,
                     onClick = { showSleepPicker = true },
+                )
+            }
+        }
+
+        item(key = "queue") {
+            SettingsGroup(stringResource(R.string.settings_group_queue)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_queue_prevent_duplicates),
+                    subtitle = stringResource(R.string.settings_queue_prevent_duplicates_hint),
+                    icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                    checked = settings.queuePreventDuplicates,
+                    onCheckedChange = viewModel::setQueuePreventDuplicates,
+                )
+            }
+        }
+
+        item(key = "background") {
+            SettingsGroup(stringResource(R.string.settings_group_background)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_stop_music_on_task_clear),
+                    subtitle = stringResource(R.string.settings_stop_music_on_task_clear_hint),
+                    icon = Icons.Rounded.ClearAll,
+                    checked = settings.stopMusicOnTaskClear,
+                    onCheckedChange = viewModel::setStopMusicOnTaskClear,
                 )
             }
         }
