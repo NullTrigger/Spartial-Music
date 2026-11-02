@@ -5,8 +5,10 @@
 
 package app.nodes.ui.screens.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.nodes.R
 import app.nodes.core.data.AppSettings
 import app.nodes.core.data.RemoteCache
 import app.nodes.core.data.SearchHistoryRepository
@@ -14,16 +16,19 @@ import app.nodes.core.data.SettingsRepository
 import app.nodes.core.source.youtubemusic.InnerTubeAccount
 import app.nodes.core.source.youtubemusic.InnerTubeAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val settings: SettingsRepository,
     private val cache: RemoteCache,
     private val searchHistory: SearchHistoryRepository,
@@ -38,6 +43,10 @@ class SettingsViewModel @Inject constructor(
 
     /** The Google account whose YouTube Music cookie is stored, if any. */
     val musicAccount: StateFlow<InnerTubeAccount?> = innerTubeAuth.account
+
+    val recentSearchCount: StateFlow<Int> = searchHistory.recent
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch { settings.setDynamicColor(enabled) }
@@ -55,6 +64,35 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settings.setCrashReportsEnabled(enabled) }
     }
 
+    fun setYoutubeRegion(region: String) {
+        viewModelScope.launch { settings.setYoutubeRegion(region) }
+    }
+
+    fun setLyricsPreferSynced(enabled: Boolean) {
+        viewModelScope.launch { settings.setLyricsPreferSynced(enabled) }
+    }
+
+    fun setLyricsShowSource(enabled: Boolean) {
+        viewModelScope.launch { settings.setLyricsShowSource(enabled) }
+    }
+
+    fun setLyricsProviderEnabled(id: String, enabled: Boolean) {
+        viewModelScope.launch { settings.setLyricsProviderEnabled(id, enabled) }
+    }
+
+    /** Swaps [id] with its neighbour; the ends of the list do nothing. */
+    fun moveLyricsProvider(id: String, delta: Int) {
+        viewModelScope.launch {
+            val order = appSettings.value.lyricsProviderOrder.toMutableList()
+            val from = order.indexOf(id)
+            val to = from + delta
+            if (from < 0 || to !in order.indices) return@launch
+            val moved = order.removeAt(from)
+            order.add(to, moved)
+            settings.setLyricsProviderOrder(order)
+        }
+    }
+
     fun signOutMusic() {
         innerTubeAuth.signOut()
         // Drop the WebView cookies too, otherwise the next visit to the login
@@ -63,15 +101,21 @@ class SettingsViewModel @Inject constructor(
         android.webkit.CookieManager.getInstance().flush()
         viewModelScope.launch {
             settings.setYoutubeAccount(null, false)
-            _message.value = "Signed out of YouTube Music. Home is anonymous again."
+            _message.value = context.getString(R.string.settings_signed_out)
         }
     }
 
     fun clearCache() {
         viewModelScope.launch {
             cache.clear()
+            _message.value = context.getString(R.string.settings_cache_cleared)
+        }
+    }
+
+    fun clearSearchHistory() {
+        viewModelScope.launch {
             searchHistory.clear()
-            _message.value = "Cached responses cleared."
+            _message.value = context.getString(R.string.settings_search_history_cleared)
         }
     }
 

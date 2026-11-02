@@ -5,29 +5,20 @@
 
 package app.nodes.ui.screens.settings
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import android.os.Build
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -35,268 +26,203 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.BuildConfig
 import app.nodes.R
 import app.nodes.ui.components.MessageBanner
-import app.nodes.ui.components.PageHeader
-import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesTeal
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.NodesGreyDim
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 
+/**
+ * Settings root.
+ *
+ * One card per topic, each row carrying its current value, and a sub-screen for
+ * anything that needs more than a single switch. The account card answers
+ * "what is signed in and what is serving my audio" before the user has to open
+ * anything.
+ */
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenLogin: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onOpenAppearance: () -> Unit,
+    onOpenContent: () -> Unit,
+    onOpenLyrics: () -> Unit,
+    onOpenData: () -> Unit,
+    onOpenAbout: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val musicAccount by viewModel.musicAccount.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(NodesBlack),
+    val anonymous = stringResource(R.string.settings_status_signed_out)
+    val anonymousHint = stringResource(R.string.settings_status_signed_out_hint)
+    val signedInHint = stringResource(R.string.settings_status_signed_in_hint)
+    val dynamicHint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        stringResource(R.string.settings_dynamic_color_hint)
+    } else {
+        stringResource(R.string.settings_dynamic_color_unsupported)
+    }
+    val lyricsSummary = stringResource(
+        R.string.settings_lyrics_summary,
+        providerLabel(settings.lyricsProviderOrder.firstOrNull { it !in settings.lyricsDisabledProviders }),
+        settings.lyricsProviderOrder.count { it !in settings.lyricsDisabledProviders },
+        settings.lyricsProviderOrder.size,
+    )
+
+    SettingsScaffold(
+        title = stringResource(R.string.settings_title),
+        onBack = onBack,
     ) {
-        PageHeader(
-            title = stringResource(R.string.settings_title),
-            back = onBack,
-        )
-
-        message?.let { text ->
-            MessageBanner(message = text, onDismiss = viewModel::dismissMessage)
-        }
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 40.dp),
-        ) {
-            item(key = "appearance") {
-                SettingsSection(stringResource(R.string.settings_appearance))
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_dynamic_color),
-                    subtitle = stringResource(R.string.settings_dark_only),
-                    checked = settings.dynamicColor,
-                    onCheckedChange = viewModel::setDynamicColor,
+        item(key = "account") {
+            val account = musicAccount
+            if (account == null) {
+                SettingsAccountCard(
+                    initial = "N",
+                    title = anonymous,
+                    subtitle = anonymousHint,
+                    onClick = onOpenLogin,
+                )
+            } else {
+                SettingsAccountCard(
+                    initial = (account.name ?: account.email ?: "N").take(1).uppercase(),
+                    title = account.email ?: account.name ?: anonymous,
+                    subtitle = signedInHint,
+                    onClick = onOpenContent,
                 )
             }
+        }
 
-            item(key = "audio") {
-                SettingsSection(stringResource(R.string.settings_audio))
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_wifi_only),
-                    subtitle = null,
-                    checked = settings.wifiOnlyStreaming,
-                    onCheckedChange = viewModel::setWifiOnly,
+        val banner = message
+        if (banner != null) {
+            item(key = "message") {
+                MessageBanner(
+                    message = banner,
+                    onDismiss = viewModel::dismissMessage,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
+            }
+        }
+
+        item(key = "playback") {
+            SettingsGroup(stringResource(R.string.settings_group_playback)) {
                 SettingsSwitchRow(
                     title = stringResource(R.string.settings_audio_quality),
-                    subtitle = null,
+                    subtitle = stringResource(R.string.settings_audio_quality_hint),
+                    icon = Icons.Rounded.Headphones,
                     checked = settings.highQualityAudio,
                     onCheckedChange = viewModel::setHighQuality,
                 )
-            }
-
-            item(key = "ytmusic-account") {
-                SettingsSection(stringResource(R.string.settings_ytmusic_account))
-                Text(
-                    text = stringResource(R.string.settings_ytmusic_account_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-                )
-                val account = musicAccount
-                if (account != null) {
-                    SettingsActionRow(
-                        title = stringResource(R.string.settings_ytmusic_signout),
-                        subtitle = stringResource(
-                            R.string.settings_ytmusic_signed_in_as,
-                            account.email ?: account.name,
-                        ),
-                        onClick = viewModel::signOutMusic,
-                    )
-                } else {
-                    SettingsActionRow(
-                        title = stringResource(R.string.settings_ytmusic_signin),
-                        subtitle = null,
-                        onClick = onOpenLogin,
-                    )
-                }
-            }
-
-            item(key = "storage") {
-                SettingsSection(stringResource(R.string.settings_storage))
-                SettingsActionRow(
-                    title = stringResource(R.string.settings_clear_cache),
-                    subtitle = null,
-                    onClick = viewModel::clearCache,
+                SettingsDivider()
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_wifi_only),
+                    subtitle = stringResource(R.string.settings_wifi_only_hint),
+                    checked = settings.wifiOnlyStreaming,
+                    onCheckedChange = viewModel::setWifiOnly,
                 )
             }
+        }
 
-            item(key = "diagnostics") {
-                SettingsSection(stringResource(R.string.settings_diagnostics))
-                SettingsActionRow(
+        item(key = "appearance") {
+            SettingsGroup(stringResource(R.string.settings_appearance)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_dynamic_color),
+                    subtitle = dynamicHint,
+                    icon = Icons.Rounded.Palette,
+                    checked = settings.dynamicColor,
+                    onCheckedChange = viewModel::setDynamicColor,
+                )
+                SettingsDivider()
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_theme),
+                    subtitle = stringResource(R.string.settings_dark_only),
+                    value = stringResource(R.string.settings_theme_dark),
+                    icon = Icons.Rounded.DarkMode,
+                    onClick = onOpenAppearance,
+                )
+            }
+        }
+
+        item(key = "content") {
+            SettingsGroup(stringResource(R.string.settings_group_content)) {
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_source_title),
+                    subtitle = stringResource(R.string.settings_source_hint),
+                    value = stringResource(R.string.settings_source_innertube),
+                    icon = Icons.Rounded.Public,
+                    onClick = onOpenContent,
+                )
+                SettingsDivider()
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_youtube_region),
+                    value = regionLabel(settings.youtubeRegion),
+                    onClick = onOpenContent,
+                )
+                SettingsDivider()
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_lyrics_title),
+                    subtitle = lyricsSummary,
+                    icon = Icons.Rounded.Subtitles,
+                    onClick = onOpenLyrics,
+                )
+            }
+        }
+
+        item(key = "data") {
+            SettingsGroup(stringResource(R.string.settings_group_data)) {
+                SettingsSwitchRow(
                     title = stringResource(R.string.settings_crash_reports),
+                    subtitle = stringResource(R.string.settings_crash_reports_short),
+                    icon = Icons.Rounded.Shield,
+                    checked = settings.crashReportsEnabled,
+                    onCheckedChange = viewModel::setCrashReportsEnabled,
+                )
+                SettingsDivider()
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_storage),
+                    subtitle = stringResource(R.string.settings_storage_hint),
+                    icon = Icons.Rounded.Storage,
+                    onClick = onOpenData,
+                )
+                SettingsDivider()
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_diagnostics),
                     subtitle = stringResource(R.string.settings_crash_reports_subtitle),
                     onClick = onOpenDiagnostics,
                 )
             }
+        }
 
-            item(key = "about") {
-                SettingsSection(stringResource(R.string.settings_about))
-                Text(
-                    text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                )
-                Text(
-                    text = stringResource(R.string.settings_source_of_truth),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                )
-                SettingsLinkRow(
-                    title = stringResource(R.string.settings_terms),
-                    onClick = { openUrl(context, "https://www.youtube.com/t/terms") },
-                )
-                SettingsLinkRow(
-                    title = stringResource(R.string.settings_google_privacy),
-                    onClick = { openUrl(context, "https://policies.google.com/privacy") },
-                )
-                SettingsLinkRow(
-                    title = stringResource(R.string.settings_licenses),
-                    onClick = { openUrl(context, "https://github.com/nodes-app/nodes/blob/main/NOTICE.md") },
-                )
-                SettingsLinkRow(
-                    title = stringResource(R.string.settings_privacy),
-                    onClick = { openUrl(context, "https://github.com/nodes-app/nodes/blob/main/PRIVACY.md") },
-                )
-                Text(
-                    text = stringResource(R.string.disclaimer_short),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NodesGrey.copy(alpha = 0.8f),
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                )
-                Text(
-                    text = stringResource(R.string.app_tagline),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NodesGrey.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        item(key = "about") {
+            SettingsGroup(stringResource(R.string.settings_about)) {
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_about_title),
+                    subtitle = stringResource(R.string.settings_source_of_truth),
+                    icon = Icons.Rounded.Info,
+                    onClick = onOpenAbout,
                 )
             }
         }
-    }
-}
 
-@Composable
-private fun SettingsSection(title: String) {
-    Text(
-        text = title.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = NodesGrey,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 6.dp),
-    )
-}
-
-@Composable
-private fun SettingsSwitchRow(
-    title: String,
-    subtitle: String?,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
+        item(key = "footer") {
             Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = NodesWhite,
+                text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
+                style = MaterialTheme.typography.labelSmall,
+                color = NodesGreyDim,
+                modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 22.dp),
             )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
-                )
-            }
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = NodesBlack,
-                checkedTrackColor = NodesTeal,
-                uncheckedThumbColor = NodesGrey,
-                uncheckedTrackColor = Color.White.copy(alpha = 0.08f),
-            ),
-        )
-    }
-}
-
-@Composable
-private fun SettingsActionRow(
-    title: String,
-    subtitle: String?,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = NodesWhite,
+                text = stringResource(R.string.app_tagline),
+                style = MaterialTheme.typography.labelSmall,
+                color = NodesGrey.copy(alpha = 0.7f),
+                modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 6.dp),
             )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
-                )
-            }
+            Text(
+                text = stringResource(R.string.disclaimer_short),
+                style = MaterialTheme.typography.labelSmall,
+                color = NodesGreyDim,
+                modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 10.dp),
+            )
         }
-    }
-}
-
-@Composable
-private fun SettingsLinkRow(title: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = NodesWhite.copy(alpha = 0.9f),
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = "↗",
-            style = MaterialTheme.typography.bodyMedium,
-            color = NodesGrey,
-        )
-    }
-}
-
-private fun openUrl(context: Context, url: String) {
-    runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-    }.onFailure {
-        if (it !is ActivityNotFoundException) throw it
     }
 }

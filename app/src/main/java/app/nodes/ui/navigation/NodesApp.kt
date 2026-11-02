@@ -40,6 +40,11 @@ import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.screens.playlist.PlaylistDetailScreen
 import app.nodes.ui.screens.search.SearchScreen
 import app.nodes.ui.screens.sessions.SessionsScreen
+import app.nodes.ui.screens.settings.AboutSettingsScreen
+import app.nodes.ui.screens.settings.AppearanceSettingsScreen
+import app.nodes.ui.screens.settings.ContentSettingsScreen
+import app.nodes.ui.screens.settings.DataSettingsScreen
+import app.nodes.ui.screens.settings.LyricsSettingsScreen
 import app.nodes.ui.screens.settings.SettingsScreen
 import app.nodes.ui.screens.trending.TrendingScreen
 import app.nodes.ui.theme.NodesBlack
@@ -117,7 +122,38 @@ fun NodesApp() {
                     onBack = { navController.popBackStack() },
                     onOpenLogin = { navController.navigate(Routes.LOGIN) },
                     onOpenDiagnostics = { navController.navigate(Routes.DIAGNOSTICS) },
+                    onOpenAppearance = { navController.navigate(Routes.SETTINGS_APPEARANCE) },
+                    onOpenContent = { navController.navigate(Routes.SETTINGS_CONTENT) },
+                    onOpenLyrics = { navController.navigate(Routes.SETTINGS_LYRICS) },
+                    onOpenData = { navController.navigate(Routes.SETTINGS_DATA) },
+                    onOpenAbout = { navController.navigate(Routes.SETTINGS_ABOUT) },
                 )
+            }
+
+            composable(Routes.SETTINGS_APPEARANCE) {
+                AppearanceSettingsScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.SETTINGS_CONTENT) {
+                ContentSettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenLogin = { navController.navigate(Routes.LOGIN) },
+                )
+            }
+
+            composable(Routes.SETTINGS_LYRICS) {
+                LyricsSettingsScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.SETTINGS_DATA) {
+                DataSettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenDiagnostics = { navController.navigate(Routes.DIAGNOSTICS) },
+                )
+            }
+
+            composable(Routes.SETTINGS_ABOUT) {
+                AboutSettingsScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.DIAGNOSTICS) {
