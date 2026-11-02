@@ -68,10 +68,12 @@ add or bump a dependency.
 
 ## Fonts and images
 
-Nodes bundles **no** fonts and **no** raster artwork. Typography uses the
-platform's sans and serif families; cover art is either fetched from the provider
-or generated procedurally; the logo, wordmark and favicon in `branding/` were
-drawn for this project (GPL-3.0-or-later).
+Nodes bundles **no** third-party fonts or artwork. Typography uses the platform's
+sans and serif families; cover art is either fetched from the provider or
+generated procedurally. The app icon and the logo, wordmark and favicon in
+`branding/` are the project's own branding, supplied for Nodes and distributed
+under GPL-3.0-or-later; see [NOTICE.md](NOTICE.md) and
+[branding/README.md](branding/README.md).
 
 ## Credits
 

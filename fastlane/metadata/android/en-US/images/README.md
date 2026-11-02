@@ -5,13 +5,14 @@
 
 # Store images
 
-F-Droid and Play need raster images; none are committed yet because they must
-show the real app. To complete the listing:
+F-Droid and Play need raster images. The launcher icon is committed; the feature
+graphic and screenshots are not, because the screenshots must show the real app.
+To complete the listing:
 
 | File | Size | Content |
 | --- | --- | --- |
-| `icon.png` | 512×512 | export of `branding/nodes-logo.svg` |
-| `featureGraphic.png` | 1024×500 | mark + "Nodes" wordmark on #050506 |
+| `icon.png` | 512×512 | official Nodes mark on #050506 (committed) |
+| `featureGraphic.png` | 1024×500 | mark + "Nodes" wordmark on #050506, based on `branding/nodes-logo.png` |
 | `phoneScreenshots/1.png` | 1080×2400 | Home |
 | `phoneScreenshots/2.png` | 1080×2400 | Now Playing |
 | `phoneScreenshots/3.png` | 1080×2400 | Library |

@@ -47,5 +47,9 @@ Full list with licences: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 - No album art, artist names or audio from third parties is bundled in this
   repository. Placeholder artwork is generated procedurally, and the sample
   catalogue in `DemoCatalog.kt` is fictional.
-- The Nodes logo and wordmark in `branding/` are original artwork created for this
-  project and are licensed under GPL-3.0-or-later along with the code.
+- The Nodes name, app icon and the logo, wordmark and favicon in `branding/` are
+  the project's official branding. The mark was supplied to the project by a
+  collaborator of the maintainer in 2026 and adopted as the official Nodes logo
+  with the maintainer's approval. The exact tool used to create it was not
+  recorded and may have been an AI image generator. The files are distributed
+  with the project under GPL-3.0-or-later; see [branding/README.md](branding/README.md).
