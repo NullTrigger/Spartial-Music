@@ -16,6 +16,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import app.nodes.R
+import app.nodes.core.crash.AppLogger
+import app.nodes.core.crash.AppSnapshot
 import app.nodes.core.data.LibraryRepository
 import app.nodes.core.model.PlaybackHandle
 import app.nodes.core.model.SourceId
@@ -79,6 +81,7 @@ class PlaybackController @Inject constructor(
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            AppLogger.e("Player", "Playback error ${error.errorCodeName}", error)
             val track = _state.value.current
             // ERROR_CODE_IO_BAD_HTTP_STATUS is the CDN answering 403: the URL
             // expired, or was minted for a session it no longer matches. Resolve
@@ -113,6 +116,21 @@ class PlaybackController @Inject constructor(
 
     init {
         connect()
+        // Copy the interesting parts of the player state somewhere the crash
+        // handler can read them from a dying thread.
+        scope.launch {
+            state.collect { current ->
+                AppSnapshot.player = buildString {
+                    append("track=").append(current.current?.id ?: "none")
+                    append(" playing=").append(current.isPlaying)
+                    append(" buffering=").append(current.isBuffering)
+                    append(" queue=").append(current.queue.size)
+                    append(" position=").append(current.positionMs).append("ms")
+                    append(" duration=").append(current.durationMs).append("ms")
+                    if (current.embeddedVideoId != null) append(" embedded=true")
+                }
+            }
+        }
         scope.launch {
             while (true) {
                 // This loop is the one piece of code that runs for the whole
@@ -133,8 +151,9 @@ class PlaybackController @Inject constructor(
                     }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
-                } catch (_: Exception) {
+                } catch (error: Exception) {
                     // Session died or is between states; nothing to show this tick.
+                    AppLogger.w("Player", "Playback tick skipped", error)
                 }
                 delay(TICK_MS)
             }
@@ -180,7 +199,8 @@ class PlaybackController @Inject constructor(
                 source?.play(track) ?: SourceResult.Failure(SourceErrorType.UNKNOWN)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                AppLogger.e("Player", "Resolving the stream failed", error)
                 _state.update { it.copy(message = context.getString(R.string.playback_could_not_start)) }
                 return@launch
             }
@@ -195,7 +215,8 @@ class PlaybackController @Inject constructor(
                 applyHandle(track, playbackQueue, handle)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                AppLogger.e("Player", "Starting the player failed", error)
                 _state.update { it.copy(message = context.getString(R.string.playback_could_not_start)) }
             }
         }
@@ -277,40 +298,56 @@ class PlaybackController @Inject constructor(
     }
 
     fun togglePlayPause() {
-        if (_state.value.embeddedVideoId != null) {
-            _state.update { it.copy(message = "Use the YouTube player controls for this track.") }
-            return
+        try {
+            if (_state.value.embeddedVideoId != null) {
+                _state.update { it.copy(message = "Use the YouTube player controls for this track.") }
+                return
+            }
+            val player = controller ?: return
+            if (player.isPlaying) player.pause() else player.play()
+            syncFromController()
+        } catch (error: Exception) {
+            AppLogger.e("Player", "Toggling playback failed", error)
         }
-        val player = controller ?: return
-        if (player.isPlaying) player.pause() else player.play()
-        syncFromController()
     }
 
     fun next() {
-        val current = _state.value
-        val index = queue.indexOfFirst { it.id == current.current?.id }
-        val candidate = queue.getOrNull(index + 1)
-        if (candidate != null && (current.embeddedVideoId != null || candidate.mediaUri == null)) {
-            playNow(candidate, queue)
-            return
+        try {
+            val current = _state.value
+            val index = queue.indexOfFirst { it.id == current.current?.id }
+            val candidate = queue.getOrNull(index + 1)
+            if (candidate != null && (current.embeddedVideoId != null || candidate.mediaUri == null)) {
+                playNow(candidate, queue)
+                return
+            }
+            controller?.seekToNextMediaItem()
+        } catch (error: Exception) {
+            AppLogger.e("Player", "Skipping to the next track failed", error)
         }
-        controller?.seekToNextMediaItem()
     }
 
     fun previous() {
-        val current = _state.value
-        val index = queue.indexOfFirst { it.id == current.current?.id }
-        val candidate = queue.getOrNull(index - 1)
-        if (candidate != null && (current.embeddedVideoId != null || candidate.mediaUri == null)) {
-            playNow(candidate, queue)
-            return
+        try {
+            val current = _state.value
+            val index = queue.indexOfFirst { it.id == current.current?.id }
+            val candidate = queue.getOrNull(index - 1)
+            if (candidate != null && (current.embeddedVideoId != null || candidate.mediaUri == null)) {
+                playNow(candidate, queue)
+                return
+            }
+            controller?.seekToPreviousMediaItem()
+        } catch (error: Exception) {
+            AppLogger.e("Player", "Skipping to the previous track failed", error)
         }
-        controller?.seekToPreviousMediaItem()
     }
 
     fun seekTo(positionMs: Long) {
-        controller?.seekTo(positionMs)
-        _state.update { it.copy(positionMs = positionMs) }
+        try {
+            controller?.seekTo(positionMs)
+            _state.update { it.copy(positionMs = positionMs) }
+        } catch (error: Exception) {
+            AppLogger.e("Player", "Seeking failed", error)
+        }
     }
 
     /** Called by Now Playing when the embedded YouTube player is disposed. */

@@ -8,7 +8,6 @@ package app.nodes.ui.screens.crash
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -39,26 +38,25 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import app.nodes.R
 import app.nodes.core.crash.CrashReport
+import app.nodes.core.crash.CrashShare
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.glass
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesTheme
 import app.nodes.ui.theme.NodesWhite
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * The crash page, in the spirit of Glossy's `CrashActivity`.
+ * The full crash page, in the spirit of Glossy's `CrashActivity`.
  *
- * It shows the report saved by [CrashReport] and lets the user copy it or share
- * it as a text file. Opened automatically on the first launch after a crash, and
- * from Settings at any time.
+ * Opened from the "crashed last time" dialog and from Diagnostics. It shows one
+ * report large enough to read, and offers the two actions that matter on a
+ * phone: share it, or copy it somewhere.
  */
 class CrashActivity : ComponentActivity() {
 
@@ -74,44 +72,41 @@ class CrashActivity : ComponentActivity() {
                 CrashScreen(
                     report = report,
                     onClose = { finish() },
-                    onShare = { text -> share(text) },
+                    onShare = { text ->
+                        CrashShare.share(
+                            context = this,
+                            report = text,
+                            subject = getString(R.string.crash_share_subject),
+                            title = getString(R.string.crash_share_title),
+                        )
+                    },
                     onCopy = { text -> copy(text) },
+                    onSave = { text -> save(text) },
                 )
             }
         }
     }
 
-    private fun share(report: String) {
-        val send = runCatching {
-            val dir = File(cacheDir, "crash").apply { mkdirs() }
-            val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val file = File(dir, "nodes_crash_$stamp.txt")
-            file.writeText(report)
-            val uri = FileProvider.getUriForFile(this, "$packageName.crashreports", file)
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_TEXT, report)
-                putExtra(Intent.EXTRA_SUBJECT, getString(R.string.crash_share_subject))
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-        }.getOrElse {
-            // No provider, no file: the text is still shareable.
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, report)
-                putExtra(Intent.EXTRA_SUBJECT, getString(R.string.crash_share_subject))
-            }
-        }
+    private fun copy(report: String) {
         runCatching {
-            startActivity(Intent.createChooser(send, getString(R.string.crash_share_title)))
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(
+                ClipData.newPlainText(getString(R.string.crash_title), report),
+            )
+            Toast.makeText(this, R.string.crash_copied, Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun copy(report: String) {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.crash_title), report))
-        Toast.makeText(this, R.string.crash_copied, Toast.LENGTH_SHORT).show()
+    private fun save(report: String) {
+        val name = runCatching {
+            "nodes_crash_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".txt"
+        }.getOrDefault("nodes_crash.txt")
+        val saved = CrashShare.saveToDownloads(this, name, report)
+        Toast.makeText(
+            this,
+            getString(if (saved) R.string.crash_saved_downloads else R.string.crash_save_failed),
+            Toast.LENGTH_LONG,
+        ).show()
     }
 
     companion object {
@@ -126,6 +121,7 @@ fun CrashScreen(
     onClose: () -> Unit,
     onShare: (String) -> Unit,
     onCopy: (String) -> Unit,
+    onSave: (String) -> Unit,
 ) {
     Column(
         Modifier
@@ -174,27 +170,36 @@ fun CrashScreen(
                     )
                 }
             }
-            Spacer(Modifier.height(16.dp))
-            Row(
+            Spacer(Modifier.height(12.dp))
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedButton(
-                    onClick = { onCopy(report) },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(R.string.crash_copy))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = { onCopy(report) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.crash_copy))
+                    }
+                    OutlinedButton(
+                        onClick = { onSave(report) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.crash_save_downloads))
+                    }
                 }
                 Button(
                     onClick = { onShare(report) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.crash_share))
                 }
             }
+            Spacer(Modifier.height(12.dp))
         }
     }
 }

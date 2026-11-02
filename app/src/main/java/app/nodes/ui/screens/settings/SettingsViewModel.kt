@@ -51,6 +51,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settings.setHighQuality(enabled) }
     }
 
+    fun setCrashReportsEnabled(enabled: Boolean) {
+        viewModelScope.launch { settings.setCrashReportsEnabled(enabled) }
+    }
+
     fun signOutMusic() {
         innerTubeAuth.signOut()
         // Drop the WebView cookies too, otherwise the next visit to the login

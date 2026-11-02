@@ -36,7 +36,6 @@ import app.nodes.BuildConfig
 import app.nodes.R
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.PageHeader
-import app.nodes.ui.screens.crash.CrashActivity
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesTeal
@@ -46,6 +45,7 @@ import app.nodes.ui.theme.NodesWhite
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenLogin: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
@@ -133,14 +133,12 @@ fun SettingsScreen(
                 )
             }
 
-            item(key = "support") {
-                SettingsSection(stringResource(R.string.settings_support))
+            item(key = "diagnostics") {
+                SettingsSection(stringResource(R.string.settings_diagnostics))
                 SettingsActionRow(
                     title = stringResource(R.string.settings_crash_reports),
                     subtitle = stringResource(R.string.settings_crash_reports_subtitle),
-                    onClick = {
-                        context.startActivity(Intent(context, CrashActivity::class.java))
-                    },
+                    onClick = onOpenDiagnostics,
                 )
             }
 

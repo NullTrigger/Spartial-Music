@@ -6,6 +6,7 @@
 package app.nodes.core.data
 
 import android.content.Context
+import app.nodes.core.crash.AppLogger
 import app.nodes.core.lyrics.LyricsParser
 import app.nodes.core.lyrics.LyricsPayload
 import app.nodes.core.lyrics.LyricsProvider
@@ -85,9 +86,12 @@ class LyricsRepository @Inject constructor(
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             // This runs while a track is playing. A provider, a settings read or
-            // the parser failing must cost the lyrics, nothing more.
+            // the parser failing must cost the lyrics, nothing more - but it is
+            // recorded, because "no lyrics" and "the provider crashed" look
+            // identical from the player.
+            AppLogger.w("Lyrics", "Lookup failed for ${track.id}", error)
             Resolved()
         }
         memory[key] = resolved
@@ -140,6 +144,7 @@ class LyricsRepository @Inject constructor(
             // A cancelled lookup must stay cancelled, or the timeout would be
             // swallowed and the next provider asked with the clock still running.
             if (error is kotlinx.coroutines.CancellationException) throw error
+            AppLogger.w("Lyrics", "Provider ${provider.id} failed", error)
             LyricsPayload.Failed(error.message ?: "Request failed")
         }
 
