@@ -49,7 +49,7 @@ fun TrendingScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 150.dp),
+            contentPadding = PaddingValues(bottom = 176.dp),
         ) {
             state.error?.let { error ->
                 item(key = "error") {

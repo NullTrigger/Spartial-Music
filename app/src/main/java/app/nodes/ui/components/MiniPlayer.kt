@@ -48,7 +48,9 @@ fun MiniPlayer(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .glass(CircleShape, strong = true)
+            // Same pill, same controls: only the backdrop got darker, so the
+            // page behind the mini player no longer reads through the title.
+            .glass(CircleShape, strong = true, scrim = 0.92f)
             .clickable(onClick = onClick)
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically,

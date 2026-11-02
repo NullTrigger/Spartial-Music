@@ -43,8 +43,21 @@ fun Modifier.glass(
     borderWidth: Dp = 1.dp,
     borderColor: Color = GlassBorder,
     strong: Boolean = false,
+    /**
+     * Opaque-ish black layer under the glass film. Floors and the nav bar use
+     * it so page content cannot be read through them; 0 keeps the original
+     * see-through look for surfaces that sit on artwork.
+     */
+    scrim: Float = 0f,
 ): Modifier = this
     .clip(shape)
+    .then(
+        if (scrim > 0f) {
+            Modifier.background(NodesBlack.copy(alpha = scrim.coerceIn(0f, 1f)))
+        } else {
+            Modifier
+        },
+    )
     .background(
         Brush.verticalGradient(
             colors = listOf(

@@ -100,6 +100,7 @@ fun NodesApp() {
                 LibraryScreen(
                     onOpenPlaylist = { playlistId -> navController.navigate(Routes.playlist(playlistId)) },
                     onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                    onOpenSessions = { navController.navigate(Routes.SESSIONS) },
                 )
             }
 
@@ -169,7 +170,6 @@ fun NodesApp() {
                             }
                         }
                     },
-                    onSearch = { navController.navigate(Routes.SEARCH) },
                 )
             }
         }

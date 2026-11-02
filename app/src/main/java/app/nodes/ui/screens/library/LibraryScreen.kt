@@ -68,6 +68,7 @@ private enum class LibraryTab(val labelRes: Int) {
 fun LibraryScreen(
     onOpenPlaylist: (String) -> Unit,
     onOpenPlayer: () -> Unit,
+    onOpenSessions: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -82,6 +83,36 @@ fun LibraryScreen(
             .background(NodesBlack),
     ) {
         PageHeader(title = stringResource(R.string.library_title))
+
+        // Sessions lost its own tab when the bar made room for Search. It lives
+        // here so the feature keeps a way in instead of disappearing.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 2.dp)
+                .glass(RoundedCornerShape(20.dp))
+                .clickable(onClick = onOpenSessions)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.sessions_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = NodesWhite,
+                )
+                Text(
+                    text = stringResource(R.string.sessions_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NodesGrey,
+                )
+            }
+            Text(
+                text = stringResource(R.string.sessions_open),
+                style = MaterialTheme.typography.labelMedium,
+                color = NodesGrey,
+            )
+        }
 
         Row(
             Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -110,7 +141,7 @@ fun LibraryScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 150.dp),
+            contentPadding = PaddingValues(bottom = 176.dp),
         ) {
             when (tab) {
                 LibraryTab.PLAYLISTS -> {
