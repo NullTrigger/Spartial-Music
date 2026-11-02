@@ -7,7 +7,7 @@ allowed to play.
 
 Licensed under **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
-![Nodes mark](branding/nodes-logo.svg)
+![Nodes mark](branding/nodes-logo.png)
 
 ---
 
