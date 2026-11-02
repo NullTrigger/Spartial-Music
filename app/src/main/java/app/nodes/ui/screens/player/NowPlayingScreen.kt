@@ -433,7 +433,6 @@ private fun QueueRow(item: Track, onClick: () -> Unit) {
  * and the list can be replaced between composition and draw when the track
  * changes, so an unchecked index would be an IndexOutOfBounds on the next frame.
  */
-@Composable
 private fun androidx.compose.foundation.lazy.LazyListScope.LyricsItems(
     lines: List<LyricLine>,
     positionMs: Long,
