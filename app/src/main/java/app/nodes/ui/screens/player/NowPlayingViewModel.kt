@@ -82,8 +82,10 @@ class NowPlayingViewModel @Inject constructor(
             repository.lyricsFor(track, refresh)
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (error: Exception) {
-            AppLogger.w("Lyrics", "Showing lyrics failed for ${track.id}", error)
+        } catch (error: Throwable) {
+            // An ExceptionInInitializerError from the parser is an Error; see
+            // LyricsRepository for the crash this guard is here to prevent.
+            AppLogger.e("Lyrics", "Showing lyrics failed for ${track.id}", error)
             LyricsResult()
         }
 

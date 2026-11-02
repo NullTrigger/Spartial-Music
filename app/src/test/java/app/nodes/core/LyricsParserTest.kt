@@ -74,4 +74,24 @@ class LyricsParserTest {
         assertFalse(parsed.synced)
         assertTrue(parsed.lines.isEmpty())
     }
+
+    @Test
+    fun `agent markers are stripped from a line`() {
+        val parsed = LyricsParser.parse("[00:10.00]{agent:v2} Second voice")
+
+        assertEquals("Second voice", parsed.lines.single().text)
+    }
+
+    @Test
+    fun `an unterminated agent marker does not break parsing`() {
+        // Regression for the 0.1.0 crash: the marker pattern ended in a bare
+        // closing brace, which Android's regex engine rejects while this
+        // object's static initialiser runs. That threw
+        // ExceptionInInitializerError on the first lyrics lookup and closed the
+        // app. Parsing anything at all proves every pattern here compiled.
+        val parsed = LyricsParser.parse("[00:10.00]{agent:v2 Second voice")
+
+        assertTrue(parsed.synced)
+        assertTrue(parsed.lines.single().text.contains("Second voice"))
+    }
 }

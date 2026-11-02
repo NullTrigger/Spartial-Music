@@ -5,8 +5,10 @@
 
 package app.nodes.core.lyrics
 
+import app.nodes.core.crash.AppLogger
 import app.nodes.core.model.LyricLine
 import app.nodes.core.model.LyricWord
+import kotlinx.coroutines.CancellationException
 
 /** One parsed provider payload. `synced` is false for static, untimed text. */
 data class ParsedLyrics(
@@ -43,7 +45,17 @@ object LyricsParser {
     /** `v1:`, `v2:` — the duet voice a line belongs to. */
     private val AGENT_PREFIX = Regex("""^v\d+:\s*""")
 
-    private val AGENT_INLINE = Regex("""\{agent:[^}]+}""")
+    /**
+     * `{agent:...}` markers some providers embed in a line.
+     *
+     * Both braces are escaped, including the closing one. Android's regex
+     * engine rejects an unmatched trailing `}` (openjdk does not), so the
+     * previous `\{agent:[^}]+}` threw PatternSyntaxException while this
+     * object was being initialised. An ExceptionInInitializerError from a
+     * static field is an Error, not an Exception, which is why the guards
+     * around the lyrics lookup did not stop the process dying.
+     */
+    private val AGENT_INLINE = Regex("""\{agent:[^}]*\}""")
 
     /** Lines providers append to credit themselves. */
     private val CREDIT = Regex(
@@ -56,9 +68,17 @@ object LyricsParser {
 
     fun parse(raw: String?): ParsedLyrics {
         if (raw.isNullOrBlank()) return ParsedLyrics(emptyList(), false)
-        val timed = parseTimed(raw)
-        if (timed.isNotEmpty()) return ParsedLyrics(timed, true)
-        return ParsedLyrics(parsePlain(raw), false)
+        return try {
+            val timed = parseTimed(raw)
+            if (timed.isNotEmpty()) ParsedLyrics(timed, true) else ParsedLyrics(parsePlain(raw), false)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            // Provider text is arbitrary: one malformed payload must cost the
+            // lyrics, never the playback session.
+            AppLogger.e("Lyrics", "Parsing lyrics failed", error)
+            ParsedLyrics(emptyList(), false)
+        }
     }
 
     private fun parseTimed(raw: String): List<LyricLine> {
