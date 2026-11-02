@@ -11,13 +11,17 @@ import app.nodes.core.crash.AppLogger
 import app.nodes.core.data.LibraryRepository
 import app.nodes.core.data.LyricsRepository
 import app.nodes.core.data.LyricsResult
+import app.nodes.core.data.SettingsRepository
 import app.nodes.core.model.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -32,7 +36,13 @@ import javax.inject.Inject
 class NowPlayingViewModel @Inject constructor(
     private val repository: LyricsRepository,
     private val library: LibraryRepository,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
+
+    /** Drives the screen-awake flag while Now Playing is open. */
+    val keepScreenOn: StateFlow<Boolean> = settings.settings
+        .map { it.keepScreenOn }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _lyrics = MutableStateFlow(LyricsResult())
     val lyrics: StateFlow<LyricsResult> = _lyrics.asStateFlow()

@@ -64,6 +64,7 @@ import app.nodes.core.model.Track
 import app.nodes.core.util.formatDuration
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.ArtworkBackdrop
+import app.nodes.ui.components.KeepScreenOn
 import app.nodes.ui.components.TrackRow
 import app.nodes.ui.components.glass
 import app.nodes.ui.theme.NodesBlack
@@ -102,7 +103,10 @@ fun NowPlayingScreen(
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val liked by viewModel.liked.collectAsStateWithLifecycle()
+    val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
     val track = playerState.current
+
+    KeepScreenOn(keepScreenOn)
 
     var tab by remember { mutableStateOf(PlayerTab.QUEUE) }
 

@@ -11,14 +11,32 @@ import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import app.nodes.core.data.SettingsRepository
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Standard Media3 session service. It only ever plays URLs that a
  * [app.nodes.core.source.MusicSource] resolved legally - YouTube tracks are
  * never handed to ExoPlayer, they stay in the official embedded player.
+ *
+ * Playback speed and skip-silence live on the ExoPlayer instance and are not
+ * reachable through a MediaController, so the service watches the settings and
+ * applies them itself; that way a setting survives the controller reconnecting
+ * and applies to the next track as well.
  */
+@AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
 
+    @Inject
+    lateinit var settings: SettingsRepository
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var mediaSession: MediaSession? = null
 
     override fun onCreate() {
@@ -35,6 +53,15 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         mediaSession = MediaSession.Builder(this, player).build()
+
+        scope.launch {
+            settings.settings.collect { current ->
+                runCatching {
+                    player.setPlaybackSpeed(current.playbackSpeed)
+                    player.skipSilenceEnabled = current.skipSilence
+                }
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
@@ -47,6 +74,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         mediaSession?.run {
             player.release()
             release()

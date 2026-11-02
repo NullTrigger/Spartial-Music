@@ -45,6 +45,7 @@ import app.nodes.ui.screens.settings.AppearanceSettingsScreen
 import app.nodes.ui.screens.settings.ContentSettingsScreen
 import app.nodes.ui.screens.settings.DataSettingsScreen
 import app.nodes.ui.screens.settings.LyricsSettingsScreen
+import app.nodes.ui.screens.settings.PlaybackSettingsScreen
 import app.nodes.ui.screens.settings.SettingsScreen
 import app.nodes.ui.screens.trending.TrendingScreen
 import app.nodes.ui.theme.NodesBlack
@@ -122,12 +123,17 @@ fun NodesApp() {
                     onBack = { navController.popBackStack() },
                     onOpenLogin = { navController.navigate(Routes.LOGIN) },
                     onOpenDiagnostics = { navController.navigate(Routes.DIAGNOSTICS) },
+                    onOpenPlayback = { navController.navigate(Routes.SETTINGS_PLAYBACK) },
                     onOpenAppearance = { navController.navigate(Routes.SETTINGS_APPEARANCE) },
                     onOpenContent = { navController.navigate(Routes.SETTINGS_CONTENT) },
                     onOpenLyrics = { navController.navigate(Routes.SETTINGS_LYRICS) },
                     onOpenData = { navController.navigate(Routes.SETTINGS_DATA) },
                     onOpenAbout = { navController.navigate(Routes.SETTINGS_ABOUT) },
                 )
+            }
+
+            composable(Routes.SETTINGS_PLAYBACK) {
+                PlaybackSettingsScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.SETTINGS_APPEARANCE) {

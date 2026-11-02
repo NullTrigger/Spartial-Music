@@ -13,6 +13,7 @@ object Routes {
     const val SEARCH = "search"
     const val PLAYER = "player"
     const val SETTINGS = "settings"
+    const val SETTINGS_PLAYBACK = "settings/playback"
     const val SETTINGS_APPEARANCE = "settings/appearance"
     const val SETTINGS_CONTENT = "settings/content"
     const val SETTINGS_LYRICS = "settings/lyrics"
