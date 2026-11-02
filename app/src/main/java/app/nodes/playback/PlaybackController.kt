@@ -19,6 +19,7 @@ import app.nodes.R
 import app.nodes.core.crash.AppLogger
 import app.nodes.core.crash.AppSnapshot
 import app.nodes.core.data.LibraryRepository
+import app.nodes.core.data.SettingsRepository
 import app.nodes.core.model.PlaybackHandle
 import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceErrorType
@@ -29,6 +30,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +57,7 @@ class PlaybackController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val registry: SourceRegistry,
     private val library: LibraryRepository,
+    private val settings: SettingsRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
@@ -62,6 +65,7 @@ class PlaybackController @Inject constructor(
 
     private var controller: MediaController? = null
     private var queue: List<Track> = emptyList()
+    private var sleepJob: Job? = null
 
     /**
      * Tracks whose stream URL has already been re-minted once. A googlevideo URL
@@ -116,6 +120,9 @@ class PlaybackController @Inject constructor(
 
     init {
         connect()
+        // A timer set in an earlier session is an absolute timestamp, so it
+        // survives the process being killed instead of restarting on launch.
+        scope.launch { scheduleSleep(settings.current().sleepTimerEndsAt) }
         // Copy the interesting parts of the player state somewhere the crash
         // handler can read them from a dying thread.
         scope.launch {
@@ -338,6 +345,46 @@ class PlaybackController @Inject constructor(
             controller?.seekToPreviousMediaItem()
         } catch (error: Exception) {
             AppLogger.e("Player", "Skipping to the previous track failed", error)
+        }
+    }
+
+    /**
+     * Pauses playback once the timer runs out. Passing 0 (or less) cancels it.
+     * The deadline is persisted so a timer keeps running while the app is away.
+     */
+    fun setSleepTimer(minutes: Int) {
+        val endsAt = if (minutes <= 0) 0L else System.currentTimeMillis() + minutes * 60_000L
+        scope.launch { settings.setSleepTimerEndsAt(endsAt) }
+        scheduleSleep(endsAt)
+    }
+
+    private fun scheduleSleep(endsAt: Long) {
+        sleepJob?.cancel()
+        if (endsAt <= 0L) {
+            _state.update { it.copy(sleepTimerEndsAt = 0L) }
+            return
+        }
+        val remaining = endsAt - System.currentTimeMillis()
+        if (remaining <= 0L) {
+            finishSleepTimer()
+            return
+        }
+        _state.update { it.copy(sleepTimerEndsAt = endsAt) }
+        sleepJob = scope.launch {
+            delay(remaining)
+            finishSleepTimer()
+        }
+    }
+
+    private fun finishSleepTimer() {
+        runCatching { controller?.pause() }
+        scope.launch { settings.setSleepTimerEndsAt(0L) }
+        _state.update {
+            it.copy(
+                sleepTimerEndsAt = 0L,
+                isPlaying = false,
+                message = context.getString(R.string.player_sleep_timer_done),
+            )
         }
     }
 

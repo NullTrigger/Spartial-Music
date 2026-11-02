@@ -9,7 +9,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.nodes.core.lyrics.LyricsProviders
@@ -46,6 +48,12 @@ data class AppSettings(
     val quotaUnitsUsed: Int = 0,
     /** Write a crash report to disk when the app dies. On by default. */
     val crashReportsEnabled: Boolean = true,
+    /** 0.5x to 2.0x. Applied by the player service as well as the UI. */
+    val playbackSpeed: Float = 1f,
+    val skipSilence: Boolean = false,
+    val keepScreenOn: Boolean = false,
+    /** Epoch millis at which the sleep timer pauses playback; 0 means off. */
+    val sleepTimerEndsAt: Long = 0L,
 )
 
 /**
@@ -72,6 +80,10 @@ class SettingsRepository @Inject constructor(
             quotaDate = prefs[KEY_QUOTA_DATE] ?: "",
             quotaUnitsUsed = prefs[KEY_QUOTA_USED] ?: 0,
             crashReportsEnabled = prefs[KEY_CRASH_REPORTS] ?: true,
+            playbackSpeed = prefs[KEY_PLAYBACK_SPEED] ?: 1f,
+            skipSilence = prefs[KEY_SKIP_SILENCE] ?: false,
+            keepScreenOn = prefs[KEY_KEEP_SCREEN_ON] ?: false,
+            sleepTimerEndsAt = prefs[KEY_SLEEP_TIMER_ENDS_AT] ?: 0L,
         )
     }
 
@@ -110,6 +122,18 @@ class SettingsRepository @Inject constructor(
     suspend fun setCrashReportsEnabled(enabled: Boolean) =
         dataStore.edit { it[KEY_CRASH_REPORTS] = enabled }
 
+    suspend fun setPlaybackSpeed(speed: Float) =
+        dataStore.edit { it[KEY_PLAYBACK_SPEED] = speed.coerceIn(MIN_SPEED, MAX_SPEED) }
+
+    suspend fun setSkipSilence(enabled: Boolean) =
+        dataStore.edit { it[KEY_SKIP_SILENCE] = enabled }
+
+    suspend fun setKeepScreenOn(enabled: Boolean) =
+        dataStore.edit { it[KEY_KEEP_SCREEN_ON] = enabled }
+
+    suspend fun setSleepTimerEndsAt(endsAt: Long) =
+        dataStore.edit { it[KEY_SLEEP_TIMER_ENDS_AT] = endsAt }
+
     suspend fun setQuota(date: String, used: Int) = dataStore.edit { prefs ->
         prefs[KEY_QUOTA_DATE] = date
         prefs[KEY_QUOTA_USED] = used
@@ -130,6 +154,13 @@ class SettingsRepository @Inject constructor(
         val KEY_LYRICS_PREFER_SYNCED = booleanPreferencesKey("lyrics_prefer_synced")
         val KEY_LYRICS_SHOW_SOURCE = booleanPreferencesKey("lyrics_show_source")
         val KEY_CRASH_REPORTS = booleanPreferencesKey("crash_reports_enabled")
+        val KEY_PLAYBACK_SPEED = floatPreferencesKey("playback_speed")
+        val KEY_SKIP_SILENCE = booleanPreferencesKey("skip_silence")
+        val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val KEY_SLEEP_TIMER_ENDS_AT = longPreferencesKey("sleep_timer_ends_at")
+
+        const val MIN_SPEED = 0.5f
+        const val MAX_SPEED = 2.0f
     }
 
     /**

@@ -21,6 +21,8 @@ data class PlayerUiState(
     val embeddedVideoId: String? = null,
     /** One-shot user-facing message (quota, missing key, unavailable track). */
     val message: String? = null,
+    /** Epoch millis when the sleep timer fires; 0 when it is off. */
+    val sleepTimerEndsAt: Long = 0L,
 ) {
     val progress: Float
         get() = if (durationMs > 0L) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f

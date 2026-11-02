@@ -44,6 +44,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenLogin: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onOpenPlayback: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenContent: () -> Unit,
     onOpenLyrics: () -> Unit,
@@ -106,19 +107,14 @@ fun SettingsScreen(
 
         item(key = "playback") {
             SettingsGroup(stringResource(R.string.settings_group_playback)) {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_audio_quality),
-                    subtitle = stringResource(R.string.settings_audio_quality_hint),
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_group_playback),
+                    subtitle = stringResource(R.string.settings_group_playback_hint),
+                    value = stringResource(
+                        if (settings.highQualityAudio) R.string.settings_quality_high else R.string.settings_quality_low,
+                    ),
                     icon = Icons.Rounded.Headphones,
-                    checked = settings.highQualityAudio,
-                    onCheckedChange = viewModel::setHighQuality,
-                )
-                SettingsDivider()
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_wifi_only),
-                    subtitle = stringResource(R.string.settings_wifi_only_hint),
-                    checked = settings.wifiOnlyStreaming,
-                    onCheckedChange = viewModel::setWifiOnly,
+                    onClick = onOpenPlayback,
                 )
             }
         }

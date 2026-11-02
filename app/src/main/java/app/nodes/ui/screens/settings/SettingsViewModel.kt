@@ -15,6 +15,7 @@ import app.nodes.core.data.SearchHistoryRepository
 import app.nodes.core.data.SettingsRepository
 import app.nodes.core.source.youtubemusic.InnerTubeAccount
 import app.nodes.core.source.youtubemusic.InnerTubeAuth
+import app.nodes.playback.PlaybackController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,7 @@ class SettingsViewModel @Inject constructor(
     private val cache: RemoteCache,
     private val searchHistory: SearchHistoryRepository,
     private val innerTubeAuth: InnerTubeAuth,
+    private val player: PlaybackController,
 ) : ViewModel() {
 
     val appSettings: StateFlow<AppSettings> = settings.settings
@@ -48,6 +50,11 @@ class SettingsViewModel @Inject constructor(
         .map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    /** The sleep timer's deadline, so the row can count down. */
+    val sleepTimerEndsAt: StateFlow<Long> = player.state
+        .map { it.sleepTimerEndsAt }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch { settings.setDynamicColor(enabled) }
     }
@@ -62,6 +69,22 @@ class SettingsViewModel @Inject constructor(
 
     fun setCrashReportsEnabled(enabled: Boolean) {
         viewModelScope.launch { settings.setCrashReportsEnabled(enabled) }
+    }
+
+    fun setSkipSilence(enabled: Boolean) {
+        viewModelScope.launch { settings.setSkipSilence(enabled) }
+    }
+
+    fun setKeepScreenOn(enabled: Boolean) {
+        viewModelScope.launch { settings.setKeepScreenOn(enabled) }
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        viewModelScope.launch { settings.setPlaybackSpeed(speed) }
+    }
+
+    fun setSleepTimer(minutes: Int) {
+        player.setSleepTimer(minutes)
     }
 
     fun setYoutubeRegion(region: String) {
