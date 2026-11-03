@@ -36,6 +36,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -81,6 +82,16 @@ class PlaybackController @Inject constructor(
     /** Mirrors the "keep the queue unique" preference without a suspend read. */
     @Volatile
     private var preventDuplicates = true
+
+    /**
+     * The queue order before shuffle, so toggling shuffle off restores what the
+     * user chose. Null while shuffle is off.
+     */
+    private var unshuffledQueue: List<Track>? = null
+
+    /** True while the infinite queue is already fetching more tracks. */
+    @Volatile
+    private var extendingQueue = false
 
     private var sleepJob: Job? = null
 
@@ -130,7 +141,7 @@ class PlaybackController @Inject constructor(
             // Tracks whose URL is minted per play are not all in the player's
             // item list, so the player ends instead of advancing. Walk the
             // canonical queue instead of trusting the player's timeline.
-            moveTo(queuePosition + 1)
+            advanceAfterEnd()
         }
     }
 
@@ -551,6 +562,145 @@ class PlaybackController @Inject constructor(
         }
     }
 
+    /** Cycles Repeat off -> all queue -> this track -> off. */
+    fun cycleRepeat(): RepeatMode {
+        val next = when (_state.value.repeatMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+        _state.update {
+            it.copy(
+                repeatMode = next,
+                message = context.getString(
+                    when (next) {
+                        RepeatMode.OFF -> R.string.player_repeat_off
+                        RepeatMode.ALL -> R.string.player_repeat_all
+                        RepeatMode.ONE -> R.string.player_repeat_one
+                    },
+                ),
+            )
+        }
+        return next
+    }
+
+    /**
+     * Shuffles the part of the queue after the playing track. The playing track
+     * keeps its place, so audio does not restart mid-song; toggling again
+     * restores the exact order the user chose.
+     */
+    fun toggleShuffle() {
+        val orderBefore = _state.value.shuffleOn
+        if (!orderBefore) {
+            unshuffledQueue = queue
+            val keep = queue.take(queuePosition + 1)
+            val rest = queue.drop(queuePosition + 1).shuffled()
+            publishQueue(keep + rest)
+            _state.update { it.copy(shuffleOn = true, message = context.getString(R.string.player_shuffle_on)) }
+        } else {
+            val restored = unshuffledQueue ?: queue
+            unshuffledQueue = null
+            publishQueue(restored)
+            _state.update { it.copy(shuffleOn = false, message = context.getString(R.string.player_shuffle_off)) }
+        }
+    }
+
+    /** Infinite queue: a queue that fills itself again with related listening. */
+    fun toggleInfiniteQueue() {
+        val enabled = !_state.value.infiniteQueue
+        _state.update {
+            it.copy(
+                infiniteQueue = enabled,
+                message = context.getString(
+                    if (enabled) R.string.player_infinite_on else R.string.player_infinite_off,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Called when a track ends. Repeat one restarts it; everything else walks
+     * the canonical queue, and when the queue runs out, Repeat all loops from
+     * the top and the infinite queue refills itself first.
+     */
+    private fun advanceAfterEnd() {
+        if (_state.value.repeatMode == RepeatMode.ONE) {
+            replayCurrent()
+            return
+        }
+        val next = queuePosition + 1
+        if (next <= queue.lastIndex) {
+            moveTo(next)
+            return
+        }
+        if (_state.value.repeatMode == RepeatMode.ALL && queue.isNotEmpty()) {
+            moveTo(0)
+            return
+        }
+        if (_state.value.infiniteQueue) {
+            extendQueueAndContinue()
+            return
+        }
+        // Nothing follows: the ended track stays on screen, paused, so the
+        // user can restart it rather than finding the app silent.
+        _state.update { it.copy(isPlaying = false) }
+    }
+
+    /**
+     * Repeat one must also work for the single-item timelines, so a track that
+     * is not in the player's item list is started again through the source
+     * instead of a seek that would land on nothing.
+     */
+    private fun replayCurrent() {
+        val track = _state.value.current ?: return
+        try {
+            val player = controller
+            val index = player?.let { p ->
+                (0 until p.mediaItemCount).firstOrNull { p.getMediaItemAt(it).mediaId == track.id }
+            }
+            if (player != null && index != null) {
+                player.seekTo(index, 0L)
+                player.prepare()
+                player.play()
+                syncFromController()
+            } else {
+                playNow(track, queue)
+            }
+        } catch (error: Exception) {
+            AppLogger.e("Player", "Repeating the current track failed", error)
+            playNow(track, queue)
+        }
+    }
+
+    /**
+     * Appends the next handful of tracks to the queue and plays the first of
+     * them. The candidates are the user's own listens and likes, minus what the
+     * queue already holds - still only local data, nothing network-suggested.
+     */
+    private fun extendQueueAndContinue() {
+        if (extendingQueue) return
+        extendingQueue = true
+        scope.launch {
+            try {
+                val known = queue.map { it.id }.toSet()
+                val candidates = buildList {
+                    runCatching { library.recentlyPlayed.first() }.getOrNull()?.let(::addAll)
+                    runCatching { library.likedTracks.first() }.getOrNull()?.let(::addAll)
+                }.filter { it.id !in known }.distinctBy { it.id }
+                if (candidates.isEmpty()) {
+                    _state.update { it.copy(message = context.getString(R.string.player_queue_ended)) }
+                    return@launch
+                }
+                val extension = candidates.take(EXTEND_COUNT)
+                publishQueue(queue + extension)
+                _state.update { it.copy(message = context.getString(R.string.player_queue_extended, extension.size)) }
+                moveTo(queuePosition + 1)
+            } finally {
+                extendingQueue = false
+            }
+        }
+    }
+
     /**
      * Pauses playback once the timer runs out. Passing 0 (or less) cancels it.
      * The deadline is persisted so a timer keeps running while the app is away.
@@ -665,5 +815,8 @@ class PlaybackController @Inject constructor(
 
     private companion object {
         const val TICK_MS = 500L
+
+        /** Tracks appended at a time while the infinite queue is on. */
+        const val EXTEND_COUNT = 10
     }
 }

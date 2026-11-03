@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,6 +41,10 @@ import app.nodes.ui.theme.NodesWhite
  * the collection the row belongs to, which is what made picking a track look
  * like the same list was being loaded again.
  *
+ * [onViewArtist] and [onViewAlbum] open the collection pages when the caller
+ * can navigate there; both are optional so list-only screens keep the same
+ * two-queue-actions menu.
+ *
  * [onRemoveFromQueue] is only supplied by the queue itself; [removeEnabled] is
  * false for the playing row because removing it would leave the player without
  * an item.
@@ -48,6 +54,8 @@ fun TrackMenuButton(
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
     modifier: Modifier = Modifier,
+    onViewArtist: (() -> Unit)? = null,
+    onViewAlbum: (() -> Unit)? = null,
     onRemoveFromQueue: (() -> Unit)? = null,
     removeEnabled: Boolean = true,
 ) {
@@ -66,6 +74,24 @@ fun TrackMenuButton(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
+            if (onViewArtist != null) {
+                QueueMenuItem(
+                    label = stringResource(R.string.player_view_artist),
+                    icon = Icons.Rounded.Person,
+                ) {
+                    expanded = false
+                    onViewArtist()
+                }
+            }
+            if (onViewAlbum != null) {
+                QueueMenuItem(
+                    label = stringResource(R.string.player_view_album),
+                    icon = Icons.Rounded.Album,
+                ) {
+                    expanded = false
+                    onViewAlbum()
+                }
+            }
             QueueMenuItem(
                 label = stringResource(R.string.player_play_next),
                 icon = Icons.AutoMirrored.Rounded.PlaylistPlay,

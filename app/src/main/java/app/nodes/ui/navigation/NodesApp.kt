@@ -33,6 +33,7 @@ import app.nodes.ui.components.NodesNavItems
 import app.nodes.ui.screens.diagnostics.DiagnosticsScreen
 import app.nodes.ui.screens.home.HomeScreen
 import app.nodes.ui.screens.library.LibraryScreen
+import app.nodes.ui.screens.collection.CollectionScreen
 import app.nodes.ui.screens.login.MusicLoginScreen
 import app.nodes.ui.screens.onboarding.OnboardingScreen
 import app.nodes.ui.screens.player.NowPlayingScreen
@@ -40,6 +41,7 @@ import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.screens.playlist.PlaylistDetailScreen
 import app.nodes.ui.screens.search.SearchScreen
 import app.nodes.ui.screens.sessions.SessionsScreen
+import app.nodes.ui.screens.stats.StatsScreen
 import app.nodes.ui.screens.settings.AboutSettingsScreen
 import app.nodes.ui.screens.settings.AppearanceSettingsScreen
 import app.nodes.ui.screens.settings.ContentSettingsScreen
@@ -105,11 +107,16 @@ fun NodesApp() {
 
             composable(Routes.SESSIONS) { SessionsScreen() }
 
+            composable(Routes.STATS) {
+                StatsScreen(onBack = { navController.popBackStack() })
+            }
+
             composable(Routes.LIBRARY) {
                 LibraryScreen(
                     onOpenPlaylist = { playlistId -> navController.navigate(Routes.playlist(playlistId)) },
                     onOpenPlayer = { navController.navigate(Routes.PLAYER) },
                     onOpenSessions = { navController.navigate(Routes.SESSIONS) },
+                    onOpenStats = { navController.navigate(Routes.STATS) },
                 )
             }
 
@@ -118,7 +125,15 @@ fun NodesApp() {
             }
 
             composable(Routes.PLAYER) {
-                NowPlayingScreen(onBack = { navController.popBackStack() })
+                NowPlayingScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenArtist = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
+                    },
+                    onOpenAlbum = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ALBUM, name))
+                    },
+                )
             }
 
             composable(Routes.SETTINGS) {
@@ -181,6 +196,24 @@ fun NodesApp() {
                     PlaylistDetailScreen(
                         playlistId = playlistId,
                         onBack = { navController.popBackStack() },
+                        onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                    )
+                }
+            }
+
+            composable(Routes.COLLECTION_PATTERN) { entry ->
+                val name = entry.arguments?.getString(Routes.COLLECTION_ARG_NAME)
+                if (name.isNullOrBlank()) {
+                    navController.popBackStack()
+                } else {
+                    CollectionScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenArtist = { artist ->
+                            navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, artist))
+                        },
+                        onOpenAlbum = { album ->
+                            navController.navigate(Routes.collection(Routes.COLLECTION_ALBUM, album))
+                        },
                     )
                 }
             }

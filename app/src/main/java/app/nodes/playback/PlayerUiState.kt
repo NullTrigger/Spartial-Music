@@ -7,6 +7,15 @@ package app.nodes.playback
 
 import app.nodes.core.model.Track
 
+/** Where playback goes after a track ends; queues are walked by the controller. */
+enum class RepeatMode {
+    OFF,
+    /** The whole queue again from the top. */
+    ALL,
+    /** The current track again, forever. */
+    ONE,
+}
+
 data class PlayerUiState(
     val current: Track? = null,
     val queue: List<Track> = emptyList(),
@@ -29,6 +38,14 @@ data class PlayerUiState(
     val message: String? = null,
     /** Epoch millis when the sleep timer fires; 0 when it is off. */
     val sleepTimerEndsAt: Long = 0L,
+    val repeatMode: RepeatMode = RepeatMode.OFF,
+    /** Shuffle of the queue tail; the playing track and the played prefix stay. */
+    val shuffleOn: Boolean = false,
+    /**
+     * Glossy's "infinite queue": as the queue runs out, more tracks from the
+     * listening history and likes are appended automatically. Session-only.
+     */
+    val infiniteQueue: Boolean = false,
 ) {
     val progress: Float
         get() = if (durationMs > 0L) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f

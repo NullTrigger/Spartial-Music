@@ -6,11 +6,24 @@
 package app.nodes.core.data.db
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
+
+/** Totals for one stats window. COUNT(*) always yields exactly one row. */
+data class PlayTotalsRow(val plays: Int, val durationMs: Long)
+
+/** A track from the cache joined with how often it was played in a window. */
+data class TrackPlayRow(
+    @Embedded val track: TrackEntity,
+    val plays: Int,
+)
+
+/** Plays and estimated minutes grouped by artist name, one rank row each. */
+data class ArtistPlayRow(val artist: String, val plays: Int, val durationMs: Long)
 
 @Dao
 interface TrackDao {
@@ -26,6 +39,14 @@ interface TrackDao {
 
     @Query("SELECT * FROM tracks WHERE sourceId = :sourceId ORDER BY updatedAt DESC LIMIT :limit")
     fun bySource(sourceId: String, limit: Int): Flow<List<TrackEntity>>
+
+    /** Everything cached under one artist name, newest first. */
+    @Query("SELECT * FROM tracks WHERE artist = :artist ORDER BY updatedAt DESC")
+    fun byArtist(artist: String): Flow<List<TrackEntity>>
+
+    /** Everything cached under one album name, newest first. */
+    @Query("SELECT * FROM tracks WHERE album = :album ORDER BY updatedAt DESC")
+    fun byAlbum(album: String): Flow<List<TrackEntity>>
 
     @Query("SELECT COUNT(*) FROM tracks")
     suspend fun count(): Int
@@ -54,6 +75,46 @@ interface LibraryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun recordPlay(history: PlayHistoryEntity)
+
+    // Listening stats: pure aggregations over play_history joined with the
+    // cached tracks. Every window is inclusive of [since], in epoch millis.
+
+    @Query(
+        """
+        SELECT COUNT(*) AS plays, COALESCE(SUM(t.durationMs), 0) AS durationMs
+        FROM play_history h
+        INNER JOIN tracks t ON t.id = h.trackId
+        WHERE h.playedAt >= :since
+        """,
+    )
+    fun playTotals(since: Long): Flow<PlayTotalsRow>
+
+    @Query(
+        """
+        SELECT t.*, COUNT(*) AS plays
+        FROM play_history h
+        INNER JOIN tracks t ON t.id = h.trackId
+        WHERE h.playedAt >= :since
+        GROUP BY t.id
+        ORDER BY plays DESC, MAX(h.playedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    fun topTracks(since: Long, limit: Int): Flow<List<TrackPlayRow>>
+
+    @Query(
+        """
+        SELECT t.artist AS artist, COUNT(*) AS plays,
+               COALESCE(SUM(t.durationMs), 0) AS durationMs
+        FROM play_history h
+        INNER JOIN tracks t ON t.id = h.trackId
+        WHERE h.playedAt >= :since
+        GROUP BY t.artist
+        ORDER BY plays DESC
+        LIMIT :limit
+        """,
+    )
+    fun topArtists(since: Long, limit: Int): Flow<List<ArtistPlayRow>>
 
     @Query(
         """

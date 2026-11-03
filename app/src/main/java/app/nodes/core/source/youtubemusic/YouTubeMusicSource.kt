@@ -165,6 +165,27 @@ class YouTubeMusicSource @Inject constructor(
     suspend fun likedSongs(): List<Track> = runCatching { innerTube.collection(LIKED_SONGS_ID, 200) }
         .getOrDefault(emptyList())
 
+    /** How a likes push went: what was accepted, what YouTube refused. */
+    data class LikeSync(val pushed: Int, val failed: Int)
+
+    /**
+     * Replays [videoIds] on the account's like record, one call each so one
+     * refused track does not lose the rest. Pushing a like that already exists
+     * is a no-op server-side, which is what makes this replayable.
+     */
+    suspend fun pushLikes(videoIds: List<String>): LikeSync {
+        var pushed = 0
+        var failed = 0
+        for (videoId in videoIds.distinct()) {
+            if (runCatching { innerTube.likeVideo(videoId) }.getOrDefault(false)) {
+                pushed++
+            } else {
+                failed++
+            }
+        }
+        return LikeSync(pushed = pushed, failed = failed)
+    }
+
     override suspend fun play(track: Track): SourceResult<PlaybackHandle> {
         val videoId = track.videoId ?: return SourceResult.Success(
             PlaybackHandle.Unavailable("This track has no YouTube video id."),

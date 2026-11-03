@@ -5,14 +5,25 @@
 
 package app.nodes.playback
 
+import android.app.PendingIntent
 import android.content.Intent
+import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import app.nodes.MainActivity
+import app.nodes.R
 import app.nodes.core.data.SettingsRepository
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,10 +37,11 @@ import javax.inject.Inject
  * [app.nodes.core.source.MusicSource] resolved legally - YouTube tracks are
  * never handed to ExoPlayer, they stay in the official embedded player.
  *
- * Playback speed and skip-silence live on the ExoPlayer instance and are not
- * reachable through a MediaController, so the service watches the settings and
- * applies them itself; that way a setting survives the controller reconnecting
- * and applies to the next track as well.
+ * The session player is what the notification and any other controller see;
+ * [createSessionPlayer] decides whether that is the bare ExoPlayer or a Cast
+ * wrapper (the gms flavor). The controller drives playback through that
+ * player, while speed and skip-silence stay ExoPlayer-only surfaces the
+ * service applies itself so a setting survives controller reconnects.
  */
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
@@ -37,8 +49,12 @@ class PlaybackService : MediaSessionService() {
     @Inject
     lateinit var settings: SettingsRepository
 
+    @Inject
+    lateinit var playbackController: dagger.Lazy<PlaybackController>
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var mediaSession: MediaSession? = null
+    private var localPlayer: ExoPlayer? = null
 
     /**
      * Cached copy of the "stop when swiped away" preference. [onTaskRemoved] is
@@ -48,12 +64,13 @@ class PlaybackService : MediaSessionService() {
     @Volatile
     private var stopOnTaskClear = false
 
-    // setSkipSilenceEnabled is still an unstable Media3 surface, so the opt-in
-    // is declared here instead of at every call site.
+    // setSkipSilenceEnabled and the notification-provider surface are still
+    // unstable Media3 APIs, so the opt-in is declared here instead of at every
+    // call site.
     @androidx.annotation.OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this)
+        val exoPlayer = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -63,18 +80,83 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+        localPlayer = exoPlayer
+        val sessionPlayer = createSessionPlayer(this, exoPlayer)
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        // Tapping the media notification re-opens the app. The intent must be
+        // immutable on API 31+ and updatable, or Media3 re-fires a stale one.
+        val sessionActivity = PendingIntent.getActivity(
+            this,
+            /* requestCode = */ 0,
+            Intent(this, MainActivity::class.java)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        // The notification small icon is the app logo, not a bare exclamation
+        // mark: DefaultMediaNotificationProvider falls back to the system
+        // default when none is set.
+        val notificationProvider = DefaultMediaNotificationProvider(this)
+            .apply { setSmallIcon(R.drawable.ic_launcher_monochrome) }
+
+        // Android hides the next button on a single-item timeline (YouTube
+        // tracks carry their stream URL per play), and the platform repeat
+        // button can only be changed through the player's repeat mode, which
+        // the controller drives from the canonical queue. So the one extra
+        // media button we can honestly offer is the repeat cycle.
+        val repeatButton = CommandButton.Builder()
+            .setDisplayName(getString(R.string.player_repeat))
+            .setSessionCommand(SessionCommand(REPEAT_CYCLE_COMMAND, Bundle.EMPTY))
+            .setIconResId(R.drawable.ic_notification_repeat)
+            .build()
+
+        mediaSession = MediaSession.Builder(this, sessionPlayer)
+            .setSessionActivity(sessionActivity)
+            .setMediaNotificationProvider(notificationProvider)
+            .setMediaButtonPreferences(listOf(repeatButton))
+            .build()
 
         scope.launch {
             settings.settings.collect { current ->
                 stopOnTaskClear = current.stopMusicOnTaskClear
                 runCatching {
-                    player.setPlaybackSpeed(current.playbackSpeed)
-                    player.skipSilenceEnabled = current.skipSilence
+                    exoPlayer.setPlaybackSpeed(current.playbackSpeed)
+                    exoPlayer.skipSilenceEnabled = current.skipSilence
                 }
             }
         }
+    }
+
+    /**
+     * Registers the repeat cycle command with connecting controllers, so the
+     * media button in the notification is actually clickable and its future is
+     * handled in [onCustomCommand].
+     */
+    override fun onConnect(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+    ): MediaSession.ConnectionResult {
+        val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+            .add(SessionCommand(REPEAT_CYCLE_COMMAND, Bundle.EMPTY))
+            .build()
+        val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+            .add(Player.COMMAND_SET_REPEAT_MODE)
+            .build()
+        return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+            .setAvailableSessionCommands(sessionCommands)
+            .setAvailablePlayerCommands(playerCommands)
+            .build()
+    }
+
+    override fun onCustomCommand(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+        customCommand: SessionCommand,
+    ): ListenableFuture<SessionResult> {
+        if (customCommand.customAction == REPEAT_CYCLE_COMMAND) {
+            runCatching { playbackController.get().cycleRepeat() }
+        }
+        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
@@ -103,6 +185,12 @@ class PlaybackService : MediaSessionService() {
             release()
         }
         mediaSession = null
+        localPlayer = null
         super.onDestroy()
+    }
+
+    private companion object {
+        /** Custom session command cycled by the notification's repeat button. */
+        const val REPEAT_CYCLE_COMMAND = "app.nodes.playback.CYCLE_REPEAT"
     }
 }

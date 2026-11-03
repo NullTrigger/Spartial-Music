@@ -13,8 +13,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -267,6 +269,33 @@ class InnerTubeClient @Inject constructor(
     }.getOrDefault(false)
 
     // ------------------------------------------------------------------
+    // Account writes
+    // ------------------------------------------------------------------
+
+    /**
+     * Pushes "liked" for [videoId] onto the signed-in account.
+     *
+     * This is the one write Nodes makes to a YouTube account, under the
+     * maintainer decision recorded in YOUTUBE.md. The session cookie already
+     * carries that power the moment it is captured; the endpoint is YouTube
+     * Music's own `like/like`. Liking a video that is already liked is accepted
+     * and counts as success, so a sync can simply replay every local like.
+     *
+     * @return true when YouTube accepted the call, and false when signed out,
+     *         throttled or rejected - the caller shows what that means.
+     */
+    suspend fun likeVideo(videoId: String): Boolean = withContext(Dispatchers.IO) {
+        if (!auth.isSignedIn) return@withContext false
+        val payload = buildJsonObject {
+            put("context", contextFor(WEB_REMIX))
+            putJsonObject("target") { put("videoId", videoId) }
+            putJsonArray("actions") { add(buildJsonObject { put("action", "LIKE") }) }
+        }
+        runCatching { postEmptyOk("like/like", payload, WEB_REMIX, authenticated = true) }
+            .getOrDefault(false)
+    }
+
+    // ------------------------------------------------------------------
     // Wire format
     // ------------------------------------------------------------------
 
@@ -304,6 +333,43 @@ class InnerTubeClient @Inject constructor(
         profile: InnerTubeClientProfile,
         authenticated: Boolean,
     ): JsonObject {
+        val request = buildRequest(path, payload, profile, authenticated)
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IOException("InnerTube $path returned HTTP ${response.code}")
+            }
+            return json.parseToJsonElement(text).jsonObjectOrNull()
+                ?: throw IOException("InnerTube $path returned an unreadable body")
+        }
+    }
+
+    /**
+     * Like [post] for the write endpoints that answer with an empty body
+     * (`like/like` does). Success is an HTTP 2xx and nothing more.
+     */
+    private suspend fun postEmptyOk(
+        path: String,
+        payload: JsonObject,
+        profile: InnerTubeClientProfile,
+        authenticated: Boolean,
+    ): Boolean {
+        val request = buildRequest(path, payload, profile, authenticated)
+        client.newCall(request).execute().use { response -> response.isSuccessful }
+    }
+
+    /**
+     * One InnerTube request with every header the endpoint requires: client
+     * identity headers matching the body's context, origin headers for the
+     * music site, the visitor id, and session cookie plus SAPISIDHASH
+     * authorization for authenticated, logged-in-capable profiles.
+     */
+    private suspend fun buildRequest(
+        path: String,
+        payload: JsonObject,
+        profile: InnerTubeClientProfile,
+        authenticated: Boolean,
+    ): Request {
         val visitor = auth.ensureVisitorData()
         val url = "$BASE_URL/$path?prettyPrint=false"
 
@@ -330,15 +396,7 @@ class InnerTubeClient @Inject constructor(
             }
         }
 
-        val request = builder.build()
-        client.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IOException("InnerTube $path returned HTTP ${response.code}")
-            }
-            return json.parseToJsonElement(text).jsonObjectOrNull()
-                ?: throw IOException("InnerTube $path returned an unreadable body")
-        }
+        return builder.build()
     }
 
     /**

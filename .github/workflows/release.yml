@@ -78,13 +78,17 @@ jobs:
       - name: Write local.properties
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          YOUTUBE_OAUTH_CLIENT_ID: ${{ secrets.YOUTUBE_OAUTH_CLIENT_ID }}
+          JAMENDO_CLIENT_ID: ${{ secrets.JAMENDO_CLIENT_ID }}
         run: |
           {
             echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY"
+            echo "YOUTUBE_OAUTH_CLIENT_ID=$YOUTUBE_OAUTH_CLIENT_ID"
+            echo "JAMENDO_CLIENT_ID=$JAMENDO_CLIENT_ID"
           } > local.properties
 
-      - name: Assemble release
-        run: ./gradlew :app:assembleRelease --stacktrace
+      - name: Assemble the GMS and FOSS releases
+        run: ./gradlew :app:assembleGmsRelease :app:assembleFossRelease --stacktrace
 
       - name: Collect artifacts
         id: artifacts
@@ -92,21 +96,25 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           mkdir -p dist
-          APK=$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)
-          if [ -z "$APK" ]; then
-            echo "::error::No release APK was produced."
-            exit 1
-          fi
-          cp "$APK" "dist/nodes-$VERSION.apk"
-          (cd app/build/outputs/apk/release && sha256sum *.apk) > "dist/nodes-$VERSION.apk.sha256" || true
+          for FLAVOUR in gms foss; do
+            APK=$(find "app/build/outputs/apk/$FLAVOUR/release" -name '*.apk' | head -n 1)
+            if [ -z "$APK" ]; then
+              echo "::error::No release APK was produced for the $FLAVOUR flavour."
+              exit 1
+            fi
+            cp "$APK" "dist/nodes-$FLAVOUR-$VERSION.apk"
+            (cd "app/build/outputs/apk/$FLAVOUR/release" && sha256sum *.apk) \
+              > "dist/nodes-$FLAVOUR-$VERSION.apk.sha256" || true
+          done
           ls -l dist
 
       - name: Signing check
         run: |
-          APK=$(find dist -name '*.apk' | head -n 1)
-          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
-          echo "Using $BUILD_TOOLS"
-          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | grep -i "Signer #1 certificate DN"
+          for APK in dist/*.apk; do
+            BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+            echo "Checking $APK with $BUILD_TOOLS"
+            "$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | grep -i "Signer #1 certificate DN"
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -118,16 +126,23 @@ jobs:
           body: |
             Signed release build of Nodes ${{ steps.artifacts.outputs.version }}.
 
-            Install with `adb install nodes-${{ steps.artifacts.outputs.version }}.apk`
-            or open the APK on your device. Verify the checksum from the
-            `.sha256` file before installing.
+            `nodes-gms-` ships Cast support and is for devices with Google
+            Play services; `nodes-foss-` is the Free-Software build without
+            any Google binary.
+
+            Install with `adb install nodes-gms-${{ steps.artifacts.outputs.version }}.apk`
+            (or the foss one on the same command), or open the APK on your
+            device. Verify the checksum from the `.sha256` file before
+            installing.
 
             YouTube browsing needs your own Data API key; see YOUTUBE.md.
             Nodes is not affiliated with YouTube, Google LLC or any streaming
             service.
           files: |
-            dist/nodes-${{ steps.artifacts.outputs.version }}.apk
-            dist/nodes-${{ steps.artifacts.outputs.version }}.apk.sha256
+            dist/nodes-gms-${{ steps.artifacts.outputs.version }}.apk
+            dist/nodes-gms-${{ steps.artifacts.outputs.version }}.apk.sha256
+            dist/nodes-foss-${{ steps.artifacts.outputs.version }}.apk
+            dist/nodes-foss-${{ steps.artifacts.outputs.version }}.apk.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

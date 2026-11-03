@@ -45,6 +45,12 @@ class PlayerViewModel @Inject constructor(
 
     fun togglePlayPause() = player.togglePlayPause()
 
+    fun cycleRepeat(): app.nodes.playback.RepeatMode = player.cycleRepeat()
+
+    fun toggleShuffle() = player.toggleShuffle()
+
+    fun toggleInfiniteQueue() = player.toggleInfiniteQueue()
+
     fun next() = player.next()
 
     fun previous() = player.previous()

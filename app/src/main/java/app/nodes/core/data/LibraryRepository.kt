@@ -12,16 +12,23 @@ import app.nodes.core.data.db.PlaylistEntity
 import app.nodes.core.data.db.TrackDao
 import app.nodes.core.data.db.toEntity
 import app.nodes.core.data.db.toTrack
+import app.nodes.core.model.ArtistStat
+import app.nodes.core.model.ListeningStats
 import app.nodes.core.model.Playlist
 import app.nodes.core.model.PlaylistDetail
 import app.nodes.core.model.SourceId
 import app.nodes.core.model.Track
+import app.nodes.core.model.TrackStat
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** How many rows each ranking on the stats screen shows. */
+private const val STATS_RANK_LIMIT = 10
 
 /**
  * Everything the user owns: likes, playlists, history. All of it lives in the
@@ -49,6 +56,33 @@ class LibraryRepository @Inject constructor(
     }
 
     fun isLiked(trackId: String): Flow<Boolean> = libraryDao.isLiked(trackId)
+
+    /** Everything the cache holds for one artist name, newest first. */
+    fun artistTracks(artist: String): Flow<List<Track>> =
+        trackDao.byArtist(artist).map { rows -> rows.map { it.toTrack() } }
+
+    /** Everything the cache holds for one album name, newest first. */
+    fun albumTracks(album: String): Flow<List<Track>> =
+        trackDao.byAlbum(album).map { rows -> rows.map { it.toTrack() } }
+
+    /**
+     * Listening stats for the window starting at [since] (epoch millis). All
+     * three queries re-emit whenever play_history or tracks change, so an open
+     * stats screen keeps counting while music is playing. Minutes are an
+     * estimate: see [ListeningStats].
+     */
+    fun listeningStats(since: Long): Flow<ListeningStats> = combine(
+        libraryDao.playTotals(since),
+        libraryDao.topTracks(since, STATS_RANK_LIMIT),
+        libraryDao.topArtists(since, STATS_RANK_LIMIT),
+    ) { totals, tracks, artists ->
+        ListeningStats(
+            plays = totals.plays,
+            durationMs = totals.durationMs,
+            topTracks = tracks.map { TrackStat(track = it.track.toTrack(), plays = it.plays) },
+            topArtists = artists.map { ArtistStat(artist = it.artist, plays = it.plays, durationMs = it.durationMs) },
+        )
+    }
 
     suspend fun cacheTracks(tracks: List<Track>) {
         if (tracks.isEmpty()) return
