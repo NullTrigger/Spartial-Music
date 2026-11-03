@@ -120,9 +120,9 @@ Or press **Run ▶** in Android Studio.
 Other useful tasks:
 
 ```powershell
-.\gradlew.bat :app:testDebugUnitTest    # unit tests
+.\gradlew.bat :app:testGmsDebugUnitTest :app:testFossDebugUnitTest   # unit tests (both flavours)
 .\gradlew.bat :app:lintGmsDebug         # Android lint (fails the build on errors); lintFossDebug for the other flavour
-.\gradlew.bat :app:assembleRelease      # release build (needs a keystore, see below)
+.\gradlew.bat :app:assembleGmsRelease :app:assembleFossRelease   # release builds (need a keystore, see below)
 ```
 
 ## 5. Create a release keystore
@@ -163,11 +163,12 @@ Copy-Item nodes-release.jks "$env:USERPROFILE\Documents\nodes-release-backup.jks
 Verify the release build is signed with your key, not the debug key:
 
 ```powershell
-.\gradlew.bat :app:assembleRelease
-& "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\apksigner.bat" verify --print-certs app\build\outputs\apk\release\app-release.apk
+.\gradlew.bat :app:assembleGmsRelease :app:assembleFossRelease
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\apksigner.bat" verify --print-certs app\build\outputs\apk\gms\release\*.apk
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\37.0.0\apksigner.bat" verify --print-certs app\build\outputs\apk\foss\release\*.apk
 ```
 
-If `keystore.properties` is missing, `assembleRelease` falls back to debug
+If `keystore.properties` is missing, the release builds fall back to debug
 signing with a warning — good enough for testing, never for distribution.
 
 ## 6. Add GitHub secrets

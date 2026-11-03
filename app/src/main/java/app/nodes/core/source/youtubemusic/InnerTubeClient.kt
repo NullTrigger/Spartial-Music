@@ -355,7 +355,7 @@ class InnerTubeClient @Inject constructor(
         authenticated: Boolean,
     ): Boolean {
         val request = buildRequest(path, payload, profile, authenticated)
-        client.newCall(request).execute().use { response -> response.isSuccessful }
+        return client.newCall(request).execute().use { response -> response.isSuccessful }
     }
 
     /**

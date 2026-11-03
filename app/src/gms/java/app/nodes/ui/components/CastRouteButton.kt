@@ -32,7 +32,7 @@ import app.nodes.ui.theme.NodesGrey
  *
  * Part of [androidx.media3.cast], see developer.android.com/media/media3/cast.
  */
-@OptIn(UnstableApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun CastRouteButton(
     modifier: Modifier = Modifier,

@@ -94,9 +94,9 @@ app/src/main/java/app/nodes/
 ## Build and verify
 
 ```bash
-./gradlew :app:assembleDebug        # must pass before you hand work back
-./gradlew :app:testDebugUnitTest
-./gradlew :app:lintDebug            # abortOnError = true
+./gradlew :app:assembleDebug        # builds both gms and foss debug APKs
+./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest
+./gradlew.bat :app:lintGmsDebug     # abortOnError = true; lintFossDebug for the other flavour
 ```
 
 Windows: `.\gradlew.bat`. JDK 17. Details: [BUILDING.md](BUILDING.md).

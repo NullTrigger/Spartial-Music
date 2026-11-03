@@ -28,9 +28,9 @@ that your work is licensed under the same terms.
 
 ```bash
 cp local.properties.example local.properties   # SDK path + optional API keys
-./gradlew :app:assembleDebug
-./gradlew :app:testDebugUnitTest
-./gradlew :app:lintDebug
+./gradlew :app:assembleDebug            # both gms and foss debug APKs
+./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest
+./gradlew :app:lintGmsDebug             # lintFossDebug for the other flavour
 ```
 
 `local.properties` is git-ignored. Never paste API keys into an issue or a commit.

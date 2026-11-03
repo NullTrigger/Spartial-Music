@@ -18,8 +18,8 @@
 ## Checks
 
 - [ ] `./gradlew :app:assembleDebug` passes
-- [ ] `./gradlew :app:testDebugUnitTest` passes
-- [ ] `./gradlew :app:lintDebug` passes
+- [ ] `./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest` pass
+- [ ] `./gradlew :app:lintGmsDebug :app:lintFossDebug` pass
 - [ ] New source files carry the `Copyright (C) 2026 …` GPL header
 - [ ] No API keys, tokens or `local.properties` committed
 - [ ] No copyrighted artwork, audio or real artist metadata added

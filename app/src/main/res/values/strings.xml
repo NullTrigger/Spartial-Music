@@ -177,7 +177,7 @@
     <string name="settings_sync_signed_out">Sign in to YouTube Music first — the sync needs your account login.</string>
     <string name="settings_sync_nothing">No liked YouTube Music tracks yet. Like some songs and sync again.</string>
     <string name="settings_sync_done">Pushed %1$d likes to YouTube Music, %2$d failed. You can run this again any time.</string>
-    <string name="settings_sync_subtitle">Adds every track you liked in Nodes to your YouTube Music account's liked songs.</string>
+    <string name="settings_sync_subtitle">Adds every track you liked in Nodes to your YouTube Music account\'s liked songs.</string>
     <string name="settings_sync_note">One way only: nothing is pulled back into Nodes. Liking a track that is already liked changes nothing, so it is safe to run again. Uses the same unofficial YouTube Music connection as everything else in this app.</string>
     <string name="login_title">Google sign-in</string>
     <string name="login_done">Done</string>

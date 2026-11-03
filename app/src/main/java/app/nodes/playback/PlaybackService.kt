@@ -98,6 +98,7 @@ class PlaybackService : MediaSessionService() {
         // default when none is set.
         val notificationProvider = DefaultMediaNotificationProvider(this)
             .apply { setSmallIcon(R.drawable.ic_launcher_monochrome) }
+        setMediaNotificationProvider(notificationProvider)
 
         // Android hides the next button on a single-item timeline (YouTube
         // tracks carry their stream URL per play), and the platform repeat
@@ -112,7 +113,7 @@ class PlaybackService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, sessionPlayer)
             .setSessionActivity(sessionActivity)
-            .setMediaNotificationProvider(notificationProvider)
+            .setCallback(sessionCallback)
             .setMediaButtonPreferences(listOf(repeatButton))
             .build()
 
@@ -128,35 +129,42 @@ class PlaybackService : MediaSessionService() {
     }
 
     /**
-     * Registers the repeat cycle command with connecting controllers, so the
-     * media button in the notification is actually clickable and its future is
-     * handled in [onCustomCommand].
+     * The session callbacks. In Media3 the service itself is not the callback;
+     * the session receives this object, and the repeat-cycle command is
+     * handled here so the notification's media button works. The connection
+     * plumbing (DEFAULT_*_COMMANDS, AcceptedResultBuilder) is UnstableApi in
+     * Media3 1.11, hence the per-method opt-in.
      */
-    override fun onConnect(
-        session: MediaSession,
-        controller: MediaSession.ControllerInfo,
-    ): MediaSession.ConnectionResult {
-        val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
-            .add(SessionCommand(REPEAT_CYCLE_COMMAND, Bundle.EMPTY))
-            .build()
-        val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
-            .add(Player.COMMAND_SET_REPEAT_MODE)
-            .build()
-        return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-            .setAvailableSessionCommands(sessionCommands)
-            .setAvailablePlayerCommands(playerCommands)
-            .build()
-    }
+    private val sessionCallback = object : MediaSession.Callback {
 
-    override fun onCustomCommand(
-        session: MediaSession,
-        controller: MediaSession.ControllerInfo,
-        customCommand: SessionCommand,
-    ): ListenableFuture<SessionResult> {
-        if (customCommand.customAction == REPEAT_CYCLE_COMMAND) {
-            runCatching { playbackController.get().cycleRepeat() }
+        @androidx.annotation.OptIn(UnstableApi::class)
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): MediaSession.ConnectionResult {
+            val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                .add(SessionCommand(REPEAT_CYCLE_COMMAND, Bundle.EMPTY))
+                .build()
+            val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+                .add(Player.COMMAND_SET_REPEAT_MODE)
+                .build()
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(sessionCommands)
+                .setAvailablePlayerCommands(playerCommands)
+                .build()
         }
-        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            extras: Bundle,
+        ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == REPEAT_CYCLE_COMMAND) {
+                runCatching { playbackController.get().cycleRepeat() }
+            }
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession

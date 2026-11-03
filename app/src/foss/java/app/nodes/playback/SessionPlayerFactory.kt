@@ -10,11 +10,11 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 
 /**
- * The player that backs the [MediaSession] — a hook point for flavor builds.
+ * The player that backs the [androidx.media3.session.MediaSession].
  *
  * The FOSS build plays locally only, so the ExoPlayer instance itself backs
- * the session. The gms flavor replaces this file with one that wraps the local
- * player in [androidx.media3.cast.CastPlayer], which routes the queue to a
- * Cast receiver when the user transfers it from the Output Switcher.
+ * the session. The gms flavour has its own SessionPlayerFactory (same path in
+ * `src/gms/java`) that wraps the local player in a CastPlayer instead; both
+ * are needed because every variant resolves this symbol.
  */
 internal fun createSessionPlayer(context: Context, localPlayer: ExoPlayer): Player = localPlayer

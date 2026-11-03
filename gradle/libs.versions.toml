@@ -27,7 +27,9 @@ serialization = "1.9.0"
 coroutines = "1.11.0"
 youtubePlayer = "12.1.2"
 playServicesAuth = "21.6.0"
-playServicesCastFramework = "23.0.0"
+# 23.0.0 ships Kotlin 2.4 metadata that Kotlin 2.2.10 (AGP-bundled) cannot
+# read, so the newest 22.x line carries it until the compiler catches up.
+playServicesCastFramework = "22.3.1"
 mediarouter = "1.8.1"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"

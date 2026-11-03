@@ -140,4 +140,4 @@ Deliberate choices:
 6. Appearance sub-screen (accent, reduce motion, density, backdrop).
 7. New files: GPL header; new tests for anything that serialises (settings JSON, queue snapshot).
 
-Verification stays on CI: `assembleDebug`, `testDebugUnitTest`, `lintDebug`. No local build.
+Verification stays on CI: `assembleDebug`, `testGmsDebugUnitTest`/`testFossDebugUnitTest` and `lintGmsDebug`/`lintFossDebug`. No local build.
