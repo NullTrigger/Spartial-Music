@@ -3,7 +3,7 @@
 Nodes is a local-first music player. There is no Nodes account, no Nodes server,
 no analytics, no crash reporting, no advertising SDK and no tracking of any kind.
 
-Last updated: 2026-11-01.
+Last updated: 2026-11-03.
 
 ## What stays on your device
 
@@ -38,6 +38,12 @@ Nodes only talks to a provider when you browse or play something:
    streaming, including artwork and audio URLs.
 4. **Artwork CDNs** — cover images are fetched by Coil from the URL the provider
    returned.
+5. **Lyrics providers** (`music.163.com`, `lrclib.net`,
+   `api-lyrics.simpmusic.org`, `api.lyrics.ovh`) — when a track starts and no
+   local `.lrc` file exists, Nodes asks these services in the order chosen in
+   Settings. A lookup contains the track title, artist, album and duration (and
+   the YouTube video id for SimpMusic). No account cookie, email or listening
+   history is sent. See [docs/LYRICS.md](docs/LYRICS.md).
 
 The unofficial YouTube Music source (Settings → YouTube Music) is on by default
 in this build. It calls YouTube's private `youtubei` endpoints on

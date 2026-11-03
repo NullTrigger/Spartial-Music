@@ -36,6 +36,7 @@
     <string name="now_playing_label">NOW PLAYING</string>
     <string name="action_play">Play</string>
     <string name="action_next">Next</string>
+    <string name="action_previous">Previous</string>
     <string name="action_pause">Pause</string>
     <string name="continue_playing">Continue Playing</string>
     <string name="new_songs">New songs you may like</string>
@@ -217,7 +218,8 @@
     <string name="lyrics_provider_local">Local files</string>
     <string name="lyrics_provider_lrclib">LRCLIB</string>
     <string name="lyrics_provider_simp_music">SimpMusic</string>
-    <string name="lyrics_provider_youly_plus">YouLy+</string>
+    <string name="lyrics_provider_netease">NetEase Cloud Music</string>
+    <string name="lyrics_provider_lyrics_ovh">Lyrics.ovh</string>
     <string name="lyrics_provider_none">No source enabled</string>
 
     <!-- Search history -->

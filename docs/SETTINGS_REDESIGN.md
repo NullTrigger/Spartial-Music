@@ -43,7 +43,7 @@ that would use them already read them.
 | Option | Where it lives now | Effect |
 |---|---|---|
 | Crash reports on/off | `crashReportsEnabled` + `SettingsViewModel.setCrashReportsEnabled` | The handler stops writing files; the Diagnostics screen explains why it is empty |
-| Lyrics sources: order, on/off | `lyricsProviderOrder`, `lyricsDisabledProviders` | `local`, `lrclib`, `simp_music`, `youly_plus`; local always wins |
+| Lyrics sources: order, on/off | `lyricsProviderOrder`, `lyricsDisabledProviders` | `local`, `netease`, `lrclib`, `simp_music`, `lyrics_ovh`; local always wins |
 | Prefer synced lyrics | `lyricsPreferSynced` | Already read in `LyricsRepository` |
 | Show which source was used | `lyricsShowSource` | Label under the lyrics |
 | Trending region | `youtubeRegion` | Mode 1 only: `YouTubeOfficialSource` uses it for trending |

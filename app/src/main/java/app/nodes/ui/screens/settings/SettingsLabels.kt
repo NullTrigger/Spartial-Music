@@ -30,9 +30,10 @@ internal val YoutubeRegions: List<Pair<String, Int>> = listOf(
 
 /** The lyrics sources the user can order and switch off. Local files always run. */
 internal val LyricsSourceRows: List<Pair<String, Int>> = listOf(
-    LyricsProviders.YOULYPLUS to R.string.lyrics_provider_youly_plus,
+    LyricsProviders.NETEASE to R.string.lyrics_provider_netease,
     LyricsProviders.LRCLIB to R.string.lyrics_provider_lrclib,
     LyricsProviders.SIMPMUSIC to R.string.lyrics_provider_simp_music,
+    LyricsProviders.LYRICS_OVH to R.string.lyrics_provider_lyrics_ovh,
 )
 
 @Composable

@@ -25,11 +25,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -78,8 +80,20 @@ fun SearchScreen(
         SearchField(
             query = state.query,
             onQueryChange = viewModel::setQuery,
+            onSearch = viewModel::submit,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
+
+        // Typing starts a search on its own; this bar makes the wait visible
+        // instead of leaving the previous results frozen under new text.
+        if (state.loading) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                color = NodesTeal,
+            )
+        }
 
         if (state.query.isBlank() && recent.isNotEmpty()) {
             LazyRow(
@@ -129,7 +143,8 @@ fun SearchScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 40.dp),
+            // The mini player floats over this screen too, so leave room for it.
+            contentPadding = PaddingValues(bottom = 120.dp),
         ) {
             state.error?.let { error ->
                 item(key = "error") {
@@ -178,6 +193,7 @@ fun SearchScreen(
 private fun SearchField(
     query: String,
     onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -210,6 +226,7 @@ private fun SearchField(
                 textStyle = MaterialTheme.typography.bodyMedium.copy(color = NodesWhite),
                 cursorBrush = SolidColor(NodesTeal),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch() }),
                 modifier = Modifier.fillMaxWidth(),
             )
         }

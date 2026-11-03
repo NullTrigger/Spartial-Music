@@ -59,6 +59,9 @@ fun NodesApp() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
     val showBar = route in setOf(Routes.HOME, Routes.TRENDING, Routes.SESSIONS, Routes.LIBRARY)
+    // Search is a tab but has no bottom bar of its own; the mini player still
+    // belongs there so playback stays one tap away while typing.
+    val showMiniPlayer = showBar || route == Routes.SEARCH
     val message = playerState.message
 
     LaunchedEffect(message) {
@@ -183,7 +186,7 @@ fun NodesApp() {
             }
         }
 
-        if (showBar) {
+        if (showMiniPlayer) {
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -197,22 +200,26 @@ fun NodesApp() {
                         isBuffering = playerState.isBuffering,
                         onClick = { navController.navigate(Routes.PLAYER) },
                         onToggle = playerViewModel::togglePlayPause,
+                        onPrevious = playerViewModel::previous,
+                        onNext = playerViewModel::next,
                         modifier = Modifier.padding(bottom = 2.dp),
                     )
                 }
-                NodesBottomBar(
-                    currentRoute = route,
-                    items = NodesNavItems,
-                    onSelect = { target ->
-                        if (target != route) {
-                            navController.navigate(target) {
-                                popUpTo(Routes.HOME) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                if (showBar) {
+                    NodesBottomBar(
+                        currentRoute = route,
+                        items = NodesNavItems,
+                        onSelect = { target ->
+                            if (target != route) {
+                                navController.navigate(target) {
+                                    popUpTo(Routes.HOME) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
-                        }
-                    },
-                )
+                        },
+                    )
+                }
             }
         }
 

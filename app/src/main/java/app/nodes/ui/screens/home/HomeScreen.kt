@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
 import app.nodes.core.model.HomeSection
 import app.nodes.core.model.Track
+import app.nodes.core.source.youtubemusic.InnerTubeAccount
 import app.nodes.ui.components.AlbumCard
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.ContinuePlayingCard
@@ -58,9 +59,9 @@ fun HomeScreen(
     onOpenCollection: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
-    avatarInitial: String = "N",
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val account by viewModel.account.collectAsStateWithLifecycle()
     val heroTracks = state.feed.hero.map { it.track }
 
     Box(
@@ -135,7 +136,8 @@ fun HomeScreen(
 
         HomeTopBar(
             onOpenSettings = onOpenSettings,
-            avatarInitial = avatarInitial,
+            avatarInitial = profileInitial(account),
+            signedIn = account != null,
             modifier = Modifier.align(Alignment.TopStart),
         )
     }
@@ -192,6 +194,18 @@ private fun AlbumRail(
             AlbumCard(track = track, onClick = { onTrackClick(track) })
         }
     }
+}
+
+/**
+ * The letter on the avatar: the account's display name first, then its email,
+ * and "N" when nobody is signed in. Non-letter characters are skipped so an
+ * emoji or a leading space does not end up in the circle.
+ */
+private fun profileInitial(account: InnerTubeAccount?): String {
+    val source = account?.name?.trim()?.takeIf { it.isNotEmpty() }
+        ?: account?.email?.trim()?.takeIf { it.isNotEmpty() }
+        ?: return "N"
+    return source.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "N"
 }
 
 @Composable

@@ -58,16 +58,19 @@ interface LyricsProvider {
 object LyricsProviders {
 
     const val LOCAL = "local"
+    const val NETEASE = "netease"
     const val LRCLIB = "lrclib"
     const val SIMPMUSIC = "simp_music"
-    const val YOULYPLUS = "youly_plus"
+    const val LYRICS_OVH = "lyrics_ovh"
 
     /**
-     * Local files win: the user put them there on purpose. Then the provider
-     * that returns word-level timing most often (YouLyPlus), then the most
-     * carefully matched index (LRCLIB), then SimpMusic.
+     * Local files win: the user put them there on purpose. Then NetEase, whose
+     * LRC payloads cover a large catalogue with line timing, then the carefully
+     * matched LRCLIB index, then SimpMusic, and finally Lyrics.ovh for plain
+     * text when none of the timed providers know the song.
      */
-    val DEFAULT_ORDER: List<String> = listOf(LOCAL, YOULYPLUS, LRCLIB, SIMPMUSIC)
+    val DEFAULT_ORDER: List<String> =
+        listOf(LOCAL, NETEASE, LRCLIB, SIMPMUSIC, LYRICS_OVH)
 
     /** Providers that need no account or key, so the UI can list them all. */
     val KNOWN: List<String> = DEFAULT_ORDER
