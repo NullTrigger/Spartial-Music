@@ -5,12 +5,16 @@
 
 package app.nodes.ui.screens.settings
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
+import app.nodes.ui.components.MessageBanner
 
 /**
  * Where music comes from: the source in use, the trending region the official
@@ -24,11 +28,24 @@ fun ContentSettingsScreen(
 ) {
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
     val account by viewModel.musicAccount.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    val syncing by viewModel.likesSyncRunning.collectAsStateWithLifecycle()
 
     SettingsScaffold(
         title = stringResource(R.string.settings_group_content),
         onBack = onBack,
     ) {
+        val banner = message
+        if (banner != null) {
+            item(key = "message") {
+                MessageBanner(
+                    message = banner,
+                    onDismiss = viewModel::dismissMessage,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+
         item(key = "source") {
             SettingsGroup(stringResource(R.string.settings_source_title)) {
                 SettingsInfoRow(
@@ -51,6 +68,20 @@ fun ContentSettingsScreen(
                         onClick = { viewModel.setYoutubeRegion(region.first) },
                     )
                 }
+            }
+        }
+
+        item(key = "sync") {
+            SettingsGroup(stringResource(R.string.settings_sync_group)) {
+                SettingsActionRow(
+                    title = stringResource(
+                        if (syncing) R.string.settings_sync_running else R.string.settings_sync_title,
+                    ),
+                    subtitle = stringResource(R.string.settings_sync_subtitle),
+                    onClick = viewModel::syncLikesToYouTube,
+                )
+                SettingsDivider()
+                SettingsNote(stringResource(R.string.settings_sync_note))
             }
         }
 

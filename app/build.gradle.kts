@@ -63,6 +63,25 @@ android {
         buildConfigField("String", "JAMENDO_CLIENT_ID", "\"${secret("JAMENDO_CLIENT_ID")}\"")
     }
 
+    /**
+     * The store dimension splits the build into the two distribution
+     * channels: gms bundles Google Play services (Cast), while foss is the
+     * Free-Software flavour without any Play services binary.
+     *
+     * Files with the same relative path in `src/gms/java` override their
+     * `src/main/java` counterpart per variant; see CastRouteButton and
+     * SessionPlayerFactory.
+     */
+    flavorDimensions += "store"
+    productFlavors {
+        create("gms") {
+            dimension = "store"
+        }
+        create("foss") {
+            dimension = "store"
+        }
+    }
+
     signingConfigs {
         if (keystorePropertiesFile.exists()) {
             create("release") {
@@ -191,6 +210,12 @@ dependencies {
 
     implementation(libs.youtube.player)
     implementation(libs.play.services.auth)
+
+    // Cast is a Play services surface, so it only exists in the gms flavour:
+    // the FOSS build must never pull in a Google binary it cannot use.
+    "gmsImplementation"(libs.androidx.media3.cast)
+    "gmsImplementation"(libs.play.services.cast.framework)
+    "gmsImplementation"(libs.androidx.mediarouter)
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 

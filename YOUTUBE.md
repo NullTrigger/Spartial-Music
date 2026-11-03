@@ -197,6 +197,24 @@ How it works, and what keeps it bounded:
 - **Sign out of YouTube Music** deletes the stored cookie and clears the WebView
   cookies.
 
+### Writing to the account: the likes push
+
+**Maintainer decision, 3 November 2026:** in addition to reading, Mode 2 may
+make exactly one *write* on the signed-in account — pushing a locally liked
+YouTube Music track to the account's liked songs. This is the "Sync to YT"
+row in Settings → Content, and it is the only account write in the codebase.
+
+- It is one-directional: Nodes pushes likes **to** YouTube and never pulls the
+  account's liked songs back into the library (reads for personalised shelves
+  are unchanged from the cookie decision above).
+- It replays liking what is already liked, which YouTube treats as a no-op, so
+  running the sync again is safe and can complete whatever was left.
+- Nothing is recorded per-user beyond what the like toggle already stores
+  locally; no new data leaves the device except the like calls themselves.
+- The endpoint is YouTube Music's own `like/like` with the session cookie and
+  the same SAPISIDHASH authorization as every other Mode 2 call. It carries the
+  same instability and the same legal position as the rest of Mode 2 (above).
+
 ### The legal reality, stated plainly
 
 - InnerTube is **not** covered by the YouTube API Services Terms. Using it is

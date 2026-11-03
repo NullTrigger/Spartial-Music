@@ -11,8 +11,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,11 +20,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -35,25 +36,39 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -73,11 +88,11 @@ import app.nodes.ui.components.glass
 import app.nodes.ui.components.sourceErrorMessage
 import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.theme.GlassBorder
-import app.nodes.ui.theme.GlassBorderStrong
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesGreyDim
 import app.nodes.ui.theme.NodesTeal
+import app.nodes.ui.theme.NodesTealDeep
 import app.nodes.ui.theme.NodesWhite
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -140,14 +155,16 @@ class PlaylistDetailViewModel @Inject constructor(
 }
 
 /**
- * Playlist screen, "cover + glass ledger" direction.
+ * Playlist screen, "Aurora" direction.
  *
- * A generated cover card and the aggregate runtime come first, then the whole
- * queue lives inside one frosted slab: the first row rounds the top, the last
- * row rounds the bottom, and the side hairlines are drawn per row so the slab
- * reads as a single surface while the list stays lazy. The active track keeps a
- * teal rail, a tinted wash and a small equaliser, and a floating Play-all bar
- * mirrors the MiniPlayer's glass so the primary action never hides a row.
+ * A full-bleed generated cover fills the top of the screen and the oversized
+ * title sits on its lowest third, above a teal Play-all pill and a glass
+ * shuffle button. The queue itself is deliberately bare: numbered rows with a
+ * hairline inset under the artwork, the active track carrying a teal rail, a
+ * tinted wash and a live equaliser. At the bottom, the floating dock mirrors
+ * the MiniPlayer glass: while something is playing it becomes a now-playing
+ * bar with a progress hairline, pause and next; otherwise it stays a plain
+ * Play-all bar.
  *
  * The backdrop is gradient film only - no `Modifier.blur`, which API 26 cannot
  * afford - matching Glass.kt.
@@ -156,6 +173,7 @@ class PlaylistDetailViewModel @Inject constructor(
 fun PlaylistDetailScreen(
     playlistId: String,
     onBack: () -> Unit,
+    onOpenPlayer: () -> Unit = {},
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -167,63 +185,93 @@ fun PlaylistDetailScreen(
 
     val runtimeMs = tracks.sumOf { it.durationMs }
     val currentId = playerState.current?.id
+    val playAll: () -> Unit = {
+        tracks.firstOrNull()?.let { playerViewModel.play(it, tracks) }
+    }
 
     Box(
         Modifier
             .fillMaxSize()
             .background(NodesBlack),
     ) {
-        LedgerBackdrop(Modifier.matchParentSize())
+        AuroraBackdrop(Modifier.matchParentSize())
 
-        Column(Modifier.fillMaxSize()) {
-            LedgerBar(onBack = onBack)
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 122.dp),
-            ) {
-                item(key = "cover") {
-                    PlaylistCover(
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 132.dp),
+        ) {
+            item(key = "hero") {
+                Column {
+                    AuroraHero(
                         title = state.title,
                         trackCount = tracks.size,
                         runtimeMs = runtimeMs,
+                        onBack = onBack,
+                        onPlayAll = playAll,
+                        onShuffle = {
+                            val shuffled = tracks.shuffled()
+                            shuffled.firstOrNull()?.let { playerViewModel.play(it, shuffled) }
+                        },
                     )
-                }
-
-                if (tracks.isNotEmpty()) {
-                    item(key = "ledger-head") {
-                        LedgerHeader(trackCount = tracks.size)
-                    }
-                    itemsIndexed(items = tracks, key = { _, track -> track.id }) { index, track ->
-                        LedgerRow(
-                            track = track,
-                            active = track.id == currentId,
-                            playing = playerState.isPlaying,
-                            last = index == tracks.lastIndex,
-                            onClick = { playerViewModel.play(track, tracks) },
-                            onPlayNext = { playerViewModel.playNext(track) },
-                            onAddToQueue = { playerViewModel.addToQueue(track) },
-                        )
-                    }
-                } else if (!state.loading) {
-                    item(key = "empty") {
-                        EmptyPanel(
-                            title = state.title,
-                            description = state.error
-                                ?.let { sourceErrorMessage(it) }
-                                ?: stringResource(R.string.playlist_load_failed),
+                    if (tracks.isNotEmpty()) {
+                        AuroraActions(
+                            onPlayAll = playAll,
+                            onShuffle = {
+                                val shuffled = tracks.shuffled()
+                                shuffled.firstOrNull()?.let { playerViewModel.play(it, shuffled) }
+                            },
                         )
                     }
                 }
             }
+
+            if (tracks.isNotEmpty()) {
+                item(key = "tracks-head") {
+                    AuroraListHeader(trackCount = tracks.size)
+                }
+                itemsIndexed(items = tracks, key = { _, track -> track.id }) { index, track ->
+                    AuroraTrackRow(
+                        index = index,
+                        track = track,
+                        active = track.id == currentId,
+                        playing = playerState.isPlaying,
+                        last = index == tracks.lastIndex,
+                        onClick = { playerViewModel.play(track, tracks) },
+                        onPlayNext = { playerViewModel.playNext(track) },
+                        onAddToQueue = { playerViewModel.addToQueue(track) },
+                    )
+                }
+            } else if (!state.loading) {
+                item(key = "empty") {
+                    EmptyPanel(
+                        title = state.title,
+                        description = state.error
+                            ?.let { sourceErrorMessage(it) }
+                            ?: stringResource(R.string.playlist_load_failed),
+                    )
+                }
+            }
         }
 
-        if (tracks.isNotEmpty()) {
-            PlayAllBar(
+        val current = playerState.current
+        when {
+            current != null -> NowPlayingDock(
+                current = current,
+                isPlaying = playerState.isPlaying,
+                isBuffering = playerState.isBuffering,
+                progress = playerState.progress,
+                hasDuration = playerState.durationMs > 0L,
+                onOpenPlayer = onOpenPlayer,
+                onToggle = playerViewModel::togglePlayPause,
+                onNext = playerViewModel::next,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+
+            tracks.isNotEmpty() -> PlayAllBar(
                 trackCount = tracks.size,
                 runtimeMs = runtimeMs,
                 startsWith = tracks.first().title,
-                onClick = { playerViewModel.play(tracks.first(), tracks) },
+                onClick = playAll,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -232,7 +280,7 @@ fun PlaylistDetailScreen(
 
 /** Two warm film washes over near-black; purely decorative, like the mockup. */
 @Composable
-private fun LedgerBackdrop(modifier: Modifier = Modifier) {
+private fun AuroraBackdrop(modifier: Modifier = Modifier) {
     Box(modifier.background(NodesBlack)) {
         Box(
             Modifier
@@ -250,7 +298,7 @@ private fun LedgerBackdrop(modifier: Modifier = Modifier) {
                 .fillMaxSize()
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(NodesTeal.copy(alpha = 0.18f), Color.Transparent),
+                        colors = listOf(NodesTeal.copy(alpha = 0.14f), Color.Transparent),
                         center = Offset(70f, 40f),
                         radius = 760f,
                     ),
@@ -269,13 +317,170 @@ private fun LedgerBackdrop(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Full-bleed generated cover with the oversized title on its lowest third.
+ * The header row floats over the top edge; the copy is bottom-aligned so long
+ * artwork names never push it down.
+ */
 @Composable
-private fun LedgerBar(onBack: () -> Unit) {
+private fun AuroraHero(
+    title: String,
+    trackCount: Int,
+    runtimeMs: Long,
+    onBack: () -> Unit,
+    onPlayAll: () -> Unit,
+    onShuffle: () -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(430.dp)
+            .clipToBounds(),
+    ) {
+        HeroArt(title = title, modifier = Modifier.matchParentSize())
+
+        // Scrim: light veil on top (system bar contrast), heavy fade at the
+        // bottom so the title always reads, plus a left-side darkening pass.
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to NodesBlack.copy(alpha = 0.62f),
+                        0.26f to NodesBlack.copy(alpha = 0.08f),
+                        0.48f to NodesBlack.copy(alpha = 0.18f),
+                        0.82f to NodesBlack.copy(alpha = 0.9f),
+                        1f to NodesBlack,
+                    ),
+                ),
+        )
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(NodesBlack.copy(alpha = 0.38f), Color.Transparent),
+                    ),
+                ),
+        )
+
+        AuroraTopBar(
+            moreEnabled = true,
+            onBack = onBack,
+            onPlayAll = onPlayAll,
+            onShuffle = onShuffle,
+        )
+
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 22.dp, end = 22.dp, bottom = 22.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.playlist_kicker).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = NodesTeal,
+            )
+            Spacer(Modifier.height(9.dp))
+            Text(
+                text = title.ifBlank { stringResource(R.string.playlist_kicker) },
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontSize = 38.sp,
+                    lineHeight = 42.sp,
+                    letterSpacing = (-1.2).sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                color = NodesWhite,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(10.dp))
+            val runtime = runtimeLabel(runtimeMs)
+            if (runtime.isNotEmpty()) {
+                MetaDots(
+                    parts = listOf(
+                        stringResource(R.string.playlist_track_count, trackCount),
+                        runtime,
+                    ),
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.playlist_track_count, trackCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NodesGrey,
+                )
+            }
+        }
+    }
+}
+
+/** Seeded gradient + glyph, drawn oversized and cropped by the hero box. */
+@Composable
+private fun HeroArt(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier.background(NodesBlack)) {
+        GeneratedArt(title = title, modifier = Modifier.matchParentSize(), showInitial = false)
+
+        // Halo plus two concentric rings, upper right, over the gradient.
+        Canvas(Modifier.matchParentSize()) {
+            val haloCenter = Offset(size.width * 0.87f, size.height * 0.47f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        NodesTeal.copy(alpha = 0.5f),
+                        NodesTeal.copy(alpha = 0.1f),
+                        Color.Transparent,
+                    ),
+                    center = haloCenter,
+                    radius = size.width * 0.47f,
+                ),
+                center = haloCenter,
+                radius = size.width * 0.47f,
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.13f),
+                center = Offset(size.width * 0.83f, size.height * 0.71f),
+                radius = size.width * 0.57f,
+                style = Stroke(1.dp.toPx()),
+            )
+            drawCircle(
+                color = NodesTeal.copy(alpha = 0.22f),
+                center = Offset(size.width * 0.83f, size.height * 0.71f),
+                radius = size.width * 0.35f,
+                style = Stroke(1.dp.toPx()),
+            )
+        }
+
+        Text(
+            text = title.firstOrNull()?.uppercase() ?: "N",
+            style = MaterialTheme.typography.displayLarge.copy(
+                fontSize = 220.sp,
+                lineHeight = 205.sp,
+                color = Color.White.copy(alpha = 0.08f),
+                fontWeight = FontWeight.ExtraBold,
+            ),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 14.dp, y = 46.dp),
+        )
+    }
+}
+
+/** Back on the left, overflow menu on the right; floats over the artwork. */
+@Composable
+private fun AuroraTopBar(
+    moreEnabled: Boolean,
+    onBack: () -> Unit,
+    onPlayAll: () -> Unit,
+    onShuffle: () -> Unit,
+) {
     Row(
         Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -292,91 +497,167 @@ private fun LedgerBar(onBack: () -> Unit) {
                 modifier = Modifier.size(20.dp),
             )
         }
-    }
-}
-
-@Composable
-private fun PlaylistCover(
-    title: String,
-    trackCount: Int,
-    runtimeMs: Long,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 22.dp, end = 22.dp, top = 10.dp, bottom = 20.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        Box(
-            Modifier
-                .size(152.dp)
-                .shadow(24.dp, RoundedCornerShape(22.dp))
-                .clip(RoundedCornerShape(22.dp)),
-        ) {
-            GeneratedArt(title = title, modifier = Modifier.fillMaxSize())
-            // Drawn as a child, so the hairline sits on top of the gradient
-            // instead of being painted over by GeneratedArt's background.
+        if (moreEnabled) {
+            Spacer(Modifier.weight(1f))
+            var expanded by remember { mutableStateOf(false) }
             Box(
                 Modifier
-                    .fillMaxSize()
-                    .border(1.dp, GlassBorderStrong, RoundedCornerShape(22.dp)),
-            )
-        }
-        Spacer(Modifier.width(16.dp))
-        Column(
-            Modifier
-                .weight(1f)
-                .padding(bottom = 4.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.playlist_kicker).uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = NodesTeal,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                color = NodesWhite,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.playlist_track_count, trackCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
-            )
-            val runtime = runtimeLabel(runtimeMs)
-            if (runtime.isNotEmpty()) {
-                Text(
-                    text = runtime,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
+                    .size(40.dp)
+                    .glass(CircleShape)
+                    .clickable { expanded = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MoreVert,
+                    contentDescription = stringResource(R.string.cd_more),
+                    tint = NodesWhite,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.playlist_play_all)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            tint = NodesGrey,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onPlayAll()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.playlist_shuffle)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Shuffle,
+                            contentDescription = null,
+                            tint = NodesGrey,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onShuffle()
+                    },
                 )
             }
         }
     }
 }
 
+/** Rounded "10 tracks · 42 min" run, separated by hairline dots. */
 @Composable
-private fun LedgerHeader(trackCount: Int) {
+private fun MetaDots(
+    parts: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        parts.forEachIndexed { index, part ->
+            if (index > 0) {
+                Box(
+                    Modifier
+                        .size(3.dp)
+                        .clip(CircleShape)
+                        .background(NodesGreyDim),
+                )
+            }
+            Text(
+                text = part,
+                style = MaterialTheme.typography.bodySmall,
+                color = NodesGrey,
+            )
+        }
+    }
+}
+
+/** Teal Play-all pill plus a glass shuffle button; the survey's primary row. */
+@Composable
+private fun AuroraActions(
+    onPlayAll: () -> Unit,
+    onShuffle: () -> Unit,
+) {
     Row(
         Modifier
-            .padding(horizontal = 14.dp)
             .fillMaxWidth()
-            .clip(SlabTopShape)
-            .background(SlabFill)
-            .border(1.dp, GlassBorder, SlabTopShape)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
+            .padding(start = 22.dp, end = 22.dp, top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .weight(1f)
+                .height(50.dp)
+                .clip(RoundedCornerShape(15.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(NodesTeal, NodesTealDeep),
+                    ),
+                )
+                .clickable(onClick = onPlayAll),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
+                    contentDescription = null,
+                    tint = NodesBlack,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.playlist_play_all),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = NodesBlack,
+                )
+            }
+        }
+        Box(
+            Modifier
+                .size(50.dp)
+                .glass(CircleShape)
+                .clickable(onClick = onShuffle),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Shuffle,
+                contentDescription = stringResource(R.string.playlist_shuffle),
+                tint = NodesWhite,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+/** "TRACKS" on the left, plain count on the right, directly over the rows. */
+@Composable
+private fun AuroraListHeader(
+    trackCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(start = 22.dp, end = 22.dp, top = 20.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(R.string.playlist_up_next).uppercase(),
+            text = stringResource(R.string.playlist_tracks).uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = NodesGrey,
-            modifier = Modifier.weight(1f),
+            color = NodesGreyDim,
         )
+        Spacer(Modifier.weight(1f))
         Text(
             text = stringResource(R.string.playlist_track_count, trackCount),
             style = MaterialTheme.typography.bodySmall,
@@ -385,8 +666,14 @@ private fun LedgerHeader(trackCount: Int) {
     }
 }
 
+/**
+ * A numbered queue row. The hairline under an idle row starts under the
+ * artwork, the playing row keeps a teal rail, tinted wash and equaliser, and
+ * nothing is drawn as a card - the list breathes on the dark backdrop.
+ */
 @Composable
-private fun LedgerRow(
+private fun AuroraTrackRow(
+    index: Int,
     track: Track,
     active: Boolean,
     playing: Boolean,
@@ -397,10 +684,7 @@ private fun LedgerRow(
 ) {
     Row(
         modifier = Modifier
-            .padding(horizontal = 14.dp)
             .fillMaxWidth()
-            .then(if (last) Modifier.clip(SlabBottomShape) else Modifier)
-            .background(SlabFill)
             .then(
                 if (active) {
                     Modifier.background(
@@ -413,39 +697,41 @@ private fun LedgerRow(
                 },
             )
             .drawBehind {
-                val hairline = 1.dp.toPx()
-                drawLine(
-                    color = GlassBorder,
-                    start = Offset(0f, 0f),
-                    end = Offset(0f, size.height),
-                    strokeWidth = hairline,
-                )
-                drawLine(
-                    color = GlassBorder,
-                    start = Offset(size.width - hairline / 2f, 0f),
-                    end = Offset(size.width - hairline / 2f, size.height),
-                    strokeWidth = hairline,
-                )
-                if (last) {
-                    drawLine(
-                        color = GlassBorder,
-                        start = Offset(0f, size.height - hairline / 2f),
-                        end = Offset(size.width, size.height - hairline / 2f),
-                        strokeWidth = hairline,
-                    )
-                }
                 if (active) {
-                    // Drawn, not laid out, so switching tracks never shifts the row.
                     drawRect(
                         color = NodesTeal,
-                        size = Size(2.5.dp.toPx(), size.height),
+                        topLeft = Offset(0f, 8.dp.toPx()),
+                        size = Size(2.5.dp.toPx(), size.height - 16.dp.toPx()),
+                    )
+                }
+                if (!last && !active) {
+                    drawLine(
+                        color = GlassBorder,
+                        start = Offset(49.dp.toPx(), size.height),
+                        end = Offset(size.width - 22.dp.toPx(), size.height),
+                        strokeWidth = 1.dp.toPx(),
                     )
                 }
             }
             .clickable(onClick = onClick)
-            .padding(start = 18.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 14.dp, end = 18.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(
+            Modifier.width(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (active) {
+                PlayingBars(color = NodesTeal, playing = playing)
+            } else {
+                Text(
+                    text = (index + 1).toString().padStart(2, '0'),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NodesGreyDim,
+                )
+            }
+        }
+        Spacer(Modifier.width(11.dp))
         Artwork(
             artworkUri = track.artworkUri,
             title = track.title,
@@ -455,24 +741,17 @@ private fun LedgerRow(
         )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = track.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (active) NodesTeal else NodesWhite,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (active) {
-                    Spacer(Modifier.width(7.dp))
-                    PlayingBars(color = NodesTeal, playing = playing)
-                }
-            }
+            Text(
+                text = track.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (active) NodesTeal else NodesWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 text = track.artist,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (active) NodesTeal.copy(alpha = 0.7f) else NodesGrey,
+                color = if (active) NodesTeal.copy(alpha = 0.72f) else NodesGrey,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -555,6 +834,7 @@ private fun BarRow(
 
 private val BarSeeds = listOf(0.45f, 1f, 0.65f)
 
+/** Floating glass Play-all bar for when nothing is playing yet. */
 @Composable
 private fun PlayAllBar(
     trackCount: Int,
@@ -620,6 +900,137 @@ private fun PlayAllBar(
     }
 }
 
+/**
+ * Floating glass now-playing dock. The artwork and title open the Now Playing
+ * screen, the hairline along the top edge carries playback progress, and the
+ * two round buttons mirror the mini player controls.
+ */
+@Composable
+private fun NowPlayingDock(
+    current: Track,
+    isPlaying: Boolean,
+    isBuffering: Boolean,
+    progress: Float,
+    hasDuration: Boolean,
+    onOpenPlayer: () -> Unit,
+    onToggle: () -> Unit,
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 14.dp, vertical = 18.dp)
+            .glass(RoundedCornerShape(20.dp), strong = true, scrim = 0.55f)
+            .clickable(onClick = onOpenPlayer),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            if (hasDuration) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(NodesWhite.copy(alpha = 0.08f)),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(progress)
+                            .height(2.dp)
+                            .background(NodesTeal),
+                    )
+                }
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 8.dp, top = 9.dp, bottom = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Artwork(
+                    artworkUri = current.artworkUri,
+                    title = current.title,
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(9.dp),
+                    targetPx = 200,
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = current.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = NodesWhite,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = current.artist,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NodesGrey,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+                PlayingBars(color = NodesTeal, playing = isPlaying, modifier = Modifier.height(14.dp))
+                Spacer(Modifier.width(8.dp))
+                DockIconButton(
+                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    description = if (isPlaying) {
+                        stringResource(R.string.action_pause)
+                    } else {
+                        stringResource(R.string.action_play)
+                    },
+                    solid = true,
+                    buffering = isBuffering,
+                    onClick = onToggle,
+                )
+                Spacer(Modifier.width(4.dp))
+                DockIconButton(
+                    icon = Icons.Rounded.SkipNext,
+                    description = stringResource(R.string.action_next),
+                    onClick = onNext,
+                )
+            }
+        }
+    }
+}
+
+/** 34dp round control; [solid] is the teal accent version. */
+@Composable
+private fun DockIconButton(
+    icon: ImageVector,
+    description: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    solid: Boolean = false,
+    buffering: Boolean = false,
+) {
+    Box(
+        modifier = modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .then(if (solid) Modifier.background(NodesTeal) else Modifier)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (buffering) {
+            CircularProgressIndicator(
+                color = NodesBlack,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(16.dp),
+            )
+        } else {
+            Icon(
+                imageVector = icon,
+                contentDescription = description,
+                tint = if (solid) NodesBlack else NodesWhite,
+                modifier = Modifier.size(if (solid) 18.dp else 20.dp),
+            )
+        }
+    }
+}
+
 /** "1 hr 42 min", "48 min"; empty when the durations are unknown. */
 @Composable
 private fun runtimeLabel(runtimeMs: Long): String {
@@ -634,9 +1045,3 @@ private fun runtimeLabel(runtimeMs: Long): String {
         else -> stringResource(R.string.playlist_runtime_hours_minutes, hours, minutes)
     }
 }
-
-private val SlabTopShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
-private val SlabBottomShape = RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)
-
-/** One flat film for every slab row, so the list reads as a single surface. */
-private val SlabFill = Color.White.copy(alpha = 0.07f)

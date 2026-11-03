@@ -70,6 +70,7 @@ fun LibraryScreen(
     onOpenPlaylist: (String) -> Unit,
     onOpenPlayer: () -> Unit,
     onOpenSessions: () -> Unit,
+    onOpenStats: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -84,6 +85,38 @@ fun LibraryScreen(
             .background(NodesBlack),
     ) {
         PageHeader(title = stringResource(R.string.library_title))
+
+        // Listening stats lives beside Sessions as a push-entry from the
+        // library; it has no tab of its own.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 2.dp)
+                .glass(RoundedCornerShape(20.dp))
+                .clickable(onClick = onOpenStats)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.stats_entry_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = NodesWhite,
+                )
+                Text(
+                    text = stringResource(R.string.stats_entry_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NodesGrey,
+                )
+            }
+            Text(
+                text = stringResource(R.string.stats_entry_open),
+                style = MaterialTheme.typography.labelMedium,
+                color = NodesGrey,
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         // Sessions lost its own tab when the bar made room for Search. It lives
         // here so the feature keeps a way in instead of disappearing.

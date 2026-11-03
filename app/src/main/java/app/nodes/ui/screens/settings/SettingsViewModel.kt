@@ -10,11 +10,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.nodes.R
 import app.nodes.core.data.AppSettings
+import app.nodes.core.data.LibraryRepository
 import app.nodes.core.data.RemoteCache
 import app.nodes.core.data.SearchHistoryRepository
 import app.nodes.core.data.SettingsRepository
 import app.nodes.core.source.youtubemusic.InnerTubeAccount
 import app.nodes.core.source.youtubemusic.InnerTubeAuth
+import app.nodes.core.source.youtubemusic.YouTubeMusicSource
 import app.nodes.playback.PlaybackController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -34,6 +37,8 @@ class SettingsViewModel @Inject constructor(
     private val cache: RemoteCache,
     private val searchHistory: SearchHistoryRepository,
     private val innerTubeAuth: InnerTubeAuth,
+    private val innerTubeSource: YouTubeMusicSource,
+    private val library: LibraryRepository,
     private val player: PlaybackController,
 ) : ViewModel() {
 
@@ -43,8 +48,13 @@ class SettingsViewModel @Inject constructor(
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
+    private val _likesSyncRunning = MutableStateFlow(false)
+
     /** The Google account whose YouTube Music cookie is stored, if any. */
     val musicAccount: StateFlow<InnerTubeAccount?> = innerTubeAuth.account
+
+    /** True while a likes sync to YouTube Music is running. */
+    val likesSyncRunning: StateFlow<Boolean> = _likesSyncRunning.asStateFlow()
 
     val recentSearchCount: StateFlow<Int> = searchHistory.recent
         .map { it.size }
@@ -156,5 +166,41 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissMessage() {
         _message.value = null
+    }
+
+    /**
+     * Pushes every locally liked YouTube Music track to the account's liked
+     * songs ("Sync to YT"). Unofficial and one-directional: Nodes never pulls
+     * anything back, and re-running it is safe - liking what is already liked
+     * changes nothing. It only affects likes the app stores locally from this
+     * source's own results.
+     */
+    fun syncLikesToYouTube() {
+        if (_likesSyncRunning.value) return
+        viewModelScope.launch {
+            if (!innerTubeAuth.isSignedIn) {
+                _message.value = context.getString(R.string.settings_sync_signed_out)
+                return@launch
+            }
+            _likesSyncRunning.value = true
+            _message.value = context.getString(R.string.settings_sync_running)
+            try {
+                // Only tracks from YouTube Music carry a video id; local files
+                // and Jamendo have nothing to like on YouTube.
+                val videoIds = library.likedTracks.first().mapNotNull { it.videoId }
+                if (videoIds.isEmpty()) {
+                    _message.value = context.getString(R.string.settings_sync_nothing)
+                    return@launch
+                }
+                val outcome = innerTubeSource.pushLikes(videoIds)
+                _message.value = context.getString(
+                    R.string.settings_sync_done,
+                    outcome.pushed,
+                    outcome.failed,
+                )
+            } finally {
+                _likesSyncRunning.value = false
+            }
+        }
     }
 }

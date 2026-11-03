@@ -48,6 +48,8 @@ add or bump a dependency.
 | Coil (`io.coil-kt:coil-compose`) | 2.7.0 | Apache-2.0 |
 | Android YouTube Player (`com.pierfrancescosoffritti.androidyoutubeplayer:core`) | 12.1.2 | Apache-2.0 |
 | Google Play Services Auth | 21.6.0 | Android Software Development Kit License (proprietary, redistributable in apps) |
+| Google Play Services Cast Framework (`play-services-cast-framework`, gms flavour only) | 23.0.0 | Android Software Development Kit License (proprietary, redistributable in apps) |
+| androidx.media3:media3-cast + androidx.mediarouter:mediarouter (gms flavour only) | 1.11.1 / 1.8.1 | Apache-2.0 |
 | desugar_jdk_libs | 2.1.5 | GPL-2.0 with the Classpath Exception |
 
 ## Test-only

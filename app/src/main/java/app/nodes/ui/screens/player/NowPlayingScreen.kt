@@ -5,6 +5,7 @@
 
 package app.nodes.ui.screens.player
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,16 +33,28 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.AllInclusive
+import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -57,7 +70,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,14 +87,17 @@ import app.nodes.R
 import app.nodes.core.model.LyricLine
 import app.nodes.core.model.Track
 import app.nodes.core.util.formatDuration
+import app.nodes.playback.RepeatMode
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.ArtworkBackdrop
+import app.nodes.ui.components.CastRouteButton
 import app.nodes.ui.components.KeepScreenOn
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.TrackRow
 import app.nodes.ui.components.glass
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
+import app.nodes.ui.theme.NodesSurface
 import app.nodes.ui.theme.NodesTeal
 import app.nodes.ui.theme.NodesWhite
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -107,6 +127,8 @@ private enum class PlayerTab { QUEUE, LYRICS }
 @Composable
 fun NowPlayingScreen(
     onBack: () -> Unit,
+    onOpenArtist: (String) -> Unit = {},
+    onOpenAlbum: (String) -> Unit = {},
     viewModel: NowPlayingViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -121,6 +143,7 @@ fun NowPlayingScreen(
 
     var tab by remember { mutableStateOf(PlayerTab.QUEUE) }
     val listState = rememberLazyListState()
+    var showTrackOptions by remember { mutableStateOf(false) }
 
     // Following is a per-song decision: the preference decides how a song
     // starts, and a manual drag pauses it until the chip is tapped or the next
@@ -211,7 +234,20 @@ fun NowPlayingScreen(
                         color = NodesGrey,
                     )
                     Spacer(Modifier.weight(1f))
-                    Spacer(Modifier.size(44.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .clickable { showTrackOptions = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = stringResource(R.string.player_more),
+                            tint = NodesWhite,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
                 }
             }
 
@@ -256,16 +292,30 @@ fun NowPlayingScreen(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(
-                            text = buildString {
-                                append(track.artist)
-                                if (track.album != null) append(" · ${track.album}")
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NodesGrey,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        // The artist name under the song title is a link to the
+                        // artist page; the album rides along as a second link.
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = track.artist,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NodesTeal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.clickable(
+                                    enabled = track.artist.isNotBlank(),
+                                ) { onOpenArtist(track.artist) },
+                            )
+                            track.album?.takeIf { it.isNotBlank() }?.let { album ->
+                                Text(
+                                    text = " · $album",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = NodesGrey,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.clickable { onOpenAlbum(album) },
+                                )
+                            }
+                        }
                         track.licenseNote?.let { note ->
                             Spacer(Modifier.height(4.dp))
                             Text(
@@ -376,6 +426,52 @@ fun NowPlayingScreen(
                 }
             }
 
+            item(key = "secondary-controls") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val context = LocalContext.current
+                    CastRouteButton(
+                        // The official embedded player cannot be cast: its video
+                        // lives in the YouTube iframe, not in the session.
+                        unavailable = playerState.embeddedVideoId != null,
+                        onUnavailableTap = {
+                            Toast.makeText(
+                                context,
+                                R.string.player_cast_unavailable,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        },
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                    )
+                    SecondaryControl(
+                        icon = Icons.Rounded.Shuffle,
+                        label = stringResource(R.string.player_shuffle),
+                        active = playerState.shuffleOn,
+                        onClick = { playerViewModel.toggleShuffle() },
+                    )
+                    SecondaryControl(
+                        icon = Icons.Rounded.AllInclusive,
+                        label = stringResource(R.string.player_infinite),
+                        active = playerState.infiniteQueue,
+                        onClick = { playerViewModel.toggleInfiniteQueue() },
+                    )
+                    SecondaryControl(
+                        icon = when (playerState.repeatMode) {
+                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
+                            else -> Icons.Rounded.Repeat
+                        },
+                        label = stringResource(R.string.player_repeat),
+                        active = playerState.repeatMode != RepeatMode.OFF,
+                        onClick = { playerViewModel.cycleRepeat() },
+                    )
+                }
+            }
+
             item(key = "tabs") {
                 Row(
                     Modifier
@@ -438,6 +534,10 @@ fun NowPlayingScreen(
                                 onPlayNext = { playerViewModel.playNext(item) },
                                 onAddToQueue = { playerViewModel.addToQueue(item) },
                                 onRemove = { playerViewModel.removeFromQueue(index) },
+                                onViewArtist = item.artist.takeIf { it.isNotBlank() }
+                                    ?.let { artist -> { onOpenArtist(artist) } },
+                                onViewAlbum = item.album?.takeIf { it.isNotBlank() }
+                                    ?.let { album -> { onOpenAlbum(album) } },
                             )
                         }
                     }
@@ -491,6 +591,175 @@ fun NowPlayingScreen(
                 )
             }
         }
+
+        if (showTrackOptions) {
+            TrackOptionsSheet(
+                track = track,
+                liked = liked,
+                onDismiss = { showTrackOptions = false },
+                onViewArtist = {
+                    showTrackOptions = false
+                    if (track.artist.isNotBlank()) onOpenArtist(track.artist)
+                },
+                onViewAlbum = {
+                    showTrackOptions = false
+                    track.album?.takeIf { it.isNotBlank() }?.let(onOpenAlbum)
+                },
+                onToggleLibrary = {
+                    showTrackOptions = false
+                    viewModel.toggleLike(track)
+                },
+                onPlayNext = {
+                    showTrackOptions = false
+                    playerViewModel.playNext(track)
+                },
+                onAddToQueue = {
+                    showTrackOptions = false
+                    playerViewModel.addToQueue(track)
+                },
+            )
+        }
+    }
+}
+
+/**
+ * The track menu for the Now Playing screen, as a bottom sheet rather than a
+ * dropdown: it scrolls with nothing and stays above the transport gestures.
+ * Same actions as the queue menu, plus adding the track to the library and
+ * copying its public link.
+ */
+@Composable
+private fun TrackOptionsSheet(
+    track: Track,
+    liked: Boolean,
+    onDismiss: () -> Unit,
+    onViewArtist: () -> Unit,
+    onViewAlbum: () -> Unit,
+    onToggleLibrary: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = NodesSurface,
+    ) {
+        val context = LocalContext.current
+        val clipboard = LocalClipboardManager.current
+        // YouTube Music tracks carry a video id; Jamendo and contributed
+        // libraries carry an externalUrl. Anything else has nothing public to
+        // link to, so the item is simply not offered.
+        val link = track.externalUrl
+            ?: track.videoId?.let { videoId -> "https://music.youtube.com/watch?v=$videoId" }
+
+        Text(
+            text = track.title,
+            style = MaterialTheme.typography.titleMedium,
+            color = NodesWhite,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        )
+        if (track.artist.isNotBlank()) {
+            SheetAction(
+                label = stringResource(R.string.player_view_artist),
+                icon = Icons.Rounded.Person,
+                onClick = onViewArtist,
+            )
+        }
+        if (!track.album.isNullOrBlank()) {
+            SheetAction(
+                label = stringResource(R.string.player_view_album),
+                icon = Icons.Rounded.Album,
+                onClick = onViewAlbum,
+            )
+        }
+        SheetAction(
+            label = stringResource(
+                if (liked) R.string.player_remove_library else R.string.player_add_library,
+            ),
+            icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            onClick = onToggleLibrary,
+        )
+        SheetAction(
+            label = stringResource(R.string.player_play_next),
+            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+            onClick = onPlayNext,
+        )
+        SheetAction(
+            label = stringResource(R.string.player_add_to_queue),
+            icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+            onClick = onAddToQueue,
+        )
+        if (link != null) {
+            SheetAction(
+                label = stringResource(R.string.player_copy_link),
+                icon = Icons.Rounded.Link,
+                onClick = {
+                    onDismiss()
+                    clipboard.setText(AnnotatedString(link))
+                    Toast.makeText(context, R.string.player_link_copied, Toast.LENGTH_SHORT)
+                        .show()
+                },
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+}
+
+/** One tappable row in the track options sheet. */
+@Composable
+private fun SheetAction(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = NodesWhite,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = NodesWhite,
+        )
+    }
+}
+
+/**
+ * A round ghost button in the secondary controls row under the play button.
+ * Active modes light up in the teal accent so the state is visible without a
+ * label underneath.
+ */
+@Composable
+private fun SecondaryControl(
+    icon: ImageVector,
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 5.dp)
+            .size(44.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (active) NodesTeal else NodesWhite.copy(alpha = 0.7f),
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
@@ -520,6 +789,8 @@ private fun QueueRow(
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
     onRemove: () -> Unit,
+    onViewArtist: (() -> Unit)? = null,
+    onViewAlbum: (() -> Unit)? = null,
 ) {
     Column {
         TrackRow(
@@ -529,6 +800,8 @@ private fun QueueRow(
                 TrackMenuButton(
                     onPlayNext = onPlayNext,
                     onAddToQueue = onAddToQueue,
+                    onViewArtist = onViewArtist,
+                    onViewAlbum = onViewAlbum,
                     onRemoveFromQueue = onRemove,
                     removeEnabled = !isCurrent,
                 )

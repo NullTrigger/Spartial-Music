@@ -31,7 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -83,17 +82,6 @@ fun SearchScreen(
             onSearch = viewModel::submit,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
-
-        // Typing starts a search on its own; this bar makes the wait visible
-        // instead of leaving the previous results frozen under new text.
-        if (state.loading) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 4.dp),
-                color = NodesTeal,
-            )
-        }
 
         if (state.query.isBlank() && recent.isNotEmpty()) {
             LazyRow(

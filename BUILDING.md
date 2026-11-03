@@ -95,6 +95,20 @@ Git Bash / macOS / Linux:
 
 The APK lands in `app\build\outputs\apk\debug\app-debug.apk`.
 
+Nodes builds in two flavours, one `store` dimension:
+
+- **gms** — for devices with Google Play services. This is the only flavour
+  with Cast support (`media3-cast` + Play services Cast framework).
+- **foss** — the Free-Software build, no Google binaries pulled in at all.
+  The Cast button is absent; everything else is identical.
+
+Both assemble with plain `assembleDebug`; to build one flavour explicitly:
+
+```powershell
+.\gradlew.bat :app:assembleGmsDebug      # app\build\outputs\apk\gms\debug\
+.\gradlew.bat :app:assembleFossDebug     # app\build\outputs\apk\foss\debug\
+```
+
 Install it:
 
 ```powershell
@@ -106,9 +120,9 @@ Or press **Run ▶** in Android Studio.
 Other useful tasks:
 
 ```powershell
-.\gradlew.bat :app:testDebugUnitTest   # unit tests
-.\gradlew.bat :app:lintDebug           # Android lint (fails the build on errors)
-.\gradlew.bat :app:assembleRelease     # release build (needs a keystore, see below)
+.\gradlew.bat :app:testDebugUnitTest    # unit tests
+.\gradlew.bat :app:lintGmsDebug         # Android lint (fails the build on errors); lintFossDebug for the other flavour
+.\gradlew.bat :app:assembleRelease      # release build (needs a keystore, see below)
 ```
 
 ## 5. Create a release keystore
