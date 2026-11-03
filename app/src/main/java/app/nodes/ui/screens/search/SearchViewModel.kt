@@ -19,6 +19,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
@@ -52,17 +53,20 @@ class SearchViewModel @Inject constructor(
     val recentQueries = history.recent
 
     init {
+        // Results follow the text field, not the keyboard's search key: a short
+        // pause is enough to know the user stopped typing. collectLatest drops a
+        // slower earlier response so it cannot overwrite a newer one.
         viewModelScope.launch {
             _query
-                .debounce(350)
+                .debounce(300)
                 .distinctUntilChanged()
-                .collect { term -> runSearch(term) }
+                .collectLatest { term -> runSearch(term) }
         }
         viewModelScope.launch {
             _query
-                .debounce(250)
+                .debounce(200)
                 .distinctUntilChanged()
-                .collect { term ->
+                .collectLatest { term ->
                     _suggestions.value = if (term.trim().length < 2) {
                         emptyList()
                     } else {
@@ -78,10 +82,12 @@ class SearchViewModel @Inject constructor(
     }
 
     fun submit() {
+        val term = _query.value.trim()
+        if (term.isEmpty()) return
         viewModelScope.launch {
             _suggestions.value = emptyList()
-            runSearch(_query.value)
-            history.remember(_query.value)
+            runSearch(term)
+            history.remember(term)
         }
     }
 
@@ -104,7 +110,11 @@ class SearchViewModel @Inject constructor(
         }
         _state.update { it.copy(loading = true, searched = true) }
         val source = registry.primary()
-        when (val result = source.search(trimmed, 30)) {
+        val result = source.search(trimmed, 30)
+        // The field may have moved on while the request was in flight. Showing
+        // the old answer under the new text is worse than showing nothing.
+        if (trimmed != _query.value.trim()) return
+        when (result) {
             is SourceResult.Success -> _state.update {
                 it.copy(loading = false, results = result.data, error = null, searched = true)
             }

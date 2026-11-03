@@ -61,6 +61,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -575,12 +576,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.LyricsItems(
         val active = index == activeIndex
         Text(
             text = line.text.ifBlank { "♪" },
-            style = MaterialTheme.typography.titleMedium,
+            // Lyrics are read from arm's length, so they get the larger body
+            // size and a looser line height than the rest of the screen.
+            style = MaterialTheme.typography.headlineSmall.copy(lineHeight = 30.sp),
             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
             color = if (active) NodesWhite else NodesGrey.copy(alpha = 0.6f),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp),
         )
     }
 }

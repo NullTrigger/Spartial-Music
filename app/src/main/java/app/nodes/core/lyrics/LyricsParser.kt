@@ -22,7 +22,7 @@ data class ParsedLyrics(
  * Three shapes arrive in practice and all of them are handled here:
  *  - plain LRC, `[mm:ss.xx] text`, including several stamps on one line;
  *  - enhanced (word-level) LRC, `[mm:ss.xx]v1: <mm:ss.xx>word <mm:ss.xx>word`,
- *    which is what Spotify-derived payloads and YouLyPlus/TTML conversions look
+ *    which is what Spotify-derived payloads and NetEase/TTML conversions look
  *    like once flattened;
  *  - untimed text, one line per row, kept in order but never followed.
  *

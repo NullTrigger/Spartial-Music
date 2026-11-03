@@ -9,6 +9,8 @@ import android.content.Context
 import app.nodes.core.lyrics.LyricsProvider
 import app.nodes.core.lyrics.providers.LocalLyricsProvider
 import app.nodes.core.lyrics.providers.LrcLibProvider
+import app.nodes.core.lyrics.providers.LyricsOvhProvider
+import app.nodes.core.lyrics.providers.NetEaseProvider
 import app.nodes.core.lyrics.providers.SimpMusicProvider
 import dagger.Module
 import dagger.Provides
@@ -43,4 +45,14 @@ object LyricsModule {
     @IntoSet
     fun provideSimpMusicProvider(client: OkHttpClient, json: Json): LyricsProvider =
         SimpMusicProvider(client, json)
+
+    @Provides
+    @IntoSet
+    fun provideNetEaseProvider(client: OkHttpClient, json: Json): LyricsProvider =
+        NetEaseProvider(client, json)
+
+    @Provides
+    @IntoSet
+    fun provideLyricsOvhProvider(client: OkHttpClient, json: Json): LyricsProvider =
+        LyricsOvhProvider(client, json)
 }

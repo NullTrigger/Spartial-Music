@@ -78,9 +78,9 @@ data class LyricWord(
  * One lyric line.
  *
  * Lyrics come from a local `.lrc` sidecar the user supplies or from one of the
- * lyrics providers in `core/lyrics/providers` (LRCLIB, SimpMusic, YouLyPlus),
- * whichever the user has enabled and ordered in Settings. See docs/LYRICS.md for
- * each provider's terms.
+ * lyrics providers in `core/lyrics/providers` (NetEase, LRCLIB, SimpMusic,
+ * Lyrics.ovh), whichever the user has enabled and ordered in Settings. See
+ * docs/LYRICS.md for each provider's terms.
  *
  * [endMs] is filled in from the next line's start so a highlight can have a
  * duration, and [words] is empty for plain and line-timed lyrics.

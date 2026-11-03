@@ -28,9 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.nodes.R
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesTeal
@@ -39,12 +41,16 @@ import app.nodes.ui.theme.NodesWhite
 /**
  * Transparent home top bar: large title on the left, settings and the circular
  * avatar on the right. It floats over the hero artwork, as in the reference.
+ *
+ * Once an account is connected the settings gear is dropped: the avatar is the
+ * account entry point, and a second gear next to it was just visual noise.
  */
 @Composable
 fun HomeTopBar(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     avatarInitial: String = "N",
+    signedIn: Boolean = false,
 ) {
     Row(
         modifier = modifier
@@ -54,26 +60,28 @@ fun HomeTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Home",
+            text = stringResource(R.string.home_title),
             style = MaterialTheme.typography.headlineLarge,
             color = NodesWhite,
             modifier = Modifier.weight(1f),
         )
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onOpenSettings),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Settings,
-                contentDescription = "Open settings",
-                tint = NodesWhite,
-                modifier = Modifier.size(26.dp),
-            )
+        if (!signedIn) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onOpenSettings),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = stringResource(R.string.cd_open_settings),
+                    tint = NodesWhite,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
         }
-        Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier
                 .size(40.dp)
