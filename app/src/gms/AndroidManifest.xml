@@ -4,12 +4,12 @@
   Licensed under GPL-3.0-or-later. See LICENSE.
 -->
 <!--
-  Google Play services build only. Cast needs:
-   1. the Cast options provider the framework reads to build its CastContext
-      (DefaultCastOptionsProvider renders a Chromecast-ready config),
-   2. the media transfer receiver the Output Switcher targets when transferring
-      the media session to (or back from) a Cast device.
-  Wi-Fi state permissions are the standard Cast discovery pair.
+  Google Play services build only. Cast needs the Cast options provider the
+  framework reads to build its CastContext (DefaultCastOptionsProvider
+  renders a Chromecast-ready config). Session transfer itself is offered by
+  the Output Switcher behind the MediaRouteButton; Media3 has no static
+  receiver to register for that on current versions. Wi-Fi state permissions
+  are the standard Cast discovery pair.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -19,13 +19,5 @@
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="androidx.media3.cast.DefaultCastOptionsProvider" />
-
-        <receiver
-            android:name="androidx.media3.cast.MediaTransferReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.media3.session.MEDIA_TRANSFER" />
-            </intent-filter>
-        </receiver>
     </application>
 </manifest>

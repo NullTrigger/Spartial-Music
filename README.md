@@ -117,9 +117,9 @@ Requirements:
 ```bash
 git clone <your-fork-url> nodes && cd nodes
 cp local.properties.example local.properties   # add your SDK path + keys
-./gradlew :app:assembleDebug
-./gradlew :app:testDebugUnitTest
-./gradlew :app:lintDebug
+./gradlew :app:assembleDebug            # both gms and foss debug APKs
+./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest
+./gradlew :app:lintGmsDebug             # lintFossDebug for the other flavour
 ```
 
 ### Keys

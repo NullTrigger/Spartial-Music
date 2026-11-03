@@ -77,7 +77,7 @@ TalkBack; every icon button needs a content description.
 ## Tests
 
 ```bash
-./gradlew :app:testDebugUnitTest
+./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest
 ```
 
 Unit tests currently cover duration parsing and source model invariants. Good

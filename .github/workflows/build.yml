@@ -61,21 +61,23 @@ jobs:
             echo "YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}"
           } > local.properties
 
-      - name: Lint
-        run: ./gradlew :app:lintDebug --stacktrace
+      - name: Lint both flavours
+        # The flavours make lintDebug ambiguous; lint each flavour's debug.
+        run: ./gradlew :app:lintGmsDebug :app:lintFossDebug --stacktrace
 
       - name: Assemble debug
+        # assembleDebug still aggregates both flavours.
         run: ./gradlew :app:assembleDebug --stacktrace
 
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest --stacktrace
 
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: nodes-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
 
       - name: Upload reports
@@ -84,6 +86,8 @@ jobs:
         with:
           name: reports
           path: |
-            app/build/reports/lint-results-debug.html
-            app/build/reports/tests/testDebugUnitTest
+            app/build/reports/lint-results-gmsDebug.html
+            app/build/reports/lint-results-fossDebug.html
+            app/build/reports/tests/testGmsDebugUnitTest
+            app/build/reports/tests/testFossDebugUnitTest
           if-no-files-found: ignore
