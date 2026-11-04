@@ -16,10 +16,14 @@ import java.util.Locale
 /**
  * Sharing and exporting crash reports.
  *
- * Share copies the text into `cache/crash/` and hands it over through the
- * FileProvider declared in the manifest (`<package>.crashreports`). If the
- * provider is missing for any reason, the same text is still shareable through
- * `EXTRA_TEXT`, so a broken manifest entry degrades instead of failing.
+ * Share copies the text into `cache/crash/` and hands the resulting `.txt`
+ * file over through the FileProvider declared in the manifest
+ * (`<package>.crashreports`). The report travels as the file only — no
+ * `EXTRA_TEXT` — so apps that receive the chooser never draft the whole log
+ * as a chat message; the body of the share is the txt attachment. If the
+ * provider is missing for any reason, the same text is still shareable
+ * through `EXTRA_TEXT`, so a broken manifest entry degrades instead of
+ * failing.
  */
 object CrashShare {
 
@@ -36,8 +40,9 @@ object CrashShare {
             )
             Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
+                // File only: no EXTRA_TEXT alongside it, so the report never
+                // becomes a message body in apps that see both.
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_TEXT, report)
                 putExtra(Intent.EXTRA_SUBJECT, subject)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }

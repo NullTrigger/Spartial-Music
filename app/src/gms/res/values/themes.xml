@@ -1,0 +1,22 @@
+<resources>
+    <!--
+      Copyright (C) 2026 The Nodes Authors.
+      Licensed under GPL-3.0-or-later. See LICENSE.
+
+      The cast route button is an AppCompat view: its cast dialog colours come
+      from the AppCompat theme attributes (`?attr/colorPrimary`,
+      `?attr/colorPrimaryDark`, `?attr/colorAccent`), which the app theme
+      (a platform Material theme, no AppCompat) never defines. Resolving the
+      missing attributes yields a fully transparent colour and
+      MediaRouterThemeHelper then throws "background can not be translucent"
+      while constructing the button (crash report 2026-11-03, OPPO CPH2179).
+      The button is therefore always created inside this solid-colour
+      AppCompat context. Theme.Nodes.Cast is only referenced from the gms
+      CastRouteButton.
+    -->
+    <style name="Theme.Nodes.Cast" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/nodes_background</item>
+        <item name="colorPrimaryDark">@color/nodes_background</item>
+        <item name="colorAccent">@color/nodes_teal</item>
+    </style>
+</resources>

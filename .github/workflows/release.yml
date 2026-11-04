@@ -1,6 +1,14 @@
 # Copyright (C) 2026 The Nodes Authors.
 # Licensed under GPL-3.0-or-later. See LICENSE.
-name: Release
+#
+# Release workflow for the FOSS APK. One workflow file per APK: this file
+# builds the foss flavour only — `nodes-foss-<version>.apk`. The gms APK
+# (Play services + Cast) is built by its own file,
+# .github/workflows/release-gms.yml, so the two APKs never share a build.
+# Both workflows sign with the same KEYSTORE_* secrets, need the
+# YOUTUBE_*/JAMENDO_* keys for `local.properties`, and attach their APK plus
+# its sha256 to the same `v*` tag GitHub Release.
+name: Release FOSS APK
 
 on:
   push:
@@ -13,7 +21,7 @@ permissions:
 
 jobs:
   release:
-    name: Build and publish signed APK
+    name: Build and publish the FOSS APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -87,8 +95,8 @@ jobs:
             echo "JAMENDO_CLIENT_ID=$JAMENDO_CLIENT_ID"
           } > local.properties
 
-      - name: Assemble the GMS and FOSS releases
-        run: ./gradlew :app:assembleGmsRelease :app:assembleFossRelease --stacktrace
+      - name: Assemble the FOSS release
+        run: ./gradlew :app:assembleFossRelease --stacktrace
 
       - name: Collect artifacts
         id: artifacts
@@ -96,16 +104,14 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           mkdir -p dist
-          for FLAVOUR in gms foss; do
-            APK=$(find "app/build/outputs/apk/$FLAVOUR/release" -name '*.apk' | head -n 1)
-            if [ -z "$APK" ]; then
-              echo "::error::No release APK was produced for the $FLAVOUR flavour."
-              exit 1
-            fi
-            cp "$APK" "dist/nodes-$FLAVOUR-$VERSION.apk"
-            (cd "app/build/outputs/apk/$FLAVOUR/release" && sha256sum *.apk) \
-              > "dist/nodes-$FLAVOUR-$VERSION.apk.sha256" || true
-          done
+          APK=$(find "app/build/outputs/apk/foss/release" -name '*.apk' | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "::error::No release APK was produced for the foss flavour."
+            exit 1
+          fi
+          cp "$APK" "dist/nodes-foss-$VERSION.apk"
+          (cd "app/build/outputs/apk/foss/release" && sha256sum *.apk) \
+            > "dist/nodes-foss-$VERSION.apk.sha256" || true
           ls -l dist
 
       - name: Signing check
@@ -117,6 +123,9 @@ jobs:
           done
 
       - name: Create GitHub Release
+        # If this and release-gms.yml race while creating the release on a
+        # fresh tag, re-run the failed workflow: the release already exists
+        # and simply takes the next APK upload.
         uses: softprops/action-gh-release@v2
         with:
           name: Nodes ${{ steps.artifacts.outputs.version }}
@@ -126,27 +135,24 @@ jobs:
           body: |
             Signed release build of Nodes ${{ steps.artifacts.outputs.version }}.
 
-            `nodes-gms-` ships Cast support and is for devices with Google
-            Play services; `nodes-foss-` is the Free-Software build without
-            any Google binary.
+            `nodes-foss-` is the Free-Software build without any Google
+            binary; `nodes-gms-`, built by the "Release GMS APK" workflow,
+            adds Cast support and is for devices with Google Play services.
 
-            Install with `adb install nodes-gms-${{ steps.artifacts.outputs.version }}.apk`
-            (or the foss one on the same command), or open the APK on your
-            device. Verify the checksum from the `.sha256` file before
-            installing.
+            Install with `adb install nodes-foss-${{ steps.artifacts.outputs.version }}.apk`
+            or open the APK on your device. Verify the checksum from the
+            `.sha256` file before installing.
 
             YouTube browsing needs your own Data API key; see YOUTUBE.md.
             Nodes is not affiliated with YouTube, Google LLC or any streaming
             service.
           files: |
-            dist/nodes-gms-${{ steps.artifacts.outputs.version }}.apk
-            dist/nodes-gms-${{ steps.artifacts.outputs.version }}.apk.sha256
             dist/nodes-foss-${{ steps.artifacts.outputs.version }}.apk
             dist/nodes-foss-${{ steps.artifacts.outputs.version }}.apk.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nodes-release-apk
+          name: nodes-foss-release-apk
           path: dist/*
           if-no-files-found: error

@@ -216,6 +216,11 @@ dependencies {
     "gmsImplementation"(libs.androidx.media3.cast)
     "gmsImplementation"(libs.play.services.cast.framework)
     "gmsImplementation"(libs.androidx.mediarouter)
+    // AppCompat views (the cast route button) read their colours from the
+    // AppCompat theme attributes, which Theme.Nodes (platform Material) never
+    // defines; the overlay plus this dependency is the crash fix. FOSS has
+    // no cast button, so it does not carry the dependency.
+    "gmsImplementation"(libs.androidx.appcompat)
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
