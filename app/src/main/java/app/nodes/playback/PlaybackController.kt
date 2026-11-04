@@ -562,12 +562,11 @@ class PlaybackController @Inject constructor(
         }
     }
 
-    /** Cycles Repeat off -> all queue -> this track -> off. */
+    /** Cycles Repeat off -> this track -> off. */
     fun cycleRepeat(): RepeatMode {
         val next = when (_state.value.repeatMode) {
-            RepeatMode.OFF -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.OFF
+            RepeatMode.OFF -> RepeatMode.ONE
+            else -> RepeatMode.OFF
         }
         _state.update {
             it.copy(
@@ -575,8 +574,8 @@ class PlaybackController @Inject constructor(
                 message = context.getString(
                     when (next) {
                         RepeatMode.OFF -> R.string.player_repeat_off
-                        RepeatMode.ALL -> R.string.player_repeat_all
                         RepeatMode.ONE -> R.string.player_repeat_one
+                        RepeatMode.ALL -> R.string.player_repeat_all
                     },
                 ),
             )
@@ -615,6 +614,11 @@ class PlaybackController @Inject constructor(
                     if (enabled) R.string.player_infinite_on else R.string.player_infinite_off,
                 ),
             )
+        }
+        // When switching it on, top the queue up straight away instead of
+        // waiting for the current track to end.
+        if (enabled) {
+            extendQueueAndContinue()
         }
     }
 

@@ -100,11 +100,20 @@ class PlaybackService : MediaSessionService() {
             .apply { setSmallIcon(R.drawable.ic_launcher_monochrome) }
         setMediaNotificationProvider(notificationProvider)
 
-        // Android hides the next button on a single-item timeline (YouTube
-        // tracks carry their stream URL per play), and the platform repeat
-        // button can only be changed through the player's repeat mode, which
-        // the controller drives from the canonical queue. So the one extra
-        // media button we can honestly offer is the repeat cycle.
+        // Android hides the platform next/previous buttons on single-item
+        // timelines (YouTube tracks carry their stream URL per play), so we
+        // add explicit media buttons for next, previous and repeat-cycle
+        // instead of relying on the hidden platform ones.
+        val previousButton = CommandButton.Builder()
+            .setDisplayName(getString(R.string.player_previous))
+            .setSessionCommand(SessionCommand(PREVIOUS_COMMAND, Bundle.EMPTY))
+            .setIconResId(R.drawable.ic_notification_previous)
+            .build()
+        val nextButton = CommandButton.Builder()
+            .setDisplayName(getString(R.string.player_next))
+            .setSessionCommand(SessionCommand(NEXT_COMMAND, Bundle.EMPTY))
+            .setIconResId(R.drawable.ic_notification_next)
+            .build()
         val repeatButton = CommandButton.Builder()
             .setDisplayName(getString(R.string.player_repeat))
             .setSessionCommand(SessionCommand(REPEAT_CYCLE_COMMAND, Bundle.EMPTY))
@@ -114,7 +123,7 @@ class PlaybackService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, sessionPlayer)
             .setSessionActivity(sessionActivity)
             .setCallback(sessionCallback)
-            .setMediaButtonPreferences(listOf(repeatButton))
+            .setMediaButtonPreferences(listOf(previousButton, nextButton, repeatButton))
             .build()
 
         scope.launch {
@@ -143,6 +152,8 @@ class PlaybackService : MediaSessionService() {
             controller: MediaSession.ControllerInfo,
         ): MediaSession.ConnectionResult {
             val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                .add(SessionCommand(PREVIOUS_COMMAND, Bundle.EMPTY))
+                .add(SessionCommand(NEXT_COMMAND, Bundle.EMPTY))
                 .add(SessionCommand(REPEAT_CYCLE_COMMAND, Bundle.EMPTY))
                 .build()
             val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
@@ -160,8 +171,10 @@ class PlaybackService : MediaSessionService() {
             customCommand: SessionCommand,
             extras: Bundle,
         ): ListenableFuture<SessionResult> {
-            if (customCommand.customAction == REPEAT_CYCLE_COMMAND) {
-                runCatching { playbackController.get().cycleRepeat() }
+            when (customCommand.customAction) {
+                PREVIOUS_COMMAND -> runCatching { playbackController.get().previous() }
+                NEXT_COMMAND -> runCatching { playbackController.get().next() }
+                REPEAT_CYCLE_COMMAND -> runCatching { playbackController.get().cycleRepeat() }
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
@@ -198,6 +211,10 @@ class PlaybackService : MediaSessionService() {
     }
 
     private companion object {
+        /** Custom session command for the notification's previous button. */
+        const val PREVIOUS_COMMAND = "app.nodes.playback.PREVIOUS"
+        /** Custom session command for the notification's next button. */
+        const val NEXT_COMMAND = "app.nodes.playback.NEXT"
         /** Custom session command cycled by the notification's repeat button. */
         const val REPEAT_CYCLE_COMMAND = "app.nodes.playback.CYCLE_REPEAT"
     }
