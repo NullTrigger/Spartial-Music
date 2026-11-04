@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +49,7 @@ import app.nodes.ui.theme.NodesWhite
 @Composable
 fun HomeTopBar(
     onOpenSettings: () -> Unit,
+    onOpenStats: () -> Unit,
     modifier: Modifier = Modifier,
     avatarInitial: String = "N",
     signedIn: Boolean = false,
@@ -82,6 +84,22 @@ fun HomeTopBar(
             }
             Spacer(Modifier.width(8.dp))
         }
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(NodesTeal)
+                .clickable(onClick = onOpenStats),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.History,
+                contentDescription = stringResource(R.string.cd_open_history),
+                tint = NodesWhite,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier
                 .size(40.dp)

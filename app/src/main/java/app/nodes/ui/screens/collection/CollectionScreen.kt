@@ -52,6 +52,7 @@ import app.nodes.R
 import app.nodes.core.data.LibraryRepository
 import app.nodes.core.model.Track
 import app.nodes.ui.components.EmptyPanel
+import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.GeneratedArt
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.TrackRow
@@ -156,6 +157,7 @@ fun CollectionScreen(
                 CollectionHero(
                     kind = viewModel.kind,
                     title = viewModel.name,
+                    artworkUri = tracks.firstOrNull()?.artworkUri,
                     trackCount = tracks.size,
                     runtimeMs = tracks.sumOf { it.durationMs },
                     onBack = onBack,
@@ -212,6 +214,7 @@ fun CollectionScreen(
 private fun CollectionHero(
     kind: CollectionKind,
     title: String,
+    artworkUri: String?,
     trackCount: Int,
     runtimeMs: Long,
     onBack: () -> Unit,
@@ -221,13 +224,25 @@ private fun CollectionHero(
             .fillMaxWidth()
             .height(268.dp),
     ) {
-        GeneratedArt(
-            title = title,
-            modifier = Modifier
-                .fillMaxSize()
-                .background(NodesBlack),
-            showInitial = false,
-        )
+        if (artworkUri.isNullOrBlank()) {
+            // No track artwork for this artist: fall back to the seeded
+            // gradient and show the artist's initial so the hero isn't blank.
+            GeneratedArt(
+                title = title,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(NodesBlack),
+                showInitial = true,
+            )
+        } else {
+            Artwork(
+                artworkUri = artworkUri,
+                title = title,
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(0.dp),
+                targetPx = 1080,
+            )
+        }
         Box(
             Modifier
                 .matchParentSize()

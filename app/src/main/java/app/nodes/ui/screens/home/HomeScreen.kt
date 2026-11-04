@@ -57,6 +57,7 @@ fun HomeScreen(
     onOpenPlayer: () -> Unit,
     onOpenSection: (HomeSection) -> Unit,
     onOpenCollection: (String) -> Unit,
+    onOpenStats: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -136,6 +137,7 @@ fun HomeScreen(
 
         HomeTopBar(
             onOpenSettings = onOpenSettings,
+            onOpenStats = onOpenStats,
             avatarInitial = profileInitial(account),
             signedIn = account != null,
             modifier = Modifier.align(Alignment.TopStart),
