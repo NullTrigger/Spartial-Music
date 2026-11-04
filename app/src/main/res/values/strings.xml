@@ -30,6 +30,7 @@
     <string name="cd_open_settings">Open settings</string>
     <string name="cd_profile">Profile</string>
     <string name="cd_search">Search</string>
+    <string name="cd_open_history">Open listening stats</string>
 
     <!-- Home -->
     <string name="home_title">Home</string>

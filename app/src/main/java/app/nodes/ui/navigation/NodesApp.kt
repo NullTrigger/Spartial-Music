@@ -100,6 +100,7 @@ fun NodesApp() {
                             navController.navigate(Routes.PLAYER)
                         }
                     },
+                    onOpenStats = { navController.navigate(Routes.STATS) },
                 )
             }
 
@@ -116,7 +117,6 @@ fun NodesApp() {
                     onOpenPlaylist = { playlistId -> navController.navigate(Routes.playlist(playlistId)) },
                     onOpenPlayer = { navController.navigate(Routes.PLAYER) },
                     onOpenSessions = { navController.navigate(Routes.SESSIONS) },
-                    onOpenStats = { navController.navigate(Routes.STATS) },
                 )
             }
 
