@@ -5,6 +5,8 @@
 
 package app.nodes.ui.components
 
+import android.view.ContextThemeWrapper
+import android.view.View
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -58,14 +60,29 @@ fun CastRouteButton(
 
     AndroidView(
         factory = { context ->
-            MediaRouteButton(context).also { button ->
-                runCatching {
-                    MediaRouteButtonFactory.setUpMediaRouteButton(context, button)
-                }.onFailure {
-                    // No Cast context (Play services unavailable on this
-                    // device): leave the button dead rather than crashing.
-                    button.isEnabled = false
+            // MediaRouteButton is an AppCompat view: it resolves its cast
+            // colours from the AppCompat theme attributes, which the Compose
+            // Material 3 theme never defines. The unresolved attributes make
+            // mediarouter's contrast check throw "background can not be
+            // translucent" right inside the constructor (crash report
+            // 2026-11-03), so the button is always built inside the solid
+            // Theme.Nodes.Cast context (gms/res/values/themes.xml).
+            val castContext = ContextThemeWrapper(context, R.style.Theme_Nodes_Cast)
+            runCatching {
+                MediaRouteButton(castContext).also { button ->
+                    runCatching {
+                        MediaRouteButtonFactory.setUpMediaRouteButton(castContext, button)
+                    }.onFailure {
+                        // No Cast context (Play services unavailable on this
+                        // device): leave the button dead rather than crashing.
+                        button.isEnabled = false
+                    }
                 }
+            }.getOrElse {
+                // Last resort: an OEM theme overlay may still defeat colour
+                // resolution. An invisible view keeps the Now Playing layout
+                // intact instead of crashing the composition on draw.
+                View(castContext).apply { visibility = View.GONE }
             }
         },
         modifier = modifier.size(40.dp),

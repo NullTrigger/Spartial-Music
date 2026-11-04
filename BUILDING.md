@@ -202,9 +202,18 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-`.github/workflows/release.yml` then decodes the keystore, writes
-`keystore.properties`, runs `assembleRelease`, verifies the signature, and
-attaches `nodes-<version>.apk` plus its `.sha256` to a GitHub Release.
+Two workflow files publish the APKs — one file per flavour, each building a
+single APK and attaching it (plus its `.sha256`) to the same `v*` tag GitHub
+Release:
+
+- `.github/workflows/release.yml` — the FOSS APK, `nodes-foss-<version>.apk`.
+- `.github/workflows/release-gms.yml` — the GMS APK, `nodes-gms-<version>.apk`
+  (Play services + Cast).
+
+Both decode the keystore, write `keystore.properties`, run their flavour's
+`assemble<Flavour>Release` task, and verify the signature before publishing;
+if the two workflows race while creating the release on a fresh tag, re-run
+the failed one and it uploads into the existing release.
 
 For F-Droid, the same `fastlane/metadata/android/en-US/` files are picked up
 automatically; F-Droid signs with its own key, so a separate build flavour is not
