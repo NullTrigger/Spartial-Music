@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The Nodes Authors.
+  Licensed under GPL-3.0-or-later. See LICENSE.
+-->
+<!-- Skip to previous track media button in the media notification. Tinted by
+     the system, so the path is plain white. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@android:color/white">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M6,6h12v12H6z M16,8l-5.33,4 5.33,4z" />
+</vector>
