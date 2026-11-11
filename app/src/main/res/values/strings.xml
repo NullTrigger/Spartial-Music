@@ -400,6 +400,10 @@
     <string name="home_settings_and_profile">Settings and profile</string>
 
     <string name="player_playing_from">Playing from %1$s</string>
+    <string name="player_playing_from_label">Playing from</string>
+    <string name="player_playing_from_queue">Your queue</string>
+    <string name="player_playing_next_label">Playing Next:</string>
+    <string name="player_now_playing">Now playing</string>
     <string name="player_dolby">DOLBY</string>
     <string name="player_lyrics_retry">Try again</string>
     <string name="player_lyrics_empty_title">No lyrics yet</string>

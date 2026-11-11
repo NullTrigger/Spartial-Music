@@ -5,6 +5,7 @@
 
 package app.nodes.ui.screens.player
 
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -15,7 +16,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lyrics
@@ -72,12 +73,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -98,11 +104,11 @@ import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.GlassBadge
 import app.nodes.ui.components.KeepScreenOn
 import app.nodes.ui.components.LoadingRows
-import app.nodes.ui.components.PillButton
-import app.nodes.ui.components.PillStyle
+import app.nodes.ui.components.PlayerBackdrop
 import app.nodes.ui.components.SongRow
-import app.nodes.ui.components.TintedBackdrop
 import app.nodes.ui.components.TrackMenuButton
+import app.nodes.ui.components.glass
+import app.nodes.ui.components.trackSupportingLine
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesGreyDim
@@ -111,6 +117,7 @@ import app.nodes.ui.theme.NodesSurface
 import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
 import app.nodes.ui.theme.rememberArtworkTint
+import app.nodes.ui.theme.toPlayerAccent
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
@@ -120,17 +127,23 @@ import kotlinx.coroutines.CancellationException
 private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
 
 /**
- * Full Now Playing.
+ * Full Now Playing, built around the three views in the reference design:
  *
- * The screen has three internal modes rather than three navigation routes:
- * controls stay one tap away, and the Queue/Lyrics buttons at the bottom do
- * not push a new destination that would hide the official YouTube card. The
- * embedded YouTube player is composed above all three modes and is never
- * backgrounded; leaving Now Playing pauses it and drops the handle (YOUTUBE.md).
+ *  - **Controls** — the cover fills the screen, fades into the album wash, and
+ *    the title, actions, progress and transport sit over the gradient.
+ *  - **Lyrics** — the current line is sharp and white; upcoming lines are
+ *    progressively blurred and dimmed so the eye stays on the line being sung.
+ *  - **Queue** — “Playing from”, the next rows and their artwork menus.
  *
- * The surface behind everything is the artwork's dominant colour fading into
- * near-black, sampled locally by [rememberArtworkTint]; no third-party service
- * is asked for a palette.
+ * All three share one bottom dock, so the transport never moves. The screen has
+ * three internal modes rather than three navigation routes. The embedded
+ * YouTube player stays composed above every mode; leaving Now Playing pauses it
+ * and drops the handle (YOUTUBE.md).
+ *
+ * The surface behind everything is the artwork's dominant colour, sampled
+ * locally by [rememberArtworkTint]. API 26 has no RenderEffect, so the large
+ * soft backdrop is a genuinely low-resolution copy of the cover scaled up
+ * instead of a fake black overlay; see [PlayerBackdrop].
  */
 @Composable
 fun NowPlayingScreen(
@@ -184,23 +197,28 @@ fun NowPlayingScreen(
 
     val tint = rememberArtworkTint(track.artworkUri, track.title)
     val sourceName = playerSourceName(track.sourceId)
+    val queueTitle = track.album?.takeIf { it.isNotBlank() }
+        ?: stringResource(R.string.player_playing_from_queue)
     val playAll: (List<Track>) -> Unit = { tracks ->
         tracks.firstOrNull()?.let { playerViewModel.play(it, tracks) }
     }
 
-    TintedBackdrop(tint = tint) {
+    PlayerBackdrop(
+        artworkUri = track.artworkUri,
+        title = track.title,
+        tint = tint,
+        showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
+    ) {
         Column(
             Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
         ) {
             PlayerTopBar(
-                track = track,
                 mode = mode,
                 sourceName = sourceName,
                 onBack = onBack,
                 onExitMode = { mode = PlayerMode.CONTROLS },
-                onMore = { showTrackOptions = true },
             )
 
             playerState.embeddedVideoId?.let { videoId ->
@@ -224,22 +242,7 @@ fun NowPlayingScreen(
 
             when (mode) {
                 PlayerMode.CONTROLS -> ControlsMode(
-                    state = playerState,
                     track = track,
-                    liked = liked,
-                    sourceName = sourceName,
-                    onToggleLike = { viewModel.toggleLike(track) },
-                    onPlayPause = playerViewModel::togglePlayPause,
-                    onPrevious = playerViewModel::previous,
-                    onNext = playerViewModel::next,
-                    onSeek = playerViewModel::seekTo,
-                    onShuffle = playerViewModel::toggleShuffle,
-                    onRepeat = { playerViewModel.cycleRepeat() },
-                    onInfinite = playerViewModel::toggleInfiniteQueue,
-                    onOpenArtist = onOpenArtist,
-                    onOpenAlbum = onOpenAlbum,
-                    onOpenLyrics = { mode = PlayerMode.LYRICS },
-                    onOpenQueue = { mode = PlayerMode.QUEUE },
                     modifier = Modifier.weight(1f),
                 )
 
@@ -256,6 +259,7 @@ fun NowPlayingScreen(
 
                 PlayerMode.QUEUE -> QueueMode(
                     state = playerState,
+                    queueTitle = queueTitle,
                     onPlayIndex = playerViewModel::playQueueIndex,
                     onMove = playerViewModel::moveInQueue,
                     onRemove = playerViewModel::removeFromQueue,
@@ -263,10 +267,32 @@ fun NowPlayingScreen(
                     onAddToQueue = playerViewModel::addToQueue,
                     onOpenArtist = onOpenArtist,
                     onOpenAlbum = onOpenAlbum,
-                    onPlayAll = { playAll(playerState.queue) },
+                    onOpenControls = { mode = PlayerMode.CONTROLS },
+                    onInfinite = playerViewModel::toggleInfiniteQueue,
                     modifier = Modifier.weight(1f),
                 )
             }
+
+            PlayerDock(
+                mode = mode,
+                state = playerState,
+                track = track,
+                sourceName = sourceName,
+                liked = liked,
+                tint = tint,
+                onToggleLike = { viewModel.toggleLike(track) },
+                onPlayPause = playerViewModel::togglePlayPause,
+                onPrevious = playerViewModel::previous,
+                onNext = playerViewModel::next,
+                onSeek = playerViewModel::seekTo,
+                onShuffle = playerViewModel::toggleShuffle,
+                onRepeat = { playerViewModel.cycleRepeat() },
+                onOpenLyrics = { mode = PlayerMode.LYRICS },
+                onOpenQueue = { mode = PlayerMode.QUEUE },
+                onOpenControls = { mode = PlayerMode.CONTROLS },
+                onAddToQueue = { playerViewModel.addToQueue(track) },
+                onMore = { showTrackOptions = true },
+            )
         }
     }
 
@@ -301,12 +327,10 @@ fun NowPlayingScreen(
 
 @Composable
 private fun PlayerTopBar(
-    track: Track,
     mode: PlayerMode,
     sourceName: String,
     onBack: () -> Unit,
     onExitMode: () -> Unit,
-    onMore: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -327,314 +351,58 @@ private fun PlayerTopBar(
             },
             onClick = if (mode == PlayerMode.CONTROLS) onBack else onExitMode,
             filled = true,
-            background = NodesBlack.copy(alpha = 0.28f),
+            background = Color.Black.copy(alpha = 0.26f),
         )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = when (mode) {
-                    PlayerMode.CONTROLS -> stringResource(R.string.player_playing_from, sourceName)
-                    PlayerMode.LYRICS -> stringResource(R.string.player_lyrics)
-                    PlayerMode.QUEUE -> stringResource(R.string.player_queue)
-                }.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = NodesGrey,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = track.title,
-                style = NodesType.rowTitle,
-                color = NodesWhite,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        Spacer(Modifier.weight(1f))
+        if (mode == PlayerMode.CONTROLS) {
+            GlassBadge(text = sourceName.uppercase())
         }
-        CircleIconButton(
-            icon = Icons.Rounded.MoreVert,
-            contentDescription = stringResource(R.string.player_more),
-            onClick = onMore,
-            filled = true,
-            background = NodesBlack.copy(alpha = 0.28f),
+    }
+}
+
+/**
+ * The stage above the dock: the artwork is already painted by [PlayerBackdrop],
+ * so this only carries the title block. With a YouTube track on screen the
+ * official card takes over the stage instead, because the API terms require the
+ * video to stay visible while it plays.
+ */
+@Composable
+private fun ControlsMode(
+    track: Track,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier.fillMaxWidth()) {
+        TrackTitleBlock(
+            track = track,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 28.dp)
+                .padding(bottom = 10.dp),
         )
     }
 }
 
 @Composable
-private fun ControlsMode(
-    state: PlayerUiState,
-    track: Track,
-    liked: Boolean,
-    sourceName: String,
-    onToggleLike: () -> Unit,
-    onPlayPause: () -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onShuffle: () -> Unit,
-    onRepeat: () -> Unit,
-    onInfinite: () -> Unit,
-    onOpenArtist: (String) -> Unit,
-    onOpenAlbum: (String) -> Unit,
-    onOpenLyrics: () -> Unit,
-    onOpenQueue: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyColumn(
+private fun TrackTitleBlock(track: Track, modifier: Modifier = Modifier) {
+    Column(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (state.embeddedVideoId == null) {
-            item(key = "artwork") {
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 34.dp, vertical = 14.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val artSize = minOf(maxWidth, 380.dp)
-                    Box(Modifier.size(artSize)) {
-                        Artwork(
-                            artworkUri = track.artworkUri,
-                            title = track.title,
-                            modifier = Modifier.fillMaxSize(),
-                            shape = RoundedCornerShape(28.dp),
-                            targetPx = 1280,
-                        )
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            GlassBadge(text = sourceName.uppercase())
-                            if (track.isExplicit) {
-                                GlassBadge(text = "E")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        item(key = "meta") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = NodesSpacing.gutter, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = track.title,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = NodesWhite,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = track.artist,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NodesGrey,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable(
-                                enabled = track.artist.isNotBlank(),
-                            ) { onOpenArtist(track.artist) },
-                        )
-                        track.album?.takeIf { it.isNotBlank() }?.let { album ->
-                            Text(
-                                text = " · $album",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = NodesGreyDim,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.clickable { onOpenAlbum(album) },
-                            )
-                        }
-                    }
-                    track.licenseNote?.let { note ->
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            text = note,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = NodesGreyDim,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                CircleIconButton(
-                    icon = if (liked) {
-                        Icons.Rounded.Favorite
-                    } else {
-                        Icons.Rounded.FavoriteBorder
-                    },
-                    contentDescription = stringResource(R.string.player_like),
-                    onClick = onToggleLike,
-                    tint = if (liked) NodesWhite else NodesGrey,
-                    filled = true,
-                    background = Color.White.copy(alpha = if (liked) 0.18f else 0.08f),
-                )
-            }
-        }
-
-        if (state.embeddedVideoId == null) {
-            item(key = "seek") {
-                Column(Modifier.padding(horizontal = NodesSpacing.gutter)) {
-                    val fraction = state.progress.coerceIn(0f, 1f)
-                    Slider(
-                        value = fraction,
-                        onValueChange = { value ->
-                            val duration = state.durationMs
-                            if (duration > 0L) onSeek((value * duration).toLong())
-                        },
-                        enabled = state.durationMs > 0L,
-                        colors = SliderDefaults.colors(
-                            thumbColor = NodesWhite,
-                            activeTrackColor = NodesWhite,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.18f),
-                        ),
-                    )
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = formatDuration(state.positionMs.coerceAtLeast(0L)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = NodesGrey,
-                        )
-                        Text(
-                            text = formatDuration(state.durationMs.coerceAtLeast(0L)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = NodesGrey,
-                        )
-                    }
-                }
-            }
-        }
-
-        item(key = "transport") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = NodesSpacing.gutter, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CircleIconButton(
-                    icon = Icons.Rounded.Shuffle,
-                    contentDescription = stringResource(R.string.player_shuffle),
-                    onClick = onShuffle,
-                    tint = if (state.shuffleOn) NodesWhite else NodesGrey,
-                    filled = state.shuffleOn,
-                )
-                CircleIconButton(
-                    icon = Icons.Rounded.SkipPrevious,
-                    contentDescription = stringResource(R.string.action_previous),
-                    onClick = onPrevious,
-                    size = 50.dp,
-                    iconSize = 28.dp,
-                )
-                Box(
-                    modifier = Modifier
-                        .size(76.dp)
-                        .clip(CircleShape)
-                        .background(NodesWhite)
-                        .clickable(onClick = onPlayPause),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = if (state.isPlaying) {
-                            Icons.Rounded.Pause
-                        } else {
-                            Icons.Rounded.PlayArrow
-                        },
-                        contentDescription = stringResource(
-                            if (state.isPlaying) R.string.action_pause else R.string.action_play,
-                        ),
-                        tint = NodesBlack,
-                        modifier = Modifier.size(34.dp),
-                    )
-                }
-                CircleIconButton(
-                    icon = Icons.Rounded.SkipNext,
-                    contentDescription = stringResource(R.string.action_next),
-                    onClick = onNext,
-                    size = 50.dp,
-                    iconSize = 28.dp,
-                )
-                CircleIconButton(
-                    icon = if (state.repeatMode == RepeatMode.ONE) {
-                        Icons.Rounded.RepeatOne
-                    } else {
-                        Icons.Rounded.Repeat
-                    },
-                    contentDescription = stringResource(R.string.player_repeat),
-                    onClick = onRepeat,
-                    tint = if (state.repeatMode != RepeatMode.OFF) NodesWhite else NodesGrey,
-                    filled = state.repeatMode != RepeatMode.OFF,
-                )
-            }
-        }
-
-        item(key = "secondary") {
-            val context = LocalContext.current
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CircleIconButton(
-                    icon = Icons.Rounded.AllInclusive,
-                    contentDescription = stringResource(R.string.player_infinite),
-                    onClick = onInfinite,
-                    tint = if (state.infiniteQueue) NodesWhite else NodesGrey,
-                    filled = state.infiniteQueue,
-                )
-                Spacer(Modifier.width(10.dp))
-                CastRouteButton(
-                    unavailable = state.embeddedVideoId != null,
-                    onUnavailableTap = {
-                        Toast.makeText(
-                            context,
-                            R.string.player_cast_unavailable,
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    },
-                )
-            }
-        }
-
-        item(key = "modes") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = NodesSpacing.gutter, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                PillButton(
-                    text = stringResource(R.string.player_lyrics),
-                    onClick = onOpenLyrics,
-                    icon = Icons.Rounded.Lyrics,
-                    style = PillStyle.Glass,
-                    modifier = Modifier.weight(1f),
-                )
-                PillButton(
-                    text = stringResource(R.string.player_queue),
-                    onClick = onOpenQueue,
-                    icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-                    style = PillStyle.Glass,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
+        Text(
+            text = track.title,
+            style = MaterialTheme.typography.headlineMedium,
+            color = NodesWhite,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = track.artist,
+            style = MaterialTheme.typography.bodyMedium,
+            color = NodesWhite.copy(alpha = 0.76f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -676,7 +444,7 @@ private fun LyricsMode(
     LaunchedEffect(autoScroll, follow, activeIndex, result.lines.size) {
         if (!autoScroll || !follow) return@LaunchedEffect
         val viewport = listState.layoutInfo.viewportSize.height
-        val offset = if (viewport > 0) -(viewport / 3) else 0
+        val offset = if (viewport > 0) -(viewport / 6) else 0
         try {
             listState.animateScrollToItem(activeIndex, offset)
         } catch (cancelled: CancellationException) {
@@ -693,10 +461,10 @@ private fun LyricsMode(
             contentPadding = PaddingValues(
                 start = 28.dp,
                 end = 28.dp,
-                top = 32.dp,
-                bottom = 140.dp,
+                top = 26.dp,
+                bottom = 18.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             itemsIndexed(
                 items = result.lines,
@@ -705,7 +473,7 @@ private fun LyricsMode(
                 LyricLineView(
                     line = line,
                     active = index == activeIndex,
-                    past = index < activeIndex,
+                    distance = index - activeIndex,
                 )
             }
         }
@@ -714,38 +482,71 @@ private fun LyricsMode(
             visible = autoScroll && !follow,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 24.dp),
+                .padding(bottom = 10.dp),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            PillButton(
-                text = stringResource(R.string.player_lyrics_resync),
-                onClick = { onFollowChanged(true) },
-                icon = Icons.Rounded.Sync,
-                style = PillStyle.Glass,
-            )
+            androidx.compose.material3.Surface(
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.12f),
+            ) {
+                Text(
+                    text = stringResource(R.string.player_lyrics_resync),
+                    style = NodesType.pill,
+                    color = NodesWhite,
+                    modifier = Modifier
+                        .clickable { onFollowChanged(true) }
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                )
+            }
         }
     }
 }
 
+/**
+ * Current line sharp; the next lines get both a growing blur (Android 12+,
+ * where RenderEffect exists) and a fading alpha (every API). The alpha fallback
+ * is what keeps the effect readable on Android 8–11.
+ */
 @Composable
-private fun LyricLineView(line: LyricLine, active: Boolean, past: Boolean) {
+private fun LyricLineView(line: LyricLine, active: Boolean, distance: Int) {
+    val upcoming = distance > 0
+    val alpha = when {
+        active -> 1f
+        distance < 0 -> 0.30f
+        distance == 1 -> 0.62f
+        distance == 2 -> 0.46f
+        distance == 3 -> 0.33f
+        distance == 4 -> 0.23f
+        distance == 5 -> 0.16f
+        else -> 0.10f
+    }
+    val blurDp = if (upcoming) (distance * 2.4f).coerceAtMost(11f) else 0f
     Text(
         text = line.text.ifBlank { "♪" },
-        style = if (active) NodesType.lyricActive else NodesType.lyricIdle,
-        color = when {
-            active -> NodesWhite
-            past -> NodesWhite.copy(alpha = 0.42f)
-            else -> NodesWhite.copy(alpha = 0.28f)
+        style = if (active) {
+            NodesType.lyricActive.copy(fontWeight = FontWeight.Bold)
+        } else {
+            NodesType.lyricIdle
         },
-        modifier = Modifier.fillMaxWidth(),
+        color = NodesWhite.copy(alpha = alpha),
+        modifier = Modifier
+            .fillMaxWidth()
+            .lyricBlur(blurDp),
     )
+}
+
+private fun Modifier.lyricBlur(radiusDp: Float): Modifier = graphicsLayer {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && radiusDp > 0.1f) {
+        val radiusPx = radiusDp * density
+        renderEffect = BlurEffect(radiusPx, radiusPx, TileMode.Decal)
+    }
 }
 
 @Composable
 private fun QueueMode(
     state: PlayerUiState,
+    queueTitle: String,
     onPlayIndex: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onRemove: (Int) -> Unit,
@@ -753,7 +554,8 @@ private fun QueueMode(
     onAddToQueue: (Track) -> Unit,
     onOpenArtist: (String) -> Unit,
     onOpenAlbum: (String) -> Unit,
-    onPlayAll: () -> Unit,
+    onOpenControls: () -> Unit,
+    onInfinite: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (state.queue.isEmpty()) {
@@ -766,48 +568,37 @@ private fun QueueMode(
     }
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(bottom = 120.dp),
+        contentPadding = PaddingValues(bottom = 12.dp),
     ) {
         item(key = "queue-head") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = NodesSpacing.gutter, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.playlist_up_next),
-                    style = NodesType.sectionTitle,
-                    color = NodesWhite,
-                    modifier = Modifier.weight(1f),
-                )
-                PillButton(
-                    text = stringResource(R.string.playlist_play_all),
-                    onClick = onPlayAll,
-                    icon = Icons.Rounded.PlayArrow,
-                    style = PillStyle.Glass,
-                )
-            }
+            QueueHeader(
+                track = state.current,
+                queueTitle = queueTitle,
+                infiniteQueue = state.infiniteQueue,
+                onOpenControls = onOpenControls,
+                onInfinite = onInfinite,
+            )
             Text(
-                text = stringResource(R.string.playlist_track_count, state.queue.size),
-                style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
-                modifier = Modifier.padding(horizontal = NodesSpacing.gutter),
+                text = stringResource(R.string.player_playing_next_label),
+                style = MaterialTheme.typography.titleMedium,
+                color = NodesWhite.copy(alpha = 0.92f),
+                modifier = Modifier.padding(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = 8.dp,
+                    bottom = 6.dp,
+                ),
             )
         }
         itemsIndexed(
             items = state.queue,
             key = { index, track -> "queue-$index-${track.id}" },
         ) { index, track ->
-            SongRow(
+            QueueRow(
                 track = track,
-                onClick = { onPlayIndex(index) },
-                position = index + 1,
-                showDownload = false,
-                showStar = false,
                 active = index == state.queueIndex,
-                activeTint = NodesWhite,
-                activePlaying = index == state.queueIndex && state.isPlaying,
+                playing = index == state.queueIndex && state.isPlaying,
+                onClick = { onPlayIndex(index) },
                 menu = {
                     TrackMenuButton(
                         onPlayNext = { onPlayNext(track) },
@@ -836,6 +627,518 @@ private fun QueueMode(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun QueueHeader(
+    track: Track?,
+    queueTitle: String,
+    infiniteQueue: Boolean,
+    onOpenControls: () -> Unit,
+    onInfinite: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (track != null) {
+            Artwork(
+                artworkUri = track.artworkUri,
+                title = track.title,
+                modifier = Modifier.size(56.dp),
+                shape = RoundedCornerShape(14.dp),
+                targetPx = 256,
+            )
+            Spacer(Modifier.width(14.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.player_playing_from_label),
+                style = MaterialTheme.typography.bodySmall,
+                color = NodesWhite.copy(alpha = 0.64f),
+            )
+            Text(
+                text = queueTitle,
+                style = NodesType.sectionTitle,
+                color = NodesWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClick = onInfinite),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.AllInclusive,
+                contentDescription = stringResource(R.string.player_infinite),
+                tint = if (infiniteQueue) NodesWhite else NodesWhite.copy(alpha = 0.52f),
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClick = onOpenControls),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.GraphicEq,
+                contentDescription = stringResource(R.string.player_now_playing),
+                tint = NodesWhite.copy(alpha = 0.72f),
+                modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun QueueRow(
+    track: Track,
+    active: Boolean,
+    playing: Boolean,
+    onClick: () -> Unit,
+    menu: @Composable () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .then(
+                if (active) {
+                    Modifier.background(NodesWhite.copy(alpha = 0.08f))
+                } else {
+                    Modifier
+                },
+            )
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(start = 8.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Artwork(
+            artworkUri = track.artworkUri,
+            title = track.title,
+            modifier = Modifier.size(54.dp),
+            shape = RoundedCornerShape(13.dp),
+            targetPx = 256,
+        )
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = track.title,
+                style = NodesType.rowTitle,
+                color = NodesWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = trackSupportingLine(track),
+                style = NodesType.rowMeta,
+                color = NodesWhite.copy(alpha = 0.56f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (active && playing) {
+            Icon(
+                imageVector = Icons.Rounded.GraphicEq,
+                contentDescription = null,
+                tint = NodesWhite,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(2.dp))
+        }
+        menu()
+    }
+}
+
+/**
+ * The shared bottom dock. Controls shows the three-icon action pill from the
+ * reference player; Lyrics and Queue show the current track pill instead. The
+ * progress row and the five transport controls are identical in all modes.
+ */
+@Composable
+private fun PlayerDock(
+    mode: PlayerMode,
+    state: PlayerUiState,
+    track: Track,
+    sourceName: String,
+    liked: Boolean,
+    tint: Color,
+    onToggleLike: () -> Unit,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onOpenLyrics: () -> Unit,
+    onOpenQueue: () -> Unit,
+    onOpenControls: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onMore: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 10.dp),
+    ) {
+        if (mode == PlayerMode.CONTROLS) {
+            ControlsActionRow(
+                liked = liked,
+                onToggleLike = onToggleLike,
+                onAddToQueue = onAddToQueue,
+                onMore = onMore,
+                onOpenLyrics = onOpenLyrics,
+                onOpenQueue = onOpenQueue,
+            )
+        } else {
+            ModeSelectorRow(
+                mode = mode,
+                track = track,
+                onOpenControls = onOpenControls,
+                onOpenLyrics = onOpenLyrics,
+                onOpenQueue = onOpenQueue,
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        PlayerProgress(
+            state = state,
+            sourceName = sourceName,
+            tint = tint,
+            onSeek = onSeek,
+        )
+        Spacer(Modifier.height(4.dp))
+        PlayerTransport(
+            state = state,
+            tint = tint,
+            onPlayPause = onPlayPause,
+            onPrevious = onPrevious,
+            onNext = onNext,
+            onShuffle = onShuffle,
+            onRepeat = onRepeat,
+        )
+    }
+}
+
+@Composable
+private fun ControlsActionRow(
+    liked: Boolean,
+    onToggleLike: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onMore: () -> Unit,
+    onOpenLyrics: () -> Unit,
+    onOpenQueue: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlassCircleButton(
+            icon = Icons.Rounded.Lyrics,
+            contentDescription = stringResource(R.string.player_lyrics),
+            onClick = onOpenLyrics,
+        )
+        Spacer(Modifier.width(10.dp))
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .height(52.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.10f))
+                .glass(shape = CircleShape, strong = true),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DockAction(
+                icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                contentDescription = stringResource(R.string.player_like),
+                tint = NodesWhite,
+                onClick = onToggleLike,
+            )
+            DockAction(
+                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                contentDescription = stringResource(R.string.player_add_to_queue),
+                onClick = onAddToQueue,
+            )
+            DockAction(
+                icon = Icons.Rounded.MoreVert,
+                contentDescription = stringResource(R.string.player_more),
+                onClick = onMore,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        GlassCircleButton(
+            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+            contentDescription = stringResource(R.string.player_queue),
+            onClick = onOpenQueue,
+        )
+    }
+}
+
+@Composable
+private fun ModeSelectorRow(
+    mode: PlayerMode,
+    track: Track,
+    onOpenControls: () -> Unit,
+    onOpenLyrics: () -> Unit,
+    onOpenQueue: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlassCircleButton(
+            icon = Icons.Rounded.Lyrics,
+            contentDescription = stringResource(R.string.player_lyrics),
+            active = mode == PlayerMode.LYRICS,
+            onClick = onOpenLyrics,
+        )
+        Spacer(Modifier.width(10.dp))
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .height(52.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.10f))
+                .glass(shape = CircleShape, strong = true)
+                .clickable(role = Role.Button, onClick = onOpenControls)
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "${track.title} • ${track.artist}",
+                style = NodesType.pill,
+                color = NodesWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        GlassCircleButton(
+            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+            contentDescription = stringResource(R.string.player_queue),
+            active = mode == PlayerMode.QUEUE,
+            onClick = onOpenQueue,
+        )
+    }
+}
+
+@Composable
+private fun GlassCircleButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    active: Boolean = false,
+) {
+    Box(
+        modifier = Modifier
+            .size(52.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = if (active) 0.20f else 0.08f))
+            .glass(shape = CircleShape, strong = true),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircleIconButton(
+            icon = icon,
+            contentDescription = contentDescription,
+            onClick = onClick,
+            size = 52.dp,
+            iconSize = 22.dp,
+        )
+    }
+}
+
+@Composable
+private fun DockAction(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    tint: Color = NodesWhite,
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+@Composable
+private fun PlayerProgress(
+    state: PlayerUiState,
+    sourceName: String,
+    tint: Color,
+    onSeek: (Long) -> Unit,
+) {
+    val fraction = state.progress.coerceIn(0f, 1f)
+    Slider(
+        value = fraction,
+        onValueChange = { value ->
+            val duration = state.durationMs
+            if (duration > 0L) onSeek((value * duration).toLong())
+        },
+        enabled = state.durationMs > 0L,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(24.dp),
+        colors = SliderDefaults.colors(
+            thumbColor = NodesWhite,
+            activeTrackColor = tint.toPlayerAccent(),
+            inactiveTrackColor = Color.White.copy(alpha = 0.16f),
+        ),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = formatDuration(state.positionMs.coerceAtLeast(0L)),
+            style = MaterialTheme.typography.labelMedium,
+            color = NodesWhite.copy(alpha = 0.72f),
+        )
+        Spacer(Modifier.weight(1f))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Rounded.GraphicEq,
+                contentDescription = null,
+                tint = NodesWhite.copy(alpha = 0.64f),
+                modifier = Modifier.size(13.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = sourceName.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = NodesWhite.copy(alpha = 0.60f),
+                maxLines = 1,
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = formatDuration(state.durationMs.coerceAtLeast(0L)),
+            style = MaterialTheme.typography.labelMedium,
+            color = NodesWhite.copy(alpha = 0.72f),
+        )
+    }
+}
+
+@Composable
+private fun PlayerTransport(
+    state: PlayerUiState,
+    tint: Color,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+) {
+    val context = LocalContext.current
+    val accent = tint.toPlayerAccent()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+            CastRouteButton(
+                unavailable = state.embeddedVideoId != null,
+                onUnavailableTap = {
+                    Toast.makeText(
+                        context,
+                        R.string.player_cast_unavailable,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
+            )
+        }
+        CircleIconButton(
+            icon = Icons.Rounded.Shuffle,
+            contentDescription = stringResource(R.string.player_shuffle),
+            onClick = onShuffle,
+            tint = if (state.shuffleOn) accent else NodesWhite.copy(alpha = 0.62f),
+            filled = state.shuffleOn,
+            background = Color.White.copy(alpha = 0.12f),
+            size = 42.dp,
+            iconSize = 21.dp,
+        )
+        CircleIconButton(
+            icon = Icons.Rounded.SkipPrevious,
+            contentDescription = stringResource(R.string.action_previous),
+            onClick = onPrevious,
+            tint = accent,
+            size = 46.dp,
+            iconSize = 29.dp,
+        )
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.08f))
+                .glass(shape = CircleShape, strong = true)
+                .clickable(role = Role.Button, onClick = onPlayPause),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = if (state.isPlaying) {
+                    Icons.Rounded.Pause
+                } else {
+                    Icons.Rounded.PlayArrow
+                },
+                contentDescription = stringResource(
+                    if (state.isPlaying) R.string.action_pause else R.string.action_play,
+                ),
+                tint = accent,
+                modifier = Modifier.size(34.dp),
+            )
+        }
+        CircleIconButton(
+            icon = Icons.Rounded.SkipNext,
+            contentDescription = stringResource(R.string.action_next),
+            onClick = onNext,
+            tint = accent,
+            size = 46.dp,
+            iconSize = 29.dp,
+        )
+        CircleIconButton(
+            icon = if (state.repeatMode == RepeatMode.ONE) {
+                Icons.Rounded.RepeatOne
+            } else {
+                Icons.Rounded.Repeat
+            },
+            contentDescription = stringResource(R.string.player_repeat),
+            onClick = onRepeat,
+            tint = if (state.repeatMode != RepeatMode.OFF) {
+                accent
+            } else {
+                NodesWhite.copy(alpha = 0.62f)
+            },
+            filled = state.repeatMode != RepeatMode.OFF,
+            background = Color.White.copy(alpha = 0.12f),
+            size = 42.dp,
+            iconSize = 21.dp,
+        )
     }
 }
 

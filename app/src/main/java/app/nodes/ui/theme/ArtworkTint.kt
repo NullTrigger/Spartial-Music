@@ -146,3 +146,34 @@ fun Color.toBackdrop(): Color {
     hsv[2] = hsv[2].coerceIn(0.22f, 0.48f)
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
+
+/**
+ * The richer version of [toBackdrop] used by the full-screen player. It keeps
+ * more of the artwork's chroma and lifts the value just enough that the
+ * gradient reads as the album rather than as a black screen.
+ */
+fun Color.toPlayerWash(): Color {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(toArgb(), hsv)
+    hsv[1] = hsv[1].coerceIn(0.42f, 0.84f)
+    hsv[2] = hsv[2].coerceIn(0.40f, 0.60f)
+    return Color(android.graphics.Color.HSVToColor(hsv))
+}
+
+/** The deepest stop of the player gradient. */
+fun Color.toPlayerDeep(): Color {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(toArgb(), hsv)
+    hsv[1] = (hsv[1] * 0.92f).coerceIn(0.26f, 0.72f)
+    hsv[2] = 0.24f
+    return Color(android.graphics.Color.HSVToColor(hsv))
+}
+
+/** A pale, high-contrast version of the tint for sliders and small accents. */
+fun Color.toPlayerAccent(): Color {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(toArgb(), hsv)
+    hsv[1] = (hsv[1] * 0.52f).coerceIn(0.18f, 0.46f)
+    hsv[2] = 0.94f
+    return Color(android.graphics.Color.HSVToColor(hsv))
+}
