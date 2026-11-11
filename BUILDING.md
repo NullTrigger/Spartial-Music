@@ -37,8 +37,8 @@ Gradle itself is provided by the wrapper — you do not need to install Gradle.
 ## 2. Get the code
 
 ```powershell
-git clone https://github.com/NullTrigger/Nodes.git
-cd Nodes
+git clone https://github.com/NullTrigger/Spartial-Music.git
+cd Spartial-Music
 ```
 
 `--recurse-submodules` is a no-op today (the project has none) but keeps the

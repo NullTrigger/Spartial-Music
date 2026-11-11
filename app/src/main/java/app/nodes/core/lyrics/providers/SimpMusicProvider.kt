@@ -123,6 +123,6 @@ class SimpMusicProvider(
     private companion object {
         const val BASE = "https://api-lyrics.simpmusic.org/v1/"
         const val MAX_DRIFT_SEC = 15
-        const val USER_AGENT = "SpartialMusic/1.0 (https://github.com/NullTrigger/Nodes)"
+        const val USER_AGENT = "SpartialMusic/1.0 (https://github.com/NullTrigger/Spartial-Music)"
     }
 }

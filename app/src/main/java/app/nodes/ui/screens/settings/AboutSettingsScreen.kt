@@ -59,12 +59,12 @@ fun AboutSettingsScreen(
                 SettingsDivider()
                 SettingsValueRow(
                     title = stringResource(R.string.settings_licenses),
-                    onClick = { openUrl(context, "https://github.com/nodes-app/nodes/blob/main/NOTICE.md") },
+                    onClick = { openUrl(context, "https://github.com/NullTrigger/Spartial-Music/blob/main/NOTICE.md") },
                 )
                 SettingsDivider()
                 SettingsValueRow(
                     title = stringResource(R.string.settings_privacy),
-                    onClick = { openUrl(context, "https://github.com/nodes-app/nodes/blob/main/PRIVACY.md") },
+                    onClick = { openUrl(context, "https://github.com/NullTrigger/Spartial-Music/blob/main/PRIVACY.md") },
                 )
             }
         }

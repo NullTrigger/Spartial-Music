@@ -16,7 +16,7 @@
     <string name="onboarding_links_missing">Community links are not configured in this build.</string>
 
     <!-- Community links. -->
-    <string name="community_github_url" translatable="false">https://github.com/NullTrigger/Nodes</string>
+    <string name="community_github_url" translatable="false">https://github.com/NullTrigger/Spartial-Music</string>
     <string name="community_telegram_url" translatable="false">https://t.me/spartialmusic</string>
 
     <!-- Navigation -->

@@ -130,6 +130,6 @@ class LrcLibProvider(
         const val MAX_DRIFT_SEC = 15
 
         /** LRCLIB asks clients to identify themselves; also keeps us out of bot blocks. */
-        const val USER_AGENT = "SpartialMusic/1.0 (https://github.com/NullTrigger/Nodes)"
+        const val USER_AGENT = "SpartialMusic/1.0 (https://github.com/NullTrigger/Spartial-Music)"
     }
 }

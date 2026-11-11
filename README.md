@@ -164,8 +164,8 @@ Requirements:
 - Gradle 9.6.1 (wrapper included)
 
 ```bash
-git clone https://github.com/NullTrigger/Nodes.git
-cd Nodes
+git clone https://github.com/NullTrigger/Spartial-Music.git
+cd Spartial-Music
 cp local.properties.example local.properties   # add your SDK path + keys
 ./gradlew :app:assembleDebug                    # gms and foss debug APKs
 ./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest
