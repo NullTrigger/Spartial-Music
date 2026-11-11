@@ -5,9 +5,10 @@ this repository. Read this before your first edit.
 
 ## What this project is
 
-**Nodes** is an open-source Android music player: Kotlin, Jetpack Compose,
+**Spartial Music** is an open-source Android music player: Kotlin, Jetpack Compose,
 Material 3, Media3, Room, Hilt, Retrofit, kotlinx.serialization, Coil. minSdk 26,
-targetSdk 36. Package `app.nodes`. Licence GPL-3.0-or-later.
+targetSdk 36. Package stays `app.nodes` for upgrade compatibility. Licence
+GPL-3.0-or-later.
 
 The defining idea is the `MusicSource` interface: every provider of music is a
 plugin behind one contract, so the player never knows where a track came from.

@@ -128,12 +128,12 @@ jobs:
         # and simply takes the next APK upload.
         uses: softprops/action-gh-release@v2
         with:
-          name: Nodes ${{ steps.artifacts.outputs.version }}
+          name: Spartial Music ${{ steps.artifacts.outputs.version }}
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
-            Signed release build of Nodes ${{ steps.artifacts.outputs.version }}.
+            Signed release build of Spartial Music ${{ steps.artifacts.outputs.version }}.
 
             `nodes-foss-` is the Free-Software build without any Google
             binary; `nodes-gms-`, built by the "Release GMS APK" workflow,
@@ -144,7 +144,7 @@ jobs:
             `.sha256` file before installing.
 
             YouTube browsing needs your own Data API key; see YOUTUBE.md.
-            Nodes is not affiliated with YouTube, Google LLC or any streaming
+            Spartial Music is not affiliated with YouTube, Google LLC or any streaming
             service.
           files: |
             dist/nodes-foss-${{ steps.artifacts.outputs.version }}.apk

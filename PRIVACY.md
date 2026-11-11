@@ -1,7 +1,8 @@
 # Privacy
 
-Nodes is a local-first music player. There is no Nodes account, no Nodes server,
-no analytics, no crash reporting, no advertising SDK and no tracking of any kind.
+Spartial Music is a local-first music player. There is no Spartial Music account,
+no Spartial Music server, no analytics, no remote crash reporting, no advertising
+SDK and no tracking of any kind.
 
 Last updated: 2026-11-03.
 

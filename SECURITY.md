@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Nodes is pre-1.0. Only the latest commit on `main` receives fixes.
+Spartial Music is pre-1.0. Only the latest commit on `main` receives fixes.
 
 | Version | Supported |
 | --- | --- |

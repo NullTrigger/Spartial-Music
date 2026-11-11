@@ -1,33 +1,36 @@
-Nodes is an open-source music player for Android with a dark, glassy interface.
+Spartial Music is an open-source Android music player with a dark, glassy interface.
 
-Play the music you own, and stream what is legal to stream. Nodes reads audio
-already on your device, streams Creative Commons music from Jamendo, and browses
-YouTube through its official Data API with playback in the official embedded
-player. Nothing is scraped, extracted or downloaded from YouTube.
+Play the music you own, and stream what is legal to stream. Spartial Music reads
+audio already on your device, streams Creative Commons music from Jamendo, and
+connects to YouTube Music. Nothing is scraped, extracted or downloaded from
+YouTube.
 
 FEATURES
-- Local library via MediaStore, with no copies or uploads
-- Creative Commons streaming from Jamendo, credited per track
-- Official YouTube browsing: search, charts, playlists
-- Hero carousel home screen with blurred glass surfaces
-- Likes, playlists, play history and search history stored on device
+- Five floating tabs: Home, Trending, Suggestions, Library and Search
+- Full-bleed Home hero, recently played, continue playing and daily shelves
+- Now Playing with controls, synced lyrics and queue modes
+- Artwork-tinted backgrounds on Now Playing, Playlist, Album and Artist pages
+- Playlists, pins, likes, recents, artists and local library search
+- Queue reorder, sleep timer, playback speed and skip silence
 - Synced lyrics from local .lrc files
-- Queue, seek, media notification, lock screen controls
-- Settings for sources, audio and cache
+- Media notification, lock screen controls and optional Cast
+- Settings for appearance, playback, lyrics, storage and diagnostics
 
 PRIVACY
 No accounts, no analytics, no advertising, no tracking. Your library never leaves
-the device. Optional Google Sign-In only reads your own YouTube playlists with the
-youtube.readonly scope, and the token is kept in memory for the session.
+the device. Crash reports are written locally and are never uploaded.
 
 SOURCES
-- Local device files
+- YouTube Music through the unofficial InnerTube client (default source)
+- Official YouTube Data API v3 provider and embedded player (code included)
+- Local device files through MediaStore
 - Jamendo (Creative Commons)
-- YouTube (official API; bring your own API key - see YOUTUBE.md)
+
+The unofficial YouTube Music source is outside the YouTube API Services Terms and
+can break when YouTube changes its private endpoints. Spartial Music never
+downloads, caches or re-encodes YouTube media and never skips ads.
 
 LICENCE
 GPL-3.0-or-later. No album art, artist names or audio from third parties is
-bundled.
-
-Nodes is not affiliated with YouTube, Google, Jamendo or any streaming service.
-"YouTube" is a trademark of Google LLC.
+bundled. Spartial Music is not affiliated with YouTube, Google, Jamendo or any
+streaming service.
