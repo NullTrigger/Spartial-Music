@@ -8,12 +8,10 @@ package app.nodes.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -74,83 +72,35 @@ fun TintedBackdrop(
 }
 
 /**
- * The player backdrop from the reference design.
+ * The player backdrop: a pure, smooth colour gradient derived from the
+ * artwork's dominant tint.
  *
- * A low-resolution copy of the cover is stretched over the whole screen. That
- * is a real blur, not a translucent black rectangle: the image is decoded at
- * roughly 160px and then scaled to the device width, so it is soft on every API
- * level (including 26, where RenderEffect does not exist). On the controls page
- * a sharp copy of the same cover sits on the top two thirds, and a tinted
- * gradient carries it into the controls at the bottom. Lyrics and Queue use only
- * the soft copy, which is why they read as one continuous wash of the artwork.
+ * There is no stretched copy of the cover behind the controls, lyrics or queue
+ * any more. A pixel-scaled artwork wash reads as a dirty blur on real devices
+ * and cuts the cover in half on the controls page; the gradient does the same
+ * job cleanly on every API level, with no RenderEffect, no decoding and no
+ * visible seam. The cover itself is shown sharp and whole as a rounded card by
+ * the controls page.
  */
 @Composable
 fun PlayerBackdrop(
-    artworkUri: String?,
-    title: String,
     tint: Color,
-    showArtwork: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val wash = remember(tint) { tint.toPlayerWash() }
     val deep = remember(tint) { tint.toPlayerDeep() }
     Box(modifier.fillMaxSize().background(deep)) {
-        if (!artworkUri.isNullOrBlank()) {
-            Artwork(
-                artworkUri = artworkUri,
-                title = title,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = 1.16f
-                        scaleY = 1.16f
-                        alpha = if (showArtwork) 0.92f else 0.58f
-                    },
-                shape = RectangleShape,
-                contentScale = ContentScale.Crop,
-                targetPx = 160,
-            )
-        }
-
-        if (showArtwork && !artworkUri.isNullOrBlank()) {
-            Artwork(
-                artworkUri = artworkUri,
-                title = title,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.68f)
-                    .align(Alignment.TopCenter),
-                shape = RectangleShape,
-                contentScale = ContentScale.Crop,
-                targetPx = 1280,
-            )
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.68f)
-                    .align(Alignment.TopCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            0f to Color.Transparent,
-                            0.56f to Color.Transparent,
-                            0.78f to wash.copy(alpha = 0.58f),
-                            1f to wash.copy(alpha = 0.96f),
-                        ),
-                    ),
-            )
-        }
-
+        // The main wash: saturated colour up top, fading into the deep base.
         Box(
             Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to Color.Black.copy(alpha = 0.30f),
-                        0.18f to Color.Transparent,
-                        0.46f to wash.copy(alpha = 0.16f),
-                        0.62f to wash.copy(alpha = 0.54f),
-                        0.80f to wash.copy(alpha = 0.84f),
+                        0f to wash.copy(alpha = 0.62f),
+                        0.30f to wash.copy(alpha = 0.34f),
+                        0.58f to tint.copy(alpha = 0.14f),
+                        0.80f to deep.copy(alpha = 0.92f),
                         1f to deep,
                     ),
                 ),
@@ -160,18 +110,46 @@ fun PlayerBackdrop(
             Modifier
                 .fillMaxSize()
                 .drawBehind {
-                    val centre = Offset(size.width * 0.86f, size.height * 0.04f)
-                    val radius = size.width * 0.86f
+                    // A warm glow from the top-right, and a cooler counter-glow
+                    // at the bottom-left, so the gradient has depth rather than
+                    // reading as one flat colour band.
+                    val topCentre = Offset(size.width * 0.84f, size.height * 0.06f)
+                    val topRadius = size.width * 0.95f
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(wash.copy(alpha = 0.24f), Color.Transparent),
-                            center = centre,
-                            radius = radius,
+                            colors = listOf(tint.copy(alpha = 0.40f), Color.Transparent),
+                            center = topCentre,
+                            radius = topRadius,
                         ),
-                        radius = radius,
-                        center = centre,
+                        radius = topRadius,
+                        center = topCentre,
+                    )
+                    val lowCentre = Offset(size.width * 0.08f, size.height * 0.94f)
+                    val lowRadius = size.width * 0.72f
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(wash.copy(alpha = 0.20f), Color.Transparent),
+                            center = lowCentre,
+                            radius = lowRadius,
+                        ),
+                        radius = lowRadius,
+                        center = lowCentre,
                     )
                 },
+        )
+
+        // A light scrim under the status bar so the top buttons stay readable
+        // whatever colour the artwork happens to be.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.34f),
+                        0.16f to Color.Transparent,
+                        1f to Color.Transparent,
+                    ),
+                ),
         )
         content()
     }

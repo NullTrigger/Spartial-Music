@@ -64,13 +64,16 @@ object LyricsProviders {
     const val LYRICS_OVH = "lyrics_ovh"
 
     /**
-     * Local files win: the user put them there on purpose. Then NetEase, whose
-     * LRC payloads cover a large catalogue with line timing, then the carefully
-     * matched LRCLIB index, then SimpMusic, and finally Lyrics.ovh for plain
-     * text when none of the timed providers know the song.
+     * Local files win: the user put them there on purpose. Then LRCLIB, whose
+     * exact-match endpoint checks title, artist and duration together and is
+     * the least likely of the online sources to hand back another song. Then
+     * SimpMusic and NetEase, whose catalogues are large but whose matching is
+     * loose enough to return covers, live versions and lyric videos with the
+     * timing of a different recording. Lyrics.ovh is last, for plain text when
+     * none of the timed providers know the song.
      */
     val DEFAULT_ORDER: List<String> =
-        listOf(LOCAL, NETEASE, LRCLIB, SIMPMUSIC, LYRICS_OVH)
+        listOf(LOCAL, LRCLIB, SIMPMUSIC, NETEASE, LYRICS_OVH)
 
     /** Providers that need no account or key, so the UI can list them all. */
     val KNOWN: List<String> = DEFAULT_ORDER

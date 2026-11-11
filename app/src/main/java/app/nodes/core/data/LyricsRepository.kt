@@ -85,8 +85,8 @@ class LyricsRepository @Inject constructor(
             resolve(
                 LyricsQuery(
                     trackId = track.id,
-                    title = track.title,
-                    artist = track.artist,
+                    title = cleanTitle(track.title),
+                    artist = cleanArtist(track.artist),
                     album = track.album,
                     durationSec = (track.durationMs / 1_000L).toInt(),
                     videoId = track.videoId,
@@ -203,6 +203,27 @@ class LyricsRepository @Inject constructor(
             .toSet()
     }
 
+    /**
+     * Strips the decoration YouTube Music uploads carry - "(Official Audio)",
+     * "[Lyrics]", "- Topic" channels - before the title and artist are asked
+     * of a lyrics provider. Left in, that decoration breaks LRCLIB's
+     * exact-match endpoint and lets a loose provider lock onto a lyric video
+     * of a different recording, which is where "the lyrics are wrong" comes
+     * from. Falls back to the original text whenever cleaning would leave
+     * nothing behind.
+     */
+    internal fun cleanTitle(title: String): String {
+        var t = BRACKETED_JUNK.replace(title, " ")
+        t = TRAILING_JUNK.replace(t, " ")
+        t = t.replace(WS_RUN, " ").trim()
+        return t.ifBlank { title.trim() }
+    }
+
+    internal fun cleanArtist(artist: String): String {
+        val t = ARTIST_CHANNEL_SUFFIX.replace(artist, "").trim()
+        return t.ifBlank { artist.trim() }
+    }
+
     private fun orderedProviders(prefs: AppSettings): List<LyricsProvider> {
         val byId = providers.associateBy { it.id }
         val stored = prefs.lyricsProviderOrder
@@ -256,11 +277,15 @@ class LyricsRepository @Inject constructor(
     private fun fileFor(key: String): File = File(cacheDir(), "$key.json")
 
     private fun cacheKey(track: Track): String = buildString {
+        // v2: the lookup now queries the cleaned title, and every entry saved
+        // before that change is a candidate for the wrong-song lyrics people
+        // reported - the version bump makes those old files simply miss.
+        append("v2-")
         append(track.sourceId.key)
         append('-')
         append(track.videoId ?: track.id)
         append('-')
-        append(track.title)
+        append(cleanTitle(track.title))
     }
         .lowercase(Locale.ROOT)
         .replace(Regex("[^a-z0-9]+"), "-")
@@ -305,6 +330,31 @@ class LyricsRepository @Inject constructor(
         private const val NOT_FOUND_TTL_MS = 24L * 60 * 60 * 1000
 
         private val IGNORED_TOKENS = setOf("the", "and", "feat", "ft", "official", "video")
+
+        /**
+         * Bracketed junk like "(Official Music Video)", "[Lyrics]",
+         * "(Visualizer)", "(Remastered 2014)". Only brackets whose content
+         * names a release decoration are removed; "(feat. X)" stays, because
+         * the featured artist is part of the song a provider indexes.
+         */
+        private val BRACKETED_JUNK = Regex(
+            "[\\[{(][^\\])}]*?(?:official|lyrics?|visuali[sz]er|remastered|remaster|audio\\s*version|mv|hq|4k)[^\\])}]*?[\\])}]",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** A trailing " - official audio", " | lyrics", ": audio" tail. */
+        private val TRAILING_JUNK = Regex(
+            "\\s*[-–—|:]\\s*(?:official(?:\\s+\\w+)*|lyrics?|audio|video|visuali[sz]er|remastered|remaster)\\s*$",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** YouTube Music channel suffixes: "Ella Langley - Topic". */
+        private val ARTIST_CHANNEL_SUFFIX = Regex(
+            "\\s*[-–—]?\\s*(?:topic|vevo)\\s*$",
+            RegexOption.IGNORE_CASE,
+        )
+
+        private val WS_RUN = Regex("\\s+")
 
         private val LINE_STAMP = Regex("""^\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?]""")
 

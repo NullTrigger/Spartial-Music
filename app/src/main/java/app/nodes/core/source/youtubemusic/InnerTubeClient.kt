@@ -103,6 +103,16 @@ class InnerTubeClient @Inject constructor(
     private val auth: InnerTubeAuth,
 ) {
 
+    /**
+     * Recently minted stream URLs, keyed by `"videoId:quality"`. Only Playable
+     * answers are stored; a Refused answer is re-tried on the next play.
+     */
+    private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
+
+    private fun streamCacheKey(videoId: String, preferHighQuality: Boolean): String =
+        "$videoId:${if (preferHighQuality) "hi" else "lo"}"
+
+
     // ------------------------------------------------------------------
     // Browsing
     // ------------------------------------------------------------------
@@ -192,12 +202,21 @@ class InnerTubeClient @Inject constructor(
      * Resolves a directly playable audio URL for [videoId].
      *
      * The clients in [PLAYBACK_CLIENTS] are asked in turn, best first; the first
-     * answer that is both `OK` and actually fetchable wins. Each URL is
-     * short-lived and bound to the client that minted it, so it must be used
-     * immediately and never cached.
+     * answer that is both `OK` and actually fetchable wins. Each URL is bound to
+     * the client that minted it and expires after a few hours, so a minted URL
+     * is reused only inside [STREAM_CACHE_TTL_MS] - comfortably shorter than
+     * googlevideo's own lifetime. The cache is what makes replays, skipping
+     * back, and a prefetched next track start instantly instead of paying for
+     * the whole client round-trip again; a stale entry is dropped by
+     * [invalidateStream] when the CDN answers 403.
      */
     suspend fun audioUrl(videoId: String, preferHighQuality: Boolean): InnerTubeStream =
         withContext(Dispatchers.IO) {
+            val key = streamCacheKey(videoId, preferHighQuality)
+            streamCache[key]?.takeIf { it.isFresh() }?.let { cached ->
+                return@withContext InnerTubeStream.Playable(cached.url, cached.client)
+            }
+
             val notes = mutableListOf<String>()
 
             for (profile in PLAYBACK_CLIENTS) {
@@ -229,11 +248,22 @@ class InnerTubeClient @Inject constructor(
                     continue
                 }
 
+                streamCache[key] = CachedStream(url, profile.name, System.currentTimeMillis())
                 return@withContext InnerTubeStream.Playable(url, profile.name)
             }
 
             InnerTubeStream.Refused(notes.joinToString("; "))
         }
+
+    /** Drops the cached URL(s) for [videoId] so the next play re-mints one. */
+    fun invalidateStream(videoId: String) {
+        streamCache.keys.removeAll { it.startsWith("$videoId:") }
+    }
+
+    private class CachedStream(val url: String, val client: String, val mintedAt: Long) {
+        fun isFresh(): Boolean =
+            System.currentTimeMillis() - mintedAt < STREAM_CACHE_TTL_MS
+    }
 
     private suspend fun requestStream(
         profile: InnerTubeClientProfile,
@@ -438,6 +468,13 @@ class InnerTubeClient @Inject constructor(
         private const val EMBED_URL = "https://www.reddit.com/"
         private const val RETRIES = 3
         private const val RETRY_DELAY_MS = 500L
+
+        /**
+         * How long a minted googlevideo URL may be reused. YouTube's own expiry
+         * is roughly six hours; half an hour keeps a wide safety margin so a
+         * cached URL still plays even if the clock or the CDN drifts.
+         */
+        private const val STREAM_CACHE_TTL_MS = 30L * 60_000L
 
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 

@@ -212,6 +212,17 @@ class YouTubeMusicSource @Inject constructor(
         }
     }
 
+    override fun invalidateStream(track: Track) {
+        track.videoId?.let(innerTube::invalidateStream)
+    }
+
+    override suspend fun prefetch(track: Track) {
+        val videoId = track.videoId ?: return
+        val preferHighQuality = settings.current().highQualityAudio
+        // Warm the URL cache; the answer itself is not needed until play().
+        runCatching { innerTube.audioUrl(videoId, preferHighQuality) }
+    }
+
     private fun playlistTitle(playlistId: String): String = when {
         playlistId == LIKED_SONGS_ID -> "Liked songs"
         playlistId.startsWith("MPRE") -> "YouTube Music album"

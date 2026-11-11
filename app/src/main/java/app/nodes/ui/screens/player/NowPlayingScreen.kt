@@ -73,6 +73,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
@@ -129,10 +130,13 @@ private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
 /**
  * Full Now Playing, built around the three views in the reference design:
  *
- *  - **Controls** — the cover fills the screen, fades into the album wash, and
- *    the title, actions, progress and transport sit over the gradient.
+ *  - **Controls** — the cover sits whole and sharp as a rounded card over a
+ *    smooth colour wash derived from its tint, and the title, actions,
+ *    progress and transport sit below it on the gradient.
  *  - **Lyrics** — the current line is sharp and white; upcoming lines are
  *    progressively blurred and dimmed so the eye stays on the line being sung.
+ *    The backdrop is the same clean gradient, never a stretched copy of the
+ *    cover.
  *  - **Queue** — “Playing from”, the next rows and their artwork menus.
  *
  * All three share one bottom dock, so the transport never moves. The screen has
@@ -140,10 +144,10 @@ private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
  * YouTube player stays composed above every mode; leaving Now Playing pauses it
  * and drops the handle (YOUTUBE.md).
  *
- * The surface behind everything is the artwork's dominant colour, sampled
- * locally by [rememberArtworkTint]. API 26 has no RenderEffect, so the large
- * soft backdrop is a genuinely low-resolution copy of the cover scaled up
- * instead of a fake black overlay; see [PlayerBackdrop].
+ * The surface behind everything is a smooth gradient built from the artwork's
+ * dominant colour, sampled locally by [rememberArtworkTint]; see
+ * [PlayerBackdrop]. API 26 has no RenderEffect, and the design no longer needs
+ * one: the wash is pure geometry, identical on every device.
  */
 @Composable
 fun NowPlayingScreen(
@@ -203,12 +207,7 @@ fun NowPlayingScreen(
         tracks.firstOrNull()?.let { playerViewModel.play(it, tracks) }
     }
 
-    PlayerBackdrop(
-        artworkUri = track.artworkUri,
-        title = track.title,
-        tint = tint,
-        showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
-    ) {
+    PlayerBackdrop(tint = tint) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -243,6 +242,8 @@ fun NowPlayingScreen(
             when (mode) {
                 PlayerMode.CONTROLS -> ControlsMode(
                     track = track,
+                    showArtwork = playerState.embeddedVideoId == null,
+                    tint = tint,
                     modifier = Modifier.weight(1f),
                 )
 
@@ -361,17 +362,37 @@ private fun PlayerTopBar(
 }
 
 /**
- * The stage above the dock: the artwork is already painted by [PlayerBackdrop],
- * so this only carries the title block. With a YouTube track on screen the
- * official card takes over the stage instead, because the API terms require the
- * video to stay visible while it plays.
+ * The stage above the dock: the cover shown whole as a rounded, softly
+ * shadowed card floating on the gradient, with the title block under it. With
+ * a YouTube track on screen the official card takes over the stage instead,
+ * because the API terms require the video to stay visible while it plays.
  */
 @Composable
 private fun ControlsMode(
     track: Track,
+    showArtwork: Boolean,
+    tint: Color,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.fillMaxWidth()) {
+        if (showArtwork) {
+            Artwork(
+                artworkUri = track.artworkUri,
+                title = track.title,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.62f)
+                    .aspectRatio(1f)
+                    .shadow(
+                        34.dp,
+                        RoundedCornerShape(26.dp),
+                        ambientColor = tint.copy(alpha = 0.55f),
+                        spotColor = Color.Black,
+                    ),
+                shape = RoundedCornerShape(26.dp),
+                targetPx = 720,
+            )
+        }
         TrackTitleBlock(
             track = track,
             modifier = Modifier
