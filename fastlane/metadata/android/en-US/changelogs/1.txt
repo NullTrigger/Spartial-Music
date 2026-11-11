@@ -1,7 +1,10 @@
 First public build (0.1.0).
 
-- Glass-dark Home with hero carousel, Continue Playing and New songs rails
-- Floating glass navigation with Home, Trending, Sessions and Library
-- Now Playing with seek, queue, synced lyrics and the official YouTube player
-- Local, Jamendo (Creative Commons) and official YouTube sources
-- Likes, playlists, history, search, settings and YouTube quota handling
+- New glass-dark interface with five floating tabs and a persistent mini player
+- Home hero, recently played, continue playing and provider shelves
+- Now Playing with controls, lyrics and queue modes, plus artwork tinting
+- Search genres, filters and grouped results
+- Library playlists, pins, liked songs, recents and artists
+- Playlist, album, artist and all-songs screens
+- YouTube Music (InnerTube), official YouTube, Jamendo and local sources
+- Likes, playlists, history, search, settings and crash diagnostics

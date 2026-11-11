@@ -1,4 +1,4 @@
-# Building Nodes
+# Building Spartial Music
 
 Everything below is Windows-first (PowerShell or Git Bash). macOS and Linux work
 the same way with the POSIX equivalent of each command.
@@ -37,7 +37,7 @@ Gradle itself is provided by the wrapper — you do not need to install Gradle.
 ## 2. Get the code
 
 ```powershell
-git clone --recurse-submodules https://github.com/izybro110-gif/Nodes.git
+git clone https://github.com/NullTrigger/Nodes.git
 cd Nodes
 ```
 
@@ -65,7 +65,7 @@ notepad local.properties
 
 - `YOUTUBE_API_KEY` — Google Cloud → enable *YouTube Data API v3* → create an API
   key → restrict it to that API and to your package name + SHA-1. Free tier is
-  10,000 quota units/day; Nodes counts units locally and stops politely.
+  10,000 quota units/day; Spartial Music counts units locally and stops politely.
 - `YOUTUBE_OAUTH_CLIENT_ID` — Android OAuth client for package `app.nodes`
   (use `app.nodes.debug` for debug builds) with your signing SHA-1. Only needed
   for the optional "Sign in with Google" playlist import.
@@ -95,7 +95,7 @@ Git Bash / macOS / Linux:
 
 The APK lands in `app\build\outputs\apk\debug\app-debug.apk`.
 
-Nodes builds in two flavours, one `store` dimension:
+Spartial Music builds in two flavours, one `store` dimension:
 
 - **gms** — for devices with Google Play services. This is the only flavour
   with Cast support (`media3-cast` + Play services Cast framework).

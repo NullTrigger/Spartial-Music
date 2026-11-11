@@ -1,7 +1,7 @@
-# Contributing to Nodes
+# Contributing to Spartial Music
 
-Thanks for wanting to help. Nodes is GPL-3.0-or-later; by contributing you agree
-that your work is licensed under the same terms.
+Thanks for wanting to help. Spartial Music is GPL-3.0-or-later; by contributing
+you agree that your work is licensed under the same terms.
 
 ## Ground rules
 

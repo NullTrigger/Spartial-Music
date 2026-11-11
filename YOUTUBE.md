@@ -1,17 +1,17 @@
-# YouTube in Nodes
+# YouTube in Spartial Music
 
-Nodes integrates with YouTube in **one** way: the official YouTube Data API v3
-for metadata, and the official embedded IFrame player for playback. This
-document explains exactly what that means, what the limits are, and how to set
-it up.
+Spartial Music integrates with YouTube in **two** ways: the unofficial InnerTube
+client (the default source), and the official YouTube Data API v3 provider with
+the official embedded IFrame player. This document explains what each mode means,
+what the limits are, and how to set it up.
 
-> Nodes is not affiliated with YouTube or Google. "YouTube" is a trademark of
+> Spartial Music is not affiliated with YouTube or Google. "YouTube" is a trademark of
 > Google LLC. By using this integration you agree to the
 > [YouTube Terms of Service](https://www.youtube.com/t/terms),
 > the [YouTube API Services Terms of Service](https://developers.google.com/youtube/terms/api-services-terms-of-service)
 > and the [Google Privacy Policy](https://policies.google.com/privacy).
 
-## Mode 1 — Official (the default)
+## Mode 1 - Official (the documented API path)
 
 | Feature | API | Cost |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ it up.
 | Playback | Official embedded IFrame player | no quota |
 
 The default daily allowance is **10,000 units**, reset at midnight Pacific Time.
-Nodes counts units locally (`QuotaTracker`), caches responses for 15 minutes
+Spartial Music counts units locally (`QuotaTracker`), caches responses for 15 minutes
 (`RemoteCache`), and when the budget is gone it stops calling the API and shows:
 
 > "YouTube API quota for today is used up. It resets at midnight Pacific Time.
@@ -33,14 +33,14 @@ Nodes counts units locally (`QuotaTracker`), caches responses for 15 minutes
 That is a 100-unit search budget of roughly 100 searches a day. Browsing Home
 costs about 3 units.
 
-### What Nodes deliberately does not do
+### What Spartial Music deliberately does not do
 
 - No downloading, caching or re-encoding of YouTube media.
 - No ad blocking, no sponsor blocking, no cipher or PoToken bypass.
 - No account cookie harvesting: this mode never touches your Google session.
 
 Mode 1 tracks are always played by the embedded player, on screen, and pause
-when that screen is disposed. Mode 2 (below) is a separate, opt-in source.
+when that screen is disposed. Mode 2 (below) is the default source in this build.
 
 ### Setup: API key
 
@@ -61,7 +61,7 @@ when that screen is disposed. Mode 2 (below) is a separate, opt-in source.
 
 ### Setup: optional Google Sign-In
 
-Sign-in only adds your own YouTube music. Nodes works fully signed out.
+Sign-in only adds your own YouTube music. Spartial Music works fully signed out.
 
 What a Google sign-in unlocks on Home, once `YOUTUBE_API_KEY` and
 `YOUTUBE_OAUTH_CLIENT_ID` are set:
@@ -76,7 +76,7 @@ Both rails are best-effort: if the quota is spent or the token expires the
 public charts still load. The token is never persisted, so after a restart the
 app asks you to sign in again rather than silently losing your rails.
 
-Sign-in does **not** turn Nodes into a YouTube Music client. There is no
+Sign-in does **not** turn Spartial Music into a YouTube Music client. There is no
 YouTube Music API; its app talks to private endpoints. See Mode 2 below.
 
 1. Get your signing SHA-1:
@@ -160,7 +160,7 @@ so it cannot be used as the probe.) If the check fails the next identity is
 tried, and if all of them fail the player shows what each one said — for example
 `ANDROID_VR: unplayable (Video unavailable)` — rather than a generic error.
 
-Every client in that chain answers with a plain `url`, which is why Nodes
+Every client in that chain answers with a plain `url`, which is why Spartial Music
 contains no signature deciphering and no PoToken generation: there is nothing
 here to decipher. `WEB_REMIX`, `WEB_CREATOR` and the TV clients are deliberately
 absent — they now demand a PoToken and an `n`-parameter transform. A track that
@@ -185,7 +185,7 @@ that rule 1 of `AGENTS.md` requires to be recorded here.
 How it works, and what keeps it bounded:
 
 - Settings → YouTube Music account opens Google's own login page in a WebView.
-  Nodes never sees the password; it only reads the cookie the music site sets
+  Spartial Music never sees the password; it only reads the cookie the music site sets
   after the redirect, plus the page's `VISITOR_DATA` and `DATASYNC_ID`.
 - The cookie is validated with `account/account_menu` before it is stored, so a
   cookie that is not a session is never kept.
@@ -204,7 +204,7 @@ make exactly one *write* on the signed-in account — pushing a locally liked
 YouTube Music track to the account's liked songs. This is the "Sync to YT"
 row in Settings → Content, and it is the only account write in the codebase.
 
-- It is one-directional: Nodes pushes likes **to** YouTube and never pulls the
+- It is one-directional: Spartial Music pushes likes **to** YouTube and never pulls the
   account's liked songs back into the library (reads for personalised shelves
   are unchanged from the cookie decision above).
 - It replays liking what is already liked, which YouTube treats as a no-op, so
@@ -237,5 +237,5 @@ its fork [Glossy](https://github.com/izybro110-gif/Glossy). The client identitie
 in the playback chain (names, versions, user agents and device fields) are the
 ones those projects ship, since they are what YouTube currently accepts; the
 fallback order, the ranged-GET validation and every line of `InnerTubeClient.kt`
-are Nodes' own. No file from those projects is copied into Nodes. See
+are Spartial Music's own. No file from those projects is copied into Spartial Music. See
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

@@ -1,10 +1,10 @@
 # Third-party licences
 
-Every runtime dependency of Nodes, with its licence. Versions are pinned in
+Every runtime dependency of Spartial Music, with its licence. Versions are pinned in
 [`gradle/libs.versions.toml`](gradle/libs.versions.toml); update this file when you
 add or bump a dependency.
 
-> All listed components are compatible with distributing Nodes under
+> All listed components are compatible with distributing Spartial Music under
 > GPL-3.0-or-later. Apache-2.0 and BSD code can be combined with GPL-3.0; none of
 > these libraries impose a copyleft weaker than, or incompatible with, the GPL.
 
@@ -70,11 +70,11 @@ add or bump a dependency.
 
 ## Fonts and images
 
-Nodes bundles **no** third-party fonts or artwork. Typography uses the platform's
-sans and serif families; cover art is either fetched from the provider or
-generated procedurally. The app icon and the logo, wordmark and favicon in
-`branding/` are the project's own branding, supplied for Nodes and distributed
-under GPL-3.0-or-later; see [NOTICE.md](NOTICE.md) and
+Spartial Music bundles **no** third-party fonts or artwork. Typography uses the
+platform's sans and serif families; cover art is either fetched from the provider
+or generated procedurally. The app icon and the logo, wordmark and banner in
+`branding/` are the project's own branding, supplied for Spartial Music and
+distributed under GPL-3.0-or-later; see [NOTICE.md](NOTICE.md) and
 [branding/README.md](branding/README.md).
 
 ## Credits
@@ -83,19 +83,19 @@ Thanks to the Android open-source community, and in particular to the projects
 that made modern Compose media apps practical: AndroidX Media3, Compose, Hilt,
 Coil, Retrofit and kotlinx.serialization.
 
-Nodes also implements YouTube's private InnerTube protocol in
-`core/source/youtubemusic/`. That client was written for Nodes; the protocol
-details — client names and versions, context fields, and the fact that the
-`ANDROID_VR` client returns plain audio URLs — were learned from GPL-3.0
+Spartial Music also implements YouTube's private InnerTube protocol in
+`core/source/youtubemusic/`. That client was written for Spartial Music; the
+protocol details — client names and versions, context fields, and the fact that
+the `ANDROID_VR` client returns plain audio URLs — were learned from GPL-3.0
 projects in this space, credited here:
 
-| Project | Licence | What Nodes uses |
+| Project | Licence | What Spartial Music uses |
 | --- | --- | --- |
 | [Metrolist](https://github.com/mostafaalagamy/Metrolist) | GPL-3.0 | InnerTube protocol reference |
 | InnerTune / OuterTune | GPL-3.0 | InnerTube protocol reference |
 | [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube protocol reference, WebView sign-in study (not copied, not used) |
 
-No source file from those projects is copied into Nodes, so nothing here carries
+No source file from those projects is copied into Spartial Music, so nothing here carries
 their copyright headers. If you do port code from one of them, keep that file's
 header, keep the GPL-3.0 licence, and add the project to this table.
 

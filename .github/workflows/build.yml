@@ -4,7 +4,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/**']
   pull_request:
   workflow_dispatch:
 
@@ -76,7 +76,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: nodes-debug-apk
+          name: spartial-music-debug-apk
           path: app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
 
