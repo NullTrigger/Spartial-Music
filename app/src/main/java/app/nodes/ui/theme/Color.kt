@@ -7,38 +7,58 @@ package app.nodes.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Near-black base. Nodes is a dark-first app; these are the only surfaces that
-// exist in the reference design.
-val NodesBlack = Color(0xFF050506)
-val NodesBlackElevated = Color(0xFF0A0B0D)
-val NodesSurface = Color(0xFF101115)
-val NodesSurfaceHigh = Color(0xFF17191E)
-val NodesSurfaceHighest = Color(0xFF202329)
+// The redesigned surface stack: near-black, with just enough separation
+// between layers to keep cards and controls readable without borders.
+val NodesBlack = Color(0xFF07080A)
+val NodesBlackElevated = Color(0xFF0C0D10)
+val NodesSurface = Color(0xFF131418)
+val NodesSurfaceHigh = Color(0xFF1B1D22)
+val NodesSurfaceHighest = Color(0xFF282A30)
 
 // Type colours.
-val NodesWhite = Color(0xFFF6F7F7)
+val NodesWhite = Color(0xFFF6F6F7)
 val NodesWhiteMuted = Color(0xE6FFFFFF)
-val NodesGrey = Color(0xFF9A9DA4)
-val NodesGreyDim = Color(0xFF6B6E75)
+val NodesGrey = Color(0xFF9FA1A8)
+val NodesGreyDim = Color(0xFF6A6C74)
 
-// Brand accent (the avatar teal from the reference).
-val NodesTeal = Color(0xFF14B3A1)
-val NodesTealDeep = Color(0xFF0C7D71)
+// The neutral accent used by controls, chips and focus rings. Artwork tints
+// supply the colour on player and collection screens; chrome stays monochrome.
+val NodesAccent = Color(0xFFF1F2F4)
+val NodesAccentDeep = Color(0xFFB6B8BE)
+val NodesDanger = Color(0xFFFF6B6B)
 
-// Warm and cool accents used only by generated placeholder artwork.
+/**
+ * Warm and cool accents used by generated placeholder artwork, genre tiles and
+ * the deterministic fallback tint when a provider has no cover image.
+ */
 val ArtAccents = listOf(
-    Color(0xFF2E4A62),
-    Color(0xFF5A3B57),
-    Color(0xFF23433C),
-    Color(0xFF5B4636),
-    Color(0xFF3B3F63),
-    Color(0xFF553A3A),
-    Color(0xFF2F4B4F),
-    Color(0xFF46406B),
+    Color(0xFF345A78),
+    Color(0xFF7A3941),
+    Color(0xFF7A6248),
+    Color(0xFF44566B),
+    Color(0xFF4E3F72),
+    Color(0xFF2F5A50),
+    Color(0xFF6C4A32),
+    Color(0xFF3D445E),
+    Color(0xFF7A3F5D),
 )
 
-// Frosted-glass tokens. Glass is a white film over a blurred backdrop.
-val GlassFillTop = Color(0x26FFFFFF)
-val GlassFillBottom = Color(0x0DFFFFFF)
-val GlassBorder = Color(0x24FFFFFF)
-val GlassBorderStrong = Color(0x3DFFFFFF)
+/** Four-stop tile palettes for the Search genre grids. */
+val GenreGradients = listOf(
+    listOf(Color(0xFFE2B83E), Color(0xFF8D5C1F)),
+    listOf(Color(0xFF173C52), Color(0xFF0B1922)),
+    listOf(Color(0xFFD9C6A0), Color(0xFF61513B)),
+    listOf(Color(0xFFB73A2D), Color(0xFF4A1412)),
+    listOf(Color(0xFF3B2D6E), Color(0xFF130F29)),
+    listOf(Color(0xFF2E6F5B), Color(0xFF11271F)),
+    listOf(Color(0xFFA35439), Color(0xFF3C1C14)),
+    listOf(Color(0xFF36506B), Color(0xFF151F2A)),
+)
+
+// Frosted-glass tokens. Glass is a white film over a darkened backdrop.
+val GlassFillTop = Color(0x2BFFFFFF)
+val GlassFillBottom = Color(0x0FFFFFFF)
+val GlassBorder = Color(0x26FFFFFF)
+val GlassBorderStrong = Color(0x42FFFFFF)
+
+

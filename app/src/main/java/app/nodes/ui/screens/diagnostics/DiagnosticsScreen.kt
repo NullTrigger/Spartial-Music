@@ -45,13 +45,13 @@ import app.nodes.BuildConfig
 import app.nodes.R
 import app.nodes.core.crash.CrashLogFile
 import app.nodes.core.crash.CrashShare
-import app.nodes.ui.components.EmptyPanel
+import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.glass
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesTeal
+import app.nodes.ui.theme.NodesAccent
 import app.nodes.ui.theme.NodesWhite
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -121,7 +121,7 @@ fun DiagnosticsScreen(
 
             if (state.reports.isEmpty()) {
                 item(key = "empty") {
-                    EmptyPanel(
+                    EmptyState(
                         title = stringResource(R.string.diagnostics_title),
                         description = stringResource(R.string.diagnostics_empty),
                     )
@@ -228,7 +228,7 @@ private fun ToggleRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = NodesTeal),
+            colors = SwitchDefaults.colors(checkedTrackColor = NodesAccent),
         )
     }
 }
@@ -294,7 +294,7 @@ private fun DebugCrashRow(onCreate: () -> Unit) {
         ) {
             Text(
                 text = stringResource(R.string.diagnostics_test_crash),
-                color = NodesTeal,
+                color = NodesAccent,
             )
         }
     }

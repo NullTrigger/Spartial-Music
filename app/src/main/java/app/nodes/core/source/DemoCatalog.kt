@@ -25,16 +25,16 @@ object DemoCatalog {
     val tracks: List<Track> = listOf(
         "Midnight Static" to "Sample Ensemble",
         "Paper Lanterns" to "Placeholder Trio",
-        "Slow Orbit" to "Nodes Studio",
+        "Slow Orbit" to "Spartial Studio",
         "Velvet Rooms" to "Sample Ensemble",
         "Low Tide" to "Placeholder Trio",
-        "Neon Rain" to "Nodes Studio",
+        "Neon Rain" to "Spartial Studio",
         "Afterglow" to "Sample Ensemble",
         "Glass Corridor" to "Placeholder Trio",
-        "Northern Line" to "Nodes Studio",
+        "Northern Line" to "Spartial Studio",
         "Salt and Signal" to "Sample Ensemble",
         "Quiet Machines" to "Placeholder Trio",
-        "Sunday Drive" to "Nodes Studio",
+        "Sunday Drive" to "Spartial Studio",
     ).mapIndexed { index, (title, artist) ->
         Track(
             id = "demo-$index",

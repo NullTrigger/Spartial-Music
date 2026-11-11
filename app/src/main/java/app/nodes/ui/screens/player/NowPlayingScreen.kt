@@ -6,6 +6,7 @@
 package app.nodes.ui.screens.player
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -33,15 +35,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AllInclusive
-import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
@@ -75,54 +78,59 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
+import app.nodes.core.data.LyricsResult
 import app.nodes.core.model.LyricLine
+import app.nodes.core.model.SourceId
 import app.nodes.core.model.Track
 import app.nodes.core.util.formatDuration
+import app.nodes.playback.PlayerUiState
 import app.nodes.playback.RepeatMode
 import app.nodes.ui.components.Artwork
-import app.nodes.ui.components.ArtworkBackdrop
 import app.nodes.ui.components.CastRouteButton
+import app.nodes.ui.components.CircleIconButton
+import app.nodes.ui.components.EmptyState
+import app.nodes.ui.components.GlassBadge
 import app.nodes.ui.components.KeepScreenOn
+import app.nodes.ui.components.LoadingRows
+import app.nodes.ui.components.PillButton
+import app.nodes.ui.components.PillStyle
+import app.nodes.ui.components.SongRow
+import app.nodes.ui.components.TintedBackdrop
 import app.nodes.ui.components.TrackMenuButton
-import app.nodes.ui.components.TrackRow
-import app.nodes.ui.components.glass
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
+import app.nodes.ui.theme.NodesGreyDim
+import app.nodes.ui.theme.NodesSpacing
 import app.nodes.ui.theme.NodesSurface
-import app.nodes.ui.theme.NodesTeal
+import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.rememberArtworkTint
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import kotlinx.coroutines.CancellationException
 
-private enum class PlayerTab { QUEUE, LYRICS }
+private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
 
 /**
- * Full Now Playing screen.
+ * Full Now Playing.
  *
- * The whole screen is one [LazyColumn]. It used to be a `verticalScroll` column
- * with a 260dp `LazyColumn` for the lyrics inside it and the entire queue
- * composed eagerly in a plain `Column` - two nested vertically scrollable
- * containers and an unbounded row count, which is exactly the shape that makes
- * Compose throw "Vertically scrollable component was measured with an infinite
- * maximum height" during a transition and makes a long queue allocate every
- * artwork at once. One lazy list removes both problems: every section is an item,
- * the queue composes only what is on screen, and nothing is nested.
+ * The screen has three internal modes rather than three navigation routes:
+ * controls stay one tap away, and the Queue/Lyrics buttons at the bottom do
+ * not push a new destination that would hide the official YouTube card. The
+ * embedded YouTube player is composed above all three modes and is never
+ * backgrounded; leaving Now Playing pauses it and drops the handle (YOUTUBE.md).
  *
- * For YouTube tracks the official embedded player is rendered as a video card
- * above the controls. It is never hidden, never backgrounded, and no stream URL
- * is extracted - see YOUTUBE.md. Leaving this screen pauses the video.
+ * The surface behind everything is the artwork's dominant colour fading into
+ * near-black, sampled locally by [rememberArtworkTint]; no third-party service
+ * is asked for a palette.
  */
 @Composable
 fun NowPlayingScreen(
@@ -134,6 +142,7 @@ fun NowPlayingScreen(
 ) {
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
+    val lyricsLoading by viewModel.lyricsLoading.collectAsStateWithLifecycle()
     val liked by viewModel.liked.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
     val lyricsAutoScroll by viewModel.lyricsAutoScroll.collectAsStateWithLifecycle()
@@ -141,52 +150,16 @@ fun NowPlayingScreen(
 
     KeepScreenOn(keepScreenOn)
 
-    var tab by remember { mutableStateOf(PlayerTab.QUEUE) }
-    val listState = rememberLazyListState()
-    var showTrackOptions by remember { mutableStateOf(false) }
-
-    // Following is a per-song decision: the preference decides how a song
-    // starts, and a manual drag pauses it until the chip is tapped or the next
-    // track begins.
+    var mode by rememberSaveable { mutableStateOf(PlayerMode.CONTROLS) }
     var followLyrics by rememberSaveable { mutableStateOf(true) }
-    val autoScroll = lyricsAutoScroll && followLyrics
-    val isDraggingLyrics by listState.interactionSource.collectIsDraggedAsState()
+    var showTrackOptions by remember { mutableStateOf(false) }
 
     LaunchedEffect(track?.id) {
         viewModel.onTrackChanged(track)
         followLyrics = true
     }
 
-    LaunchedEffect(isDraggingLyrics, tab) {
-        if (isDraggingLyrics && tab == PlayerTab.LYRICS) followLyrics = false
-    }
-
-    val activeLyricIndex = if (lyrics.lines.isEmpty()) {
-        -1
-    } else {
-        lyrics.lines.indexOfLast { it.timeMs <= playerState.positionMs.coerceAtLeast(0L) }
-            .coerceIn(0, lyrics.lines.lastIndex)
-    }
-
-    // Lyrics are items of the screen's own lazy list, so the item to scroll to
-    // is the active line plus every item above the lyrics section. The header
-    // count changes when the embedded YouTube card replaces the seek bar.
-    LaunchedEffect(tab, autoScroll, activeLyricIndex, playerState.embeddedVideoId, lyrics.lines.size) {
-        if (tab != PlayerTab.LYRICS || !autoScroll || activeLyricIndex < 0) return@LaunchedEffect
-        val headerItems = if (playerState.embeddedVideoId == null) 6 else 5
-        val viewport = listState.layoutInfo.viewportSize.height
-        val offset = if (viewport > 0) -(viewport / 3) else 0
-        try {
-            // A third of the viewport below the top keeps the current line
-            // near the middle instead of pinning it to the very top.
-            listState.animateScrollToItem(headerItems + activeLyricIndex, offset)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            // The lyrics can be replaced while the animation runs; the next
-            // line change starts a fresh scroll.
-        }
-    }
+    BackHandler(enabled = mode != PlayerMode.CONTROLS) { mode = PlayerMode.CONTROLS }
 
     if (track == null) {
         Column(
@@ -194,440 +167,678 @@ fun NowPlayingScreen(
                 .fillMaxSize()
                 .background(NodesBlack)
                 .statusBarsPadding()
-                .padding(20.dp),
+                .padding(NodesSpacing.gutter),
         ) {
-            BackButton(onBack)
-            Spacer(Modifier.height(40.dp))
-            Text(
-                text = stringResource(R.string.home_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = NodesGrey,
+            CircleIconButton(
+                icon = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = stringResource(R.string.action_close),
+                onClick = onBack,
+            )
+            EmptyState(
+                title = stringResource(R.string.player_queue_empty_title),
+                description = stringResource(R.string.player_queue_empty_body),
             )
         }
         return
     }
 
-    Box(Modifier.fillMaxSize()) {
-        ArtworkBackdrop(
-            artworkUri = track.artworkUri,
-            title = track.title,
-            modifier = Modifier.fillMaxSize(),
-        )
+    val tint = rememberArtworkTint(track.artworkUri, track.title)
+    val sourceName = playerSourceName(track.sourceId)
+    val playAll: (List<Track>) -> Unit = { tracks ->
+        tracks.firstOrNull()?.let { playerViewModel.play(it, tracks) }
+    }
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
+    TintedBackdrop(tint = tint) {
+        Column(
+            Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
-            contentPadding = PaddingValues(bottom = 32.dp),
         ) {
-            item(key = "top") {
-                Row(
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+            PlayerTopBar(
+                track = track,
+                mode = mode,
+                sourceName = sourceName,
+                onBack = onBack,
+                onExitMode = { mode = PlayerMode.CONTROLS },
+                onMore = { showTrackOptions = true },
+            )
+
+            playerState.embeddedVideoId?.let { videoId ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = NodesSpacing.gutter, vertical = 6.dp),
                 ) {
-                    BackButton(onBack)
-                    Spacer(Modifier.weight(1f))
+                    YouTubeEmbeddedCard(
+                        videoId = videoId,
+                        onStop = playerViewModel::stopEmbedded,
+                    )
+                    Spacer(Modifier.height(6.dp))
                     Text(
-                        text = stringResource(R.string.player_queue).uppercase(),
+                        text = stringResource(R.string.player_youtube_notice),
                         style = MaterialTheme.typography.labelSmall,
                         color = NodesGrey,
                     )
-                    Spacer(Modifier.weight(1f))
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .clickable { showTrackOptions = true },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = stringResource(R.string.player_more),
-                            tint = NodesWhite,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
                 }
             }
 
-            item(key = "media") {
-                Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
-                    val videoId = playerState.embeddedVideoId
-                    if (videoId != null) {
-                        YouTubeEmbeddedCard(
-                            videoId = videoId,
-                            onStop = playerViewModel::stopEmbedded,
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            text = stringResource(R.string.player_youtube_notice),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = NodesGrey,
-                        )
-                    } else {
+            when (mode) {
+                PlayerMode.CONTROLS -> ControlsMode(
+                    state = playerState,
+                    track = track,
+                    liked = liked,
+                    sourceName = sourceName,
+                    onToggleLike = { viewModel.toggleLike(track) },
+                    onPlayPause = playerViewModel::togglePlayPause,
+                    onPrevious = playerViewModel::previous,
+                    onNext = playerViewModel::next,
+                    onSeek = playerViewModel::seekTo,
+                    onShuffle = playerViewModel::toggleShuffle,
+                    onRepeat = { playerViewModel.cycleRepeat() },
+                    onInfinite = playerViewModel::toggleInfiniteQueue,
+                    onOpenArtist = onOpenArtist,
+                    onOpenAlbum = onOpenAlbum,
+                    onOpenLyrics = { mode = PlayerMode.LYRICS },
+                    onOpenQueue = { mode = PlayerMode.QUEUE },
+                    modifier = Modifier.weight(1f),
+                )
+
+                PlayerMode.LYRICS -> LyricsMode(
+                    result = lyrics,
+                    loading = lyricsLoading,
+                    positionMs = playerState.positionMs,
+                    autoScroll = lyricsAutoScroll,
+                    follow = followLyrics,
+                    onFollowChanged = { followLyrics = it },
+                    onRetry = viewModel::refreshLyrics,
+                    modifier = Modifier.weight(1f),
+                )
+
+                PlayerMode.QUEUE -> QueueMode(
+                    state = playerState,
+                    onPlayIndex = playerViewModel::playQueueIndex,
+                    onMove = playerViewModel::moveInQueue,
+                    onRemove = playerViewModel::removeFromQueue,
+                    onPlayNext = playerViewModel::playNext,
+                    onAddToQueue = playerViewModel::addToQueue,
+                    onOpenArtist = onOpenArtist,
+                    onOpenAlbum = onOpenAlbum,
+                    onPlayAll = { playAll(playerState.queue) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+
+    if (showTrackOptions) {
+        TrackOptionsSheet(
+            track = track,
+            liked = liked,
+            onDismiss = { showTrackOptions = false },
+            onViewArtist = {
+                showTrackOptions = false
+                if (track.artist.isNotBlank()) onOpenArtist(track.artist)
+            },
+            onViewAlbum = {
+                showTrackOptions = false
+                track.album?.takeIf { it.isNotBlank() }?.let(onOpenAlbum)
+            },
+            onToggleLibrary = {
+                showTrackOptions = false
+                viewModel.toggleLike(track)
+            },
+            onPlayNext = {
+                showTrackOptions = false
+                playerViewModel.playNext(track)
+            },
+            onAddToQueue = {
+                showTrackOptions = false
+                playerViewModel.addToQueue(track)
+            },
+        )
+    }
+}
+
+@Composable
+private fun PlayerTopBar(
+    track: Track,
+    mode: PlayerMode,
+    sourceName: String,
+    onBack: () -> Unit,
+    onExitMode: () -> Unit,
+    onMore: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircleIconButton(
+            icon = if (mode == PlayerMode.CONTROLS) {
+                Icons.Rounded.KeyboardArrowDown
+            } else {
+                Icons.AutoMirrored.Rounded.ArrowBack
+            },
+            contentDescription = if (mode == PlayerMode.CONTROLS) {
+                stringResource(R.string.action_close)
+            } else {
+                stringResource(R.string.cd_back)
+            },
+            onClick = if (mode == PlayerMode.CONTROLS) onBack else onExitMode,
+            filled = true,
+            background = NodesBlack.copy(alpha = 0.28f),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = when (mode) {
+                    PlayerMode.CONTROLS -> stringResource(R.string.player_playing_from, sourceName)
+                    PlayerMode.LYRICS -> stringResource(R.string.player_lyrics)
+                    PlayerMode.QUEUE -> stringResource(R.string.player_queue)
+                }.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = NodesGrey,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = track.title,
+                style = NodesType.rowTitle,
+                color = NodesWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        CircleIconButton(
+            icon = Icons.Rounded.MoreVert,
+            contentDescription = stringResource(R.string.player_more),
+            onClick = onMore,
+            filled = true,
+            background = NodesBlack.copy(alpha = 0.28f),
+        )
+    }
+}
+
+@Composable
+private fun ControlsMode(
+    state: PlayerUiState,
+    track: Track,
+    liked: Boolean,
+    sourceName: String,
+    onToggleLike: () -> Unit,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onInfinite: () -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onOpenAlbum: (String) -> Unit,
+    onOpenLyrics: () -> Unit,
+    onOpenQueue: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
+        if (state.embeddedVideoId == null) {
+            item(key = "artwork") {
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 34.dp, vertical = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val artSize = minOf(maxWidth, 380.dp)
+                    Box(Modifier.size(artSize)) {
                         Artwork(
                             artworkUri = track.artworkUri,
                             title = track.title,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f),
+                            modifier = Modifier.fillMaxSize(),
                             shape = RoundedCornerShape(28.dp),
                             targetPx = 1280,
                         )
-                    }
-                }
-            }
-
-            item(key = "meta") {
-                Row(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = track.title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = NodesWhite,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        // The artist name under the song title is a link to the
-                        // artist page; the album rides along as a second link.
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = track.artist,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = NodesTeal,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.clickable(
-                                    enabled = track.artist.isNotBlank(),
-                                ) { onOpenArtist(track.artist) },
-                            )
-                            track.album?.takeIf { it.isNotBlank() }?.let { album ->
-                                Text(
-                                    text = " · $album",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = NodesGrey,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.clickable { onOpenAlbum(album) },
-                                )
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            GlassBadge(text = sourceName.uppercase())
+                            if (track.isExplicit) {
+                                GlassBadge(text = "E")
                             }
                         }
-                        track.licenseNote?.let { note ->
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = note,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = NodesTeal.copy(alpha = 0.85f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                    Icon(
-                        imageVector = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        contentDescription = stringResource(R.string.player_like),
-                        tint = if (liked) NodesTeal else NodesWhite,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clickable { viewModel.toggleLike(track) },
-                    )
-                }
-            }
-
-            if (playerState.embeddedVideoId == null) {
-                item(key = "seek") {
-                    Column(Modifier.padding(horizontal = 20.dp)) {
-                        // A zero-length track has no meaningful fraction, and a
-                        // Slider outside 0..1 throws. Both are normal while a
-                        // stream is still resolving.
-                        val fraction = playerState.progress.coerceIn(0f, 1f)
-                        Slider(
-                            value = fraction,
-                            onValueChange = { value ->
-                                val duration = playerState.durationMs
-                                if (duration > 0L) {
-                                    playerViewModel.seekTo((value * duration).toLong())
-                                }
-                            },
-                            colors = SliderDefaults.colors(
-                                thumbColor = NodesWhite,
-                                activeTrackColor = NodesWhite,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.2f),
-                            ),
-                        )
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                text = formatDuration(playerState.positionMs.coerceAtLeast(0L)),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = NodesGrey,
-                            )
-                            Text(
-                                text = formatDuration(playerState.durationMs.coerceAtLeast(0L)),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = NodesGrey,
-                            )
-                        }
                     }
                 }
-            }
-
-            item(key = "controls") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
-                        contentDescription = null,
-                        tint = NodesWhite,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clickable { playerViewModel.previous() },
-                    )
-                    Spacer(Modifier.width(28.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clip(CircleShape)
-                            .background(NodesWhite)
-                            .clickable { playerViewModel.togglePlayPause() },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = if (playerState.isPlaying) {
-                                Icons.Rounded.Pause
-                            } else {
-                                Icons.Rounded.PlayArrow
-                            },
-                            contentDescription = stringResource(R.string.action_play),
-                            tint = NodesBlack,
-                            modifier = Modifier.size(34.dp),
-                        )
-                    }
-                    Spacer(Modifier.width(28.dp))
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = null,
-                        tint = NodesWhite,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clickable { playerViewModel.next() },
-                    )
-                }
-            }
-
-            item(key = "secondary-controls") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val context = LocalContext.current
-                    CastRouteButton(
-                        // The official embedded player cannot be cast: its video
-                        // lives in the YouTube iframe, not in the session.
-                        unavailable = playerState.embeddedVideoId != null,
-                        onUnavailableTap = {
-                            Toast.makeText(
-                                context,
-                                R.string.player_cast_unavailable,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        },
-                        modifier = Modifier.padding(horizontal = 6.dp),
-                    )
-                    SecondaryControl(
-                        icon = Icons.Rounded.Shuffle,
-                        label = stringResource(R.string.player_shuffle),
-                        active = playerState.shuffleOn,
-                        onClick = { playerViewModel.toggleShuffle() },
-                    )
-                    SecondaryControl(
-                        icon = Icons.Rounded.AllInclusive,
-                        label = stringResource(R.string.player_infinite),
-                        active = playerState.infiniteQueue,
-                        onClick = { playerViewModel.toggleInfiniteQueue() },
-                    )
-                    SecondaryControl(
-                        icon = when (playerState.repeatMode) {
-                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                            else -> Icons.Rounded.Repeat
-                        },
-                        label = stringResource(R.string.player_repeat),
-                        active = playerState.repeatMode != RepeatMode.OFF,
-                        onClick = { playerViewModel.cycleRepeat() },
-                    )
-                }
-            }
-
-            item(key = "tabs") {
-                Row(
-                    Modifier
-                        .padding(horizontal = 20.dp)
-                        .glass(CircleShape)
-                        .padding(4.dp),
-                ) {
-                    PlayerTab.entries.forEach { entry ->
-                        val selected = tab == entry
-                        Box(
-                            Modifier
-                                .clip(CircleShape)
-                                .background(
-                                    if (selected) Color.White.copy(alpha = 0.16f)
-                                    else Color.Transparent,
-                                )
-                                .clickable { tab = entry }
-                                .padding(horizontal = 18.dp, vertical = 8.dp),
-                        ) {
-                            Text(
-                                text = if (entry == PlayerTab.QUEUE) {
-                                    stringResource(R.string.player_queue)
-                                } else {
-                                    stringResource(R.string.player_lyrics)
-                                },
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (selected) NodesWhite else NodesGrey,
-                            )
-                        }
-                    }
-                }
-            }
-
-            item(key = "tab-gap") { Spacer(Modifier.height(8.dp)) }
-
-            when (tab) {
-                PlayerTab.QUEUE -> {
-                    if (playerState.queue.isEmpty()) {
-                        item(key = "queue-empty") {
-                            Text(
-                                text = stringResource(R.string.home_empty),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = NodesGrey,
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                            )
-                        }
-                    } else {
-                        // YouTube Music radios happily repeat a video, so the id
-                        // alone is not a unique key: LazyColumn throws "Key was
-                        // already used" on the second copy. Position plus id is
-                        // unique even when the queue is reordered under us.
-                        itemsIndexed(
-                            items = playerState.queue,
-                            key = { index, item -> "queue-$index-${item.id}" },
-                        ) { index, item ->
-                            QueueRow(
-                                item = item,
-                                isCurrent = index == playerState.queueIndex,
-                                onClick = { playerViewModel.playQueueIndex(index) },
-                                onPlayNext = { playerViewModel.playNext(item) },
-                                onAddToQueue = { playerViewModel.addToQueue(item) },
-                                onRemove = { playerViewModel.removeFromQueue(index) },
-                                onViewArtist = item.artist.takeIf { it.isNotBlank() }
-                                    ?.let { artist -> { onOpenArtist(artist) } },
-                                onViewAlbum = item.album?.takeIf { it.isNotBlank() }
-                                    ?.let { album -> { onOpenAlbum(album) } },
-                            )
-                        }
-                    }
-                }
-
-                PlayerTab.LYRICS -> LyricsItems(
-                    lines = lyrics.lines,
-                    positionMs = playerState.positionMs,
-                )
-            }
-
-            item(key = "bottom") {
-                Spacer(Modifier.navigationBarsPadding().height(8.dp))
             }
         }
 
-        // Glossy's re-sync affordance: a manual scroll pauses following, and
-        // this chip puts the current line back under the thumb. It is only
-        // shown while the preference is on; turning it off is a settings
-        // decision, not an accidental drag.
+        item(key = "meta") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = NodesSpacing.gutter, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = track.title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = NodesWhite,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = track.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = NodesGrey,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable(
+                                enabled = track.artist.isNotBlank(),
+                            ) { onOpenArtist(track.artist) },
+                        )
+                        track.album?.takeIf { it.isNotBlank() }?.let { album ->
+                            Text(
+                                text = " · $album",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NodesGreyDim,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.clickable { onOpenAlbum(album) },
+                            )
+                        }
+                    }
+                    track.licenseNote?.let { note ->
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = note,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NodesGreyDim,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                CircleIconButton(
+                    icon = if (liked) {
+                        Icons.Rounded.Favorite
+                    } else {
+                        Icons.Rounded.FavoriteBorder
+                    },
+                    contentDescription = stringResource(R.string.player_like),
+                    onClick = onToggleLike,
+                    tint = if (liked) NodesWhite else NodesGrey,
+                    filled = true,
+                    background = Color.White.copy(alpha = if (liked) 0.18f else 0.08f),
+                )
+            }
+        }
+
+        if (state.embeddedVideoId == null) {
+            item(key = "seek") {
+                Column(Modifier.padding(horizontal = NodesSpacing.gutter)) {
+                    val fraction = state.progress.coerceIn(0f, 1f)
+                    Slider(
+                        value = fraction,
+                        onValueChange = { value ->
+                            val duration = state.durationMs
+                            if (duration > 0L) onSeek((value * duration).toLong())
+                        },
+                        enabled = state.durationMs > 0L,
+                        colors = SliderDefaults.colors(
+                            thumbColor = NodesWhite,
+                            activeTrackColor = NodesWhite,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.18f),
+                        ),
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = formatDuration(state.positionMs.coerceAtLeast(0L)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NodesGrey,
+                        )
+                        Text(
+                            text = formatDuration(state.durationMs.coerceAtLeast(0L)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NodesGrey,
+                        )
+                    }
+                }
+            }
+        }
+
+        item(key = "transport") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = NodesSpacing.gutter, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircleIconButton(
+                    icon = Icons.Rounded.Shuffle,
+                    contentDescription = stringResource(R.string.player_shuffle),
+                    onClick = onShuffle,
+                    tint = if (state.shuffleOn) NodesWhite else NodesGrey,
+                    filled = state.shuffleOn,
+                )
+                CircleIconButton(
+                    icon = Icons.Rounded.SkipPrevious,
+                    contentDescription = stringResource(R.string.action_previous),
+                    onClick = onPrevious,
+                    size = 50.dp,
+                    iconSize = 28.dp,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(CircleShape)
+                        .background(NodesWhite)
+                        .clickable(onClick = onPlayPause),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) {
+                            Icons.Rounded.Pause
+                        } else {
+                            Icons.Rounded.PlayArrow
+                        },
+                        contentDescription = stringResource(
+                            if (state.isPlaying) R.string.action_pause else R.string.action_play,
+                        ),
+                        tint = NodesBlack,
+                        modifier = Modifier.size(34.dp),
+                    )
+                }
+                CircleIconButton(
+                    icon = Icons.Rounded.SkipNext,
+                    contentDescription = stringResource(R.string.action_next),
+                    onClick = onNext,
+                    size = 50.dp,
+                    iconSize = 28.dp,
+                )
+                CircleIconButton(
+                    icon = if (state.repeatMode == RepeatMode.ONE) {
+                        Icons.Rounded.RepeatOne
+                    } else {
+                        Icons.Rounded.Repeat
+                    },
+                    contentDescription = stringResource(R.string.player_repeat),
+                    onClick = onRepeat,
+                    tint = if (state.repeatMode != RepeatMode.OFF) NodesWhite else NodesGrey,
+                    filled = state.repeatMode != RepeatMode.OFF,
+                )
+            }
+        }
+
+        item(key = "secondary") {
+            val context = LocalContext.current
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircleIconButton(
+                    icon = Icons.Rounded.AllInclusive,
+                    contentDescription = stringResource(R.string.player_infinite),
+                    onClick = onInfinite,
+                    tint = if (state.infiniteQueue) NodesWhite else NodesGrey,
+                    filled = state.infiniteQueue,
+                )
+                Spacer(Modifier.width(10.dp))
+                CastRouteButton(
+                    unavailable = state.embeddedVideoId != null,
+                    onUnavailableTap = {
+                        Toast.makeText(
+                            context,
+                            R.string.player_cast_unavailable,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    },
+                )
+            }
+        }
+
+        item(key = "modes") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = NodesSpacing.gutter, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                PillButton(
+                    text = stringResource(R.string.player_lyrics),
+                    onClick = onOpenLyrics,
+                    icon = Icons.Rounded.Lyrics,
+                    style = PillStyle.Glass,
+                    modifier = Modifier.weight(1f),
+                )
+                PillButton(
+                    text = stringResource(R.string.player_queue),
+                    onClick = onOpenQueue,
+                    icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                    style = PillStyle.Glass,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricsMode(
+    result: LyricsResult,
+    loading: Boolean,
+    positionMs: Long,
+    autoScroll: Boolean,
+    follow: Boolean,
+    onFollowChanged: (Boolean) -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (loading) {
+        LoadingRows(modifier)
+        return
+    }
+    if (result.lines.isEmpty()) {
+        EmptyState(
+            title = stringResource(R.string.player_lyrics_empty_title),
+            description = stringResource(R.string.player_lyrics_empty_body),
+            actionLabel = stringResource(R.string.player_lyrics_retry),
+            onAction = onRetry,
+            modifier = modifier,
+        )
+        return
+    }
+
+    val listState = rememberLazyListState()
+    val activeIndex = result.lines.indexOfLast {
+        it.timeMs <= positionMs.coerceAtLeast(0L)
+    }.coerceIn(0, result.lines.lastIndex)
+    val dragging by listState.interactionSource.collectIsDraggedAsState()
+
+    LaunchedEffect(dragging) {
+        if (dragging) onFollowChanged(false)
+    }
+    LaunchedEffect(autoScroll, follow, activeIndex, result.lines.size) {
+        if (!autoScroll || !follow) return@LaunchedEffect
+        val viewport = listState.layoutInfo.viewportSize.height
+        val offset = if (viewport > 0) -(viewport / 3) else 0
+        try {
+            listState.animateScrollToItem(activeIndex, offset)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // The lyrics list can be replaced while the animation runs.
+        }
+    }
+
+    Box(modifier.fillMaxWidth()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 28.dp,
+                end = 28.dp,
+                top = 32.dp,
+                bottom = 140.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            itemsIndexed(
+                items = result.lines,
+                key = { index, line -> "lyric-$index-${line.timeMs}" },
+            ) { index, line ->
+                LyricLineView(
+                    line = line,
+                    active = index == activeIndex,
+                    past = index < activeIndex,
+                )
+            }
+        }
+
         AnimatedVisibility(
-            visible = tab == PlayerTab.LYRICS &&
-                lyricsAutoScroll &&
-                !followLyrics &&
-                lyrics.lines.isNotEmpty(),
+            visible = autoScroll && !follow,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 20.dp),
+                .padding(bottom = 24.dp),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
+            PillButton(
+                text = stringResource(R.string.player_lyrics_resync),
+                onClick = { onFollowChanged(true) },
+                icon = Icons.Rounded.Sync,
+                style = PillStyle.Glass,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LyricLineView(line: LyricLine, active: Boolean, past: Boolean) {
+    Text(
+        text = line.text.ifBlank { "♪" },
+        style = if (active) NodesType.lyricActive else NodesType.lyricIdle,
+        color = when {
+            active -> NodesWhite
+            past -> NodesWhite.copy(alpha = 0.42f)
+            else -> NodesWhite.copy(alpha = 0.28f)
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun QueueMode(
+    state: PlayerUiState,
+    onPlayIndex: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
+    onRemove: (Int) -> Unit,
+    onPlayNext: (Track) -> Unit,
+    onAddToQueue: (Track) -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onOpenAlbum: (String) -> Unit,
+    onPlayAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (state.queue.isEmpty()) {
+        EmptyState(
+            title = stringResource(R.string.player_queue_empty_title),
+            description = stringResource(R.string.player_queue_empty_body),
+            modifier = modifier,
+        )
+        return
+    }
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(bottom = 120.dp),
+    ) {
+        item(key = "queue-head") {
             Row(
                 modifier = Modifier
-                    .glass(CircleShape)
-                    .clickable { followLyrics = true }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .fillMaxWidth()
+                    .padding(horizontal = NodesSpacing.gutter, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Sync,
-                    contentDescription = null,
-                    tint = NodesWhite,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(Modifier.width(7.dp))
                 Text(
-                    text = stringResource(R.string.player_auto_scroll),
-                    style = MaterialTheme.typography.labelLarge,
+                    text = stringResource(R.string.playlist_up_next),
+                    style = NodesType.sectionTitle,
                     color = NodesWhite,
+                    modifier = Modifier.weight(1f),
+                )
+                PillButton(
+                    text = stringResource(R.string.playlist_play_all),
+                    onClick = onPlayAll,
+                    icon = Icons.Rounded.PlayArrow,
+                    style = PillStyle.Glass,
                 )
             }
+            Text(
+                text = stringResource(R.string.playlist_track_count, state.queue.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = NodesGrey,
+                modifier = Modifier.padding(horizontal = NodesSpacing.gutter),
+            )
         }
-
-        if (showTrackOptions) {
-            TrackOptionsSheet(
+        itemsIndexed(
+            items = state.queue,
+            key = { index, track -> "queue-$index-${track.id}" },
+        ) { index, track ->
+            SongRow(
                 track = track,
-                liked = liked,
-                onDismiss = { showTrackOptions = false },
-                onViewArtist = {
-                    showTrackOptions = false
-                    if (track.artist.isNotBlank()) onOpenArtist(track.artist)
-                },
-                onViewAlbum = {
-                    showTrackOptions = false
-                    track.album?.takeIf { it.isNotBlank() }?.let(onOpenAlbum)
-                },
-                onToggleLibrary = {
-                    showTrackOptions = false
-                    viewModel.toggleLike(track)
-                },
-                onPlayNext = {
-                    showTrackOptions = false
-                    playerViewModel.playNext(track)
-                },
-                onAddToQueue = {
-                    showTrackOptions = false
-                    playerViewModel.addToQueue(track)
+                onClick = { onPlayIndex(index) },
+                position = index + 1,
+                showDownload = false,
+                showStar = false,
+                active = index == state.queueIndex,
+                activeTint = NodesWhite,
+                activePlaying = index == state.queueIndex && state.isPlaying,
+                menu = {
+                    TrackMenuButton(
+                        onPlayNext = { onPlayNext(track) },
+                        onAddToQueue = { onAddToQueue(track) },
+                        onViewArtist = if (track.artist.isNotBlank()) {
+                            { onOpenArtist(track.artist) }
+                        } else {
+                            null
+                        },
+                        onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let { album ->
+                            { onOpenAlbum(album) }
+                        },
+                        onRemoveFromQueue = { onRemove(index) },
+                        removeEnabled = index != state.queueIndex,
+                        onMoveUp = if (index > 0) {
+                            { onMove(index, index - 1) }
+                        } else {
+                            null
+                        },
+                        onMoveDown = if (index < state.queue.lastIndex) {
+                            { onMove(index, index + 1) }
+                        } else {
+                            null
+                        },
+                    )
                 },
             )
         }
     }
 }
 
-/**
- * The track menu for the Now Playing screen, as a bottom sheet rather than a
- * dropdown: it scrolls with nothing and stays above the transport gestures.
- * Same actions as the queue menu, plus adding the track to the library and
- * copying its public link.
- */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun TrackOptionsSheet(
@@ -646,9 +857,6 @@ private fun TrackOptionsSheet(
     ) {
         val context = LocalContext.current
         val clipboard = LocalClipboardManager.current
-        // YouTube Music tracks carry a video id; Jamendo and contributed
-        // libraries carry an externalUrl. Anything else has nothing public to
-        // link to, so the item is simply not offered.
         val link = track.externalUrl
             ?: track.videoId?.let { videoId -> "https://music.youtube.com/watch?v=$videoId" }
 
@@ -707,7 +915,6 @@ private fun TrackOptionsSheet(
     }
 }
 
-/** One tappable row in the track options sheet. */
 @Composable
 private fun SheetAction(
     label: String,
@@ -737,133 +944,7 @@ private fun SheetAction(
 }
 
 /**
- * A round ghost button in the secondary controls row under the play button.
- * Active modes light up in the teal accent so the state is visible without a
- * label underneath.
- */
-@Composable
-private fun SecondaryControl(
-    icon: ImageVector,
-    label: String,
-    active: Boolean,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .padding(horizontal = 5.dp)
-            .size(44.dp)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = if (active) NodesTeal else NodesWhite.copy(alpha = 0.7f),
-            modifier = Modifier.size(24.dp),
-        )
-    }
-}
-
-@Composable
-private fun BackButton(onBack: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .clickable(onClick = onBack),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.KeyboardArrowDown,
-            contentDescription = stringResource(R.string.action_close),
-            tint = NodesWhite,
-            modifier = Modifier.size(26.dp),
-        )
-    }
-}
-
-@Composable
-private fun QueueRow(
-    item: Track,
-    isCurrent: Boolean,
-    onClick: () -> Unit,
-    onPlayNext: () -> Unit,
-    onAddToQueue: () -> Unit,
-    onRemove: () -> Unit,
-    onViewArtist: (() -> Unit)? = null,
-    onViewAlbum: (() -> Unit)? = null,
-) {
-    Column {
-        TrackRow(
-            track = item,
-            onClick = onClick,
-            trailing = {
-                TrackMenuButton(
-                    onPlayNext = onPlayNext,
-                    onAddToQueue = onAddToQueue,
-                    onViewArtist = onViewArtist,
-                    onViewAlbum = onViewAlbum,
-                    onRemoveFromQueue = onRemove,
-                    removeEnabled = !isCurrent,
-                )
-            },
-        )
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = 86.dp, end = 20.dp)
-                .height(1.dp)
-                .background(Color.White.copy(alpha = 0.06f)),
-        )
-    }
-}
-
-/**
- * Lyrics as items of the screen's own lazy list, not as a list of their own.
- *
- * [activeIndex] is clamped: `indexOfLast` returns -1 before the first timestamp
- * and the list can be replaced between composition and draw when the track
- * changes, so an unchecked index would be an IndexOutOfBounds on the next frame.
- */
-private fun androidx.compose.foundation.lazy.LazyListScope.LyricsItems(
-    lines: List<LyricLine>,
-    positionMs: Long,
-) {
-    if (lines.isEmpty()) {
-        item(key = "lyrics-empty") {
-            Text(
-                text = stringResource(R.string.player_no_lyrics),
-                style = MaterialTheme.typography.bodyMedium,
-                color = NodesGrey,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            )
-        }
-        return
-    }
-    val safePosition = positionMs.coerceAtLeast(0L)
-    val activeIndex = lines.indexOfLast { it.timeMs <= safePosition }
-        .coerceIn(0, lines.lastIndex)
-    itemsIndexed(
-        items = lines,
-        key = { index, line -> "lyric-$index-${line.timeMs}" },
-    ) { index, line ->
-        val active = index == activeIndex
-        Text(
-            text = line.text.ifBlank { "♪" },
-            // Lyrics are read from arm's length, so they get the larger body
-            // size and a looser line height than the rest of the screen.
-            style = MaterialTheme.typography.headlineSmall.copy(lineHeight = 30.sp),
-            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-            color = if (active) NodesWhite else NodesGrey.copy(alpha = 0.6f),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-        )
-    }
-}
-
-/**
- * The official YouTube embedded player, kept visible above the controls as the
+ * The official YouTube embedded player, kept visible above every mode as the
  * YouTube API Services Terms require. On dispose the video pauses and the
  * controller drops the embedded handle.
  */
@@ -887,7 +968,7 @@ private fun YouTubeEmbeddedCard(videoId: String, onStop: () -> Unit) {
             .clip(RoundedCornerShape(24.dp))
             .background(Color.Black),
     ) {
-        AndroidView(
+        androidx.compose.ui.viewinterop.AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
                 YouTubePlayerView(context).also(lifecycle::addObserver).apply {
@@ -905,8 +986,6 @@ private fun YouTubeEmbeddedCard(videoId: String, onStop: () -> Unit) {
                 }
             },
             update = { view ->
-                // YouTubePlayerCallback is a Kotlin interface, so it needs an
-                // explicit object rather than a SAM lambda.
                 view.getYouTubePlayerWhenReady(
                     object : YouTubePlayerCallback {
                         override fun onYouTubePlayer(youTubePlayer: YouTubePlayer) {
@@ -923,3 +1002,13 @@ private fun YouTubeEmbeddedCard(videoId: String, onStop: () -> Unit) {
         )
     }
 }
+
+@Composable
+private fun playerSourceName(sourceId: SourceId): String = stringResource(
+    when (sourceId) {
+        SourceId.LOCAL -> R.string.player_source_local
+        SourceId.JAMENDO -> R.string.player_source_jamendo
+        SourceId.YOUTUBE -> R.string.player_source_youtube
+        SourceId.YOUTUBE_MUSIC -> R.string.player_source_youtube_music
+    },
+)

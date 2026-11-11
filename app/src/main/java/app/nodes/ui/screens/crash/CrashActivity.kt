@@ -99,8 +99,8 @@ class CrashActivity : ComponentActivity() {
 
     private fun save(report: String) {
         val name = runCatching {
-            "nodes_crash_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".txt"
-        }.getOrDefault("nodes_crash.txt")
+            "spartial_crash_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".txt"
+        }.getOrDefault("spartial_crash.txt")
         val saved = CrashShare.saveToDownloads(this, name, report)
         Toast.makeText(
             this,

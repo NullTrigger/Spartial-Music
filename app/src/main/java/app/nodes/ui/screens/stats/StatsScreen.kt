@@ -49,14 +49,14 @@ import app.nodes.core.model.ArtistStat
 import app.nodes.core.model.ListeningStats
 import app.nodes.core.model.TrackStat
 import app.nodes.ui.components.Artwork
-import app.nodes.ui.components.EmptyPanel
+import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.GeneratedArt
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.glass
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesGreyDim
-import app.nodes.ui.theme.NodesTeal
+import app.nodes.ui.theme.NodesAccent
 import app.nodes.ui.theme.NodesWhite
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -186,7 +186,7 @@ fun StatsScreen(
         )
 
         if (!state.loading && stats.plays == 0) {
-            EmptyPanel(
+            EmptyState(
                 title = stringResource(R.string.stats_title),
                 description = stringResource(R.string.stats_empty),
             )
@@ -281,7 +281,7 @@ private fun HeadlineCard(state: StatsUiState) {
         Text(
             text = stringResource(state.period.labelRes).uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = NodesTeal,
+            color = NodesAccent,
         )
         val headline = if (minutes > 0) {
             val formatted = NumberFormat.getIntegerInstance().format(minutes)
@@ -374,7 +374,7 @@ private fun ArtistCard(rank: Int, stat: ArtistStat) {
                         lineHeight = 46.sp,
                         fontWeight = FontWeight.Black,
                     ),
-                    color = if (rank <= 3) NodesTeal else NodesWhite.copy(alpha = 0.92f),
+                    color = if (rank <= 3) NodesAccent else NodesWhite.copy(alpha = 0.92f),
                     modifier = Modifier.padding(start = 12.dp, top = 6.dp),
                 )
             }
@@ -424,7 +424,7 @@ private fun TrackStatRow(
             Text(
                 text = (index + 1).toString().padStart(2, '0'),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = if (index + 1 <= 3) NodesTeal else NodesGreyDim,
+                color = if (index + 1 <= 3) NodesAccent else NodesGreyDim,
             )
         }
         Spacer(Modifier.width(10.dp))
@@ -456,7 +456,7 @@ private fun TrackStatRow(
         Text(
             text = pluralStringResource(R.plurals.stats_plays, stat.plays, stat.plays),
             style = MaterialTheme.typography.labelMedium,
-            color = NodesTeal,
+            color = NodesAccent,
         )
     }
 }

@@ -40,6 +40,10 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE sourceId = :sourceId ORDER BY updatedAt DESC LIMIT :limit")
     fun bySource(sourceId: String, limit: Int): Flow<List<TrackEntity>>
 
+    /** Every cached track, newest first. */
+    @Query("SELECT * FROM tracks ORDER BY updatedAt DESC")
+    fun allTracks(): Flow<List<TrackEntity>>
+
     /** Everything cached under one artist name, newest first. */
     @Query("SELECT * FROM tracks WHERE artist = :artist ORDER BY updatedAt DESC")
     fun byArtist(artist: String): Flow<List<TrackEntity>>

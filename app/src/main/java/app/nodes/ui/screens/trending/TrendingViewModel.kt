@@ -7,6 +7,7 @@ package app.nodes.ui.screens.trending
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.nodes.core.data.LibraryRepository
 import app.nodes.core.data.SettingsRepository
 import app.nodes.core.model.SourceErrorType
 import app.nodes.core.model.SourceId
@@ -15,11 +16,13 @@ import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,10 +39,15 @@ data class TrendingUiState(
 class TrendingViewModel @Inject constructor(
     private val registry: SourceRegistry,
     private val settings: SettingsRepository,
+    private val library: LibraryRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(TrendingUiState())
     val state: StateFlow<TrendingUiState> = _state.asStateFlow()
+
+    val likedIds: StateFlow<Set<String>> = library.likedTracks
+        .map { tracks -> tracks.mapTo(HashSet()) { it.id } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     init {
         viewModelScope.launch {
@@ -50,6 +58,10 @@ class TrendingViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch { load(_state.value.sourceId) }
+    }
+
+    fun toggleLike(track: Track) {
+        viewModelScope.launch { library.toggleLike(track) }
     }
 
     private suspend fun load(sourceId: SourceId) {

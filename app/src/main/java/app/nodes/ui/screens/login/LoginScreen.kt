@@ -42,7 +42,7 @@ import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesTeal
+import app.nodes.ui.theme.NodesAccent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -151,7 +151,7 @@ fun MusicLoginScreen(
                 TextButton(onClick = ::submit) {
                     Text(
                         text = stringResource(R.string.login_done),
-                        color = NodesTeal,
+                        color = NodesAccent,
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -168,7 +168,7 @@ fun MusicLoginScreen(
         if (state.loading) {
             LinearProgressIndicator(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-                color = NodesTeal,
+                color = NodesAccent,
             )
         }
 

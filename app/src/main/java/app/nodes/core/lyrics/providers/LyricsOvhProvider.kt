@@ -85,6 +85,6 @@ class LyricsOvhProvider(
 
     private companion object {
         const val BASE = "https://api.lyrics.ovh"
-        const val USER_AGENT = "Nodes/1.0 (https://github.com/nodes-app/nodes)"
+        const val USER_AGENT = "SpartialMusic/1.0 (https://github.com/NullTrigger/Nodes)"
     }
 }

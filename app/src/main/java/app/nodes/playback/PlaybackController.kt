@@ -384,6 +384,26 @@ class PlaybackController @Inject constructor(
         publishQueue(next)
     }
 
+    /**
+     * Reorders one queue entry. The playing entry keeps playing; its position
+     * pointer is adjusted so next/previous still walk the reordered list.
+     */
+    fun moveInQueue(from: Int, to: Int) {
+        if (from !in queue.indices || to !in queue.indices || from == to) return
+        val next = queue.toMutableList()
+        val moved = next.removeAt(from)
+        next.add(to, moved)
+        queuePosition = when {
+            from == queuePosition -> to
+            from < queuePosition && to >= queuePosition -> queuePosition - 1
+            from > queuePosition && to <= queuePosition -> queuePosition + 1
+            else -> queuePosition
+        }.coerceIn(0, next.lastIndex)
+        queue = next
+        _state.update { it.copy(queue = next, queueIndex = queuePosition) }
+        reconcilePlayerQueue()
+    }
+
     private fun insertQueue(track: Track, afterCurrent: Boolean) {
         val current = _state.value.current
         if (current == null || queue.isEmpty()) {

@@ -124,7 +124,7 @@ object CrashStore {
     // ---- export ------------------------------------------------------------
 
     /**
-     * Copies a report to `Downloads/Nodes/` through MediaStore, so it shows up in
+     * Copies a report to `Downloads/Spartial Music/` through MediaStore, so it shows up in
      * a file manager without the app holding storage permissions. Returns false
      * on API < 29, where that route does not exist, and on any failure.
      */
@@ -142,7 +142,7 @@ object CrashStore {
                 put(MediaStore.Downloads.MIME_TYPE, "text/plain")
                 put(
                     MediaStore.Downloads.RELATIVE_PATH,
-                    "${Environment.DIRECTORY_DOWNLOADS}/Nodes",
+                    "${Environment.DIRECTORY_DOWNLOADS}/Spartial Music",
                 )
                 put(MediaStore.Downloads.IS_PENDING, 1)
             }

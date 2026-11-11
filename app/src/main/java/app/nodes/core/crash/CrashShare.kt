@@ -31,7 +31,7 @@ object CrashShare {
         val send = runCatching {
             val dir = File(context.cacheDir, "crash").apply { mkdirs() }
             val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val file = File(dir, "nodes_crash_$stamp.txt")
+            val file = File(dir, "spartial_crash_$stamp.txt")
             file.writeText(report)
             val uri = FileProvider.getUriForFile(
                 context,
@@ -56,7 +56,7 @@ object CrashShare {
         runCatching { context.startActivity(Intent.createChooser(send, title)) }
     }
 
-    /** MediaStore copy in `Downloads/Nodes/`; false on API < 29 or on failure. */
+    /** MediaStore copy in `Downloads/Spartial Music/`; false on API < 29 or on failure. */
     fun saveToDownloads(context: Context, fileName: String, report: String): Boolean =
         CrashStore.saveToDownloads(context, fileName, report)
 }

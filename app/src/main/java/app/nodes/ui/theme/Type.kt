@@ -128,3 +128,65 @@ val NodesTypography = Typography(
         letterSpacing = 1.6.sp,
     ),
 )
+
+/**
+ * Named type roles used by the redesigned screens. Keeping them together makes
+ * it easy to adjust the scale once rather than hunting literal sizes in every
+ * screen.
+ */
+object NodesType {
+    val heroTitle = TextStyle(
+        fontFamily = NodesSans,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 30.sp,
+        lineHeight = 34.sp,
+        letterSpacing = (-0.8).sp,
+    )
+    val sheetTitle = TextStyle(
+        fontFamily = NodesSans,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 22.sp,
+        lineHeight = 27.sp,
+        letterSpacing = (-0.3).sp,
+    )
+    val sectionTitle = TextStyle(
+        fontFamily = NodesSans,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 20.sp,
+        lineHeight = 25.sp,
+        letterSpacing = (-0.3).sp,
+    )
+    val rowTitle = TextStyle(
+        fontFamily = NodesSans,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp,
+        lineHeight = 19.sp,
+    )
+    val rowMeta = TextStyle(
+        fontFamily = NodesSans,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+    )
+    val pill = TextStyle(
+        fontFamily = NodesSans,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.1.sp,
+    )
+    val lyricActive = TextStyle(
+        fontFamily = NodesSans,
+        fontWeight = FontWeight.Medium,
+        fontSize = 30.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.5).sp,
+    )
+    val lyricIdle = TextStyle(
+        fontFamily = NodesSans,
+        fontWeight = FontWeight.Medium,
+        fontSize = 30.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.5).sp,
+    )
+}

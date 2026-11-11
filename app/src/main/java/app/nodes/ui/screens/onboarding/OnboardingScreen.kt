@@ -26,7 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.ChatBubble
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,9 +50,6 @@ import app.nodes.ui.theme.NodesWhite
 /**
  * First-run screen, matching the reference lockup: mark + serif wordmark, the
  * "This is an Indie Project" line, three white pills, and the quiet footnote.
- *
- * The community links are placeholders in strings.xml on purpose - replace them
- * with your own before shipping.
  */
 @Composable
 fun OnboardingScreen(
@@ -60,7 +57,7 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val discordUrl = stringResource(R.string.community_discord_url)
+    val githubUrl = stringResource(R.string.community_github_url)
     val telegramUrl = stringResource(R.string.community_telegram_url)
 
     Column(
@@ -75,16 +72,16 @@ fun OnboardingScreen(
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(
-                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_nodes_mark),
+                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_spartial_mark),
                 contentDescription = stringResource(R.string.app_name),
                 modifier = Modifier.size(64.dp),
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text = "Nodes",
+                text = stringResource(R.string.app_name),
                 fontFamily = NodesSerif,
                 fontWeight = FontWeight.Bold,
-                fontSize = 46.sp,
+                fontSize = 32.sp,
                 color = NodesWhite,
             )
         }
@@ -102,9 +99,9 @@ fun OnboardingScreen(
         Spacer(Modifier.height(28.dp))
 
         OnboardingPill(
-            label = stringResource(R.string.onboarding_discord),
-            icon = Icons.Rounded.ChatBubble,
-            onClick = { openCommunity(context, discordUrl) },
+            label = stringResource(R.string.onboarding_github),
+            icon = Icons.Rounded.Code,
+            onClick = { openCommunity(context, githubUrl) },
         )
         Spacer(Modifier.height(14.dp))
         OnboardingPill(

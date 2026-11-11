@@ -41,6 +41,9 @@ class LibraryRepository @Inject constructor(
 ) {
     val likedTracks: Flow<List<Track>> = libraryDao.likedTracks().map { rows -> rows.map { it.toTrack() } }
 
+    /** Every track cached on this device, newest first. */
+    val allTracks: Flow<List<Track>> = trackDao.allTracks().map { rows -> rows.map { it.toTrack() } }
+
     val recentlyPlayed: Flow<List<Track>> = libraryDao.recentlyPlayed(20).map { rows -> rows.map { it.toTrack() } }
 
     val playlists: Flow<List<Playlist>> = libraryDao.playlists().map { rows ->
@@ -51,6 +54,7 @@ class LibraryRepository @Inject constructor(
                 description = entity.description,
                 trackCount = libraryDao.trackCount(entity.id),
                 sourceId = SourceId.LOCAL,
+                createdAt = entity.createdAt,
             )
         }
     }
@@ -99,6 +103,16 @@ class LibraryRepository @Inject constructor(
         } else {
             libraryDao.like(LikedTrackEntity(track.id, System.currentTimeMillis()))
             true
+        }
+    }
+
+    /** Idempotent like/unlike used by collection-level save actions. */
+    suspend fun setLiked(track: Track, liked: Boolean) {
+        trackDao.upsert(track.toEntity())
+        if (liked) {
+            libraryDao.like(LikedTrackEntity(track.id, System.currentTimeMillis()))
+        } else {
+            libraryDao.unlike(track.id)
         }
     }
 

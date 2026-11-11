@@ -14,7 +14,7 @@
 
     <style name="Theme.Nodes.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/nodes_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_nodes_mark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_spartial_mark</item>
         <item name="postSplashScreenTheme">@style/Theme.Nodes</item>
     </style>
 </resources>

@@ -4,25 +4,26 @@
   Licensed under GPL-3.0-or-later. See LICENSE.
 -->
 <resources>
-    <string name="app_name">Nodes</string>
+    <string name="app_name">Spartial Music</string>
     <string name="app_tagline">A quiet home for your music</string>
 
     <!-- Onboarding -->
     <string name="onboarding_heading">This is an Indie Project</string>
-    <string name="onboarding_discord">Discord</string>
+    <string name="onboarding_github">GitHub</string>
     <string name="onboarding_telegram">Telegram</string>
     <string name="onboarding_all_set">All Set</string>
-    <string name="onboarding_footnote">Kindly support us by joining our communities..\nYou will get all the Information, Updates and Announcements there</string>
+    <string name="onboarding_footnote">Join the community for release dates, updates, beta builds and announcements.</string>
     <string name="onboarding_links_missing">Community links are not configured in this build.</string>
 
-    <!-- Community links. Replace with your own before publishing. -->
-    <string name="community_discord_url" translatable="false">https://example.com/nodes/discord</string>
-    <string name="community_telegram_url" translatable="false">https://example.com/nodes/telegram</string>
+    <!-- Community links. -->
+    <string name="community_github_url" translatable="false">https://github.com/NullTrigger/Nodes</string>
+    <string name="community_telegram_url" translatable="false">https://t.me/spartialmusic</string>
 
     <!-- Navigation -->
     <string name="nav_home">Home</string>
     <string name="nav_trending">Trending</string>
     <string name="nav_explore">Explore</string>
+    <string name="nav_suggestions">Suggestions</string>
     <string name="sessions_open">Open</string>
     <string name="nav_sessions">Sessions</string>
     <string name="nav_library">Library</string>
@@ -82,6 +83,10 @@
     <string name="library_playlist_name">Playlist name</string>
     <string name="library_playlist_created">Playlist created</string>
     <string name="library_empty_liked">Songs you like will show up here.</string>
+    <string name="library_summary">%1$d playlists · %2$d songs</string>
+    <string name="library_empty_playlists">Create a playlist and it will appear here.</string>
+    <string name="library_empty_recent">Songs you play will show up here.</string>
+    <string name="library_empty_artists">Artists from the songs in your library will show up here.</string>
     <string name="library_empty_downloads">Downloads are supported for Creative Commons sources only. Streamed YouTube tracks cannot be downloaded.</string>
     <string name="library_download_note">Only Creative Commons / public domain audio can be saved, and only where the licence allows it.</string>
     <string name="action_cancel">Cancel</string>
@@ -153,7 +158,7 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
-    <string name="settings_dark_only">Nodes is dark by default. Light theme is a work in progress.</string>
+    <string name="settings_dark_only">Spartial Music is dark by default. Light theme is a work in progress.</string>
     <string name="settings_dynamic_color">Use system colours</string>
     <string name="settings_sources">Sources</string>
     <string name="settings_sources_hint">Choose which providers can appear in Home and Search.</string>
@@ -180,8 +185,8 @@
     <string name="settings_sync_signed_out">Sign in to YouTube Music first — the sync needs your account login.</string>
     <string name="settings_sync_nothing">No liked YouTube Music tracks yet. Like some songs and sync again.</string>
     <string name="settings_sync_done">Pushed %1$d likes to YouTube Music, %2$d failed. You can run this again any time.</string>
-    <string name="settings_sync_subtitle">Adds every track you liked in Nodes to your YouTube Music account\'s liked songs.</string>
-    <string name="settings_sync_note">One way only: nothing is pulled back into Nodes. Liking a track that is already liked changes nothing, so it is safe to run again. Uses the same unofficial YouTube Music connection as everything else in this app.</string>
+    <string name="settings_sync_subtitle">Adds every track you liked in Spartial Music to your YouTube Music account\'s liked songs.</string>
+    <string name="settings_sync_note">One way only: nothing is pulled back into Spartial Music. Liking a track that is already liked changes nothing, so it is safe to run again. Uses the same unofficial YouTube Music connection as everything else in this app.</string>
     <string name="login_title">Google sign-in</string>
     <string name="login_done">Done</string>
     <string name="login_explainer">Sign in to Google to load your own YouTube Music shelves, playlists and liked songs. The session is saved encrypted on this device and used only for YouTube Music requests.</string>
@@ -230,7 +235,7 @@
     <string name="settings_status_signed_out_hint">Tap to sign in to YouTube Music</string>
     <string name="settings_status_signed_in_hint">Signed in to YouTube Music</string>
     <string name="settings_signed_out">Signed out of YouTube Music. Home is anonymous again.</string>
-    <string name="settings_about_title">About Nodes</string>
+    <string name="settings_about_title">About Spartial Music</string>
     <string name="settings_version_label">This build</string>
     <string name="settings_legal">Legal</string>
 
@@ -292,14 +297,14 @@
     <string name="settings_queue_prevent_duplicates">Keep the queue unique</string>
     <string name="settings_queue_prevent_duplicates_hint">Adding a track that is already queued moves it instead of listing it twice</string>
     <string name="settings_stop_music_on_task_clear">Stop music when cleared from recents</string>
-    <string name="settings_stop_music_on_task_clear_hint">Swiping Nodes away from recent apps ends playback and removes the notification</string>
+    <string name="settings_stop_music_on_task_clear_hint">Swiping Spartial Music away from recent apps ends playback and removes the notification</string>
     <string name="settings_keep_screen_on">Keep the screen on in the player</string>
     <string name="settings_keep_screen_on_hint">Only while Now Playing is open</string>
     <string name="settings_close">Close</string>
     <string name="player_sleep_timer_done">Sleep timer stopped playback</string>
 
     <string name="settings_crash_reports_short">Stored on this device only</string>
-    <string name="settings_crash_reports_toggle">Write a report when Nodes crashes</string>
+    <string name="settings_crash_reports_toggle">Write a report when Spartial Music crashes</string>
     <string name="settings_crash_reports_open">Open diagnostics</string>
 
     <!-- Trending regions -->
@@ -317,12 +322,12 @@
     <string name="playback_could_not_start">This track could not be started. Check your connection and try again.</string>
 
     <!-- Crash reports -->
-    <string name="crash_title">Nodes closed unexpectedly</string>
+    <string name="crash_title">Spartial Music closed unexpectedly</string>
     <string name="crash_description">Something went wrong and the app had to stop. The report below stays on this device: nothing is sent anywhere automatically. Copy it or share it if you want help fixing the problem.</string>
     <string name="crash_none">No crash has been recorded on this device.</string>
     <string name="crash_share">Share report</string>
     <string name="crash_share_title">Share crash report</string>
-    <string name="crash_share_subject">Nodes crash report</string>
+    <string name="crash_share_subject">Spartial Music crash report</string>
     <string name="crash_copy">Copy</string>
     <string name="crash_copied">Crash report copied</string>
     <string name="settings_support">Support</string>
@@ -331,7 +336,7 @@
     <string name="settings_diagnostics">Diagnostics</string>
     <string name="diagnostics_title">Diagnostics</string>
     <string name="diagnostics_save_reports">Save crash reports</string>
-    <string name="diagnostics_save_reports_subtitle">Write a text file when Nodes crashes.</string>
+    <string name="diagnostics_save_reports_subtitle">Write a text file when Spartial Music crashes.</string>
     <string name="diagnostics_empty">No crash reports on this device.</string>
     <string name="diagnostics_copy_last">Copy last crash</string>
     <string name="diagnostics_delete_all">Delete all</string>
@@ -340,12 +345,12 @@
     <string name="diagnostics_deleted_all">Crash reports deleted</string>
     <string name="diagnostics_copied">Crash report copied</string>
     <string name="diagnostics_test_crash">Create a test crash</string>
-    <string name="diagnostics_test_crash_hint">Debug builds only. Nodes will close on purpose so the saved report and the next-launch dialog can be checked.</string>
-    <string name="crash_last_time_title">Nodes crashed last time</string>
+    <string name="diagnostics_test_crash_hint">Debug builds only. Spartial Music will close on purpose so the saved report and the next-launch dialog can be checked.</string>
+    <string name="crash_last_time_title">Spartial Music crashed last time</string>
     <string name="crash_last_time_body">A report was saved on this device. Nothing was sent anywhere. View it, share it, or copy it to Downloads to open it in your file manager.</string>
     <string name="crash_view">View</string>
     <string name="crash_save_downloads">Save to Downloads</string>
-    <string name="crash_saved_downloads">Saved to Downloads/Nodes</string>
+    <string name="crash_saved_downloads">Saved to Downloads/Spartial Music</string>
     <string name="crash_save_failed">Could not save to Downloads. This needs Android 10 or newer.</string>
     <string name="crash_dismiss">Dismiss</string>
 
@@ -357,7 +362,7 @@
     <string name="label_unknown_artist">Unknown artist</string>
     <string name="label_unknown_album">Single</string>
     <string name="label_demo_art">Placeholder artwork</string>
-    <string name="disclaimer_short">Nodes is not affiliated with YouTube, Google or any streaming service.</string>
+    <string name="disclaimer_short">Spartial Music is not affiliated with YouTube, Google or any streaming service.</string>
 
     <!-- Listening stats. All numbers come from the local play history. -->
     <string name="stats_title">Listening stats</string>
@@ -379,4 +384,108 @@
         <item quantity="one">%1$d play</item>
         <item quantity="other">%1$d plays</item>
     </plurals>
+
+    <!-- Redesigned UI: shared actions and new destinations -->
+    <string name="action_download">Download</string>
+    <string name="action_download_unavailable">Download is not available for this track</string>
+    <string name="action_star">Save to your library</string>
+    <string name="action_unstar">Remove from your library</string>
+    <string name="action_share">Share</string>
+    <string name="action_more">More options</string>
+    <string name="action_expand">More</string>
+    <string name="action_collapse">Less</string>
+    <string name="action_not_available">Not available yet</string>
+
+    <string name="home_recents">Recents</string>
+    <string name="home_settings_and_profile">Settings and profile</string>
+
+    <string name="player_playing_from">Playing from %1$s</string>
+    <string name="player_dolby">DOLBY</string>
+    <string name="player_lyrics_retry">Try again</string>
+    <string name="player_lyrics_empty_title">No lyrics yet</string>
+    <string name="player_lyrics_empty_body">Synced lyrics will appear here when a source has them.</string>
+    <string name="player_lyrics_resync">Back to current line</string>
+    <string name="player_queue_empty_title">The queue is empty</string>
+    <string name="player_queue_empty_body">Play a song or add one to the queue.</string>
+    <string name="player_reorder_up">Move up</string>
+    <string name="player_reorder_down">Move down</string>
+    <string name="player_source_local">Local device</string>
+    <string name="player_source_jamendo">Jamendo</string>
+    <string name="player_source_youtube">YouTube</string>
+    <string name="player_source_youtube_music">YouTube Music</string>
+
+    <string name="search_your_genres">Your Genres</string>
+    <string name="search_browse_music">Browse New Music</string>
+    <string name="search_filter_all">All Results</string>
+    <string name="search_filter_library">Library</string>
+    <string name="search_filter_artists">Artists</string>
+    <string name="search_filter_albums">Albums</string>
+    <string name="search_group_artists">Artists</string>
+    <string name="search_group_songs">Songs</string>
+    <string name="search_group_albums">Albums</string>
+    <string name="search_genre_pop">Pop</string>
+    <string name="search_genre_rock">Rock</string>
+    <string name="search_genre_hiphop">Hip-hop</string>
+    <string name="search_genre_electronic">Electronic</string>
+    <string name="search_genre_jazz">Jazz</string>
+    <string name="search_genre_classical">Classical</string>
+    <string name="search_genre_lofi">Lo-fi</string>
+    <string name="search_genre_indie">Indie</string>
+    <string name="search_browse_new_releases">New Releases</string>
+    <string name="search_browse_charts">Charts</string>
+    <string name="search_browse_chill">Chill</string>
+    <string name="search_browse_focus">Focus</string>
+    <string name="search_browse_workout">Workout</string>
+    <string name="search_browse_discover">Discover</string>
+
+    <string name="library_pins">Pins</string>
+    <string name="library_playlists_section">Playlists</string>
+    <string name="library_recently_added">Recently Added</string>
+    <string name="library_artists">Artists</string>
+    <string name="library_sort">Sort</string>
+    <string name="library_filter">Filter</string>
+    <string name="library_search">Search library</string>
+    <string name="library_all_songs">All songs</string>
+    <string name="library_sort_recent">Recently played</string>
+    <string name="library_sort_title">Title</string>
+    <string name="library_sort_artist">Artist</string>
+    <string name="library_filter_all">Everything</string>
+    <string name="library_filter_liked">Liked songs</string>
+    <string name="library_filter_playlists">Playlists</string>
+    <string name="library_empty_search">Nothing in your library matches “%1$s”.</string>
+
+    <string name="songs_title">Songs</string>
+    <string name="songs_sort">Sort songs</string>
+    <string name="songs_filter">Filter songs</string>
+    <string name="songs_search">Search songs</string>
+    <string name="songs_empty">No songs in your library yet. Like a song or play something and it will appear here.</string>
+
+    <string name="suggestions_title">Suggestions</string>
+    <string name="suggestions_subtitle">Made for you from what you play</string>
+    <string name="suggestions_top_picks">Top picks</string>
+    <string name="suggestions_because_recent">Because you played %1$s</string>
+    <string name="suggestions_fresh">Fresh discoveries</string>
+    <string name="suggestions_empty">Play a few songs and suggestions will start appearing here.</string>
+
+    <string name="playlist_collaborators">Collaborators</string>
+    <string name="playlist_edit">Edit playlist</string>
+    <string name="playlist_download">Download</string>
+    <string name="playlist_more">More playlist options</string>
+    <string name="playlist_description_empty">A playlist for the songs you keep coming back to.</string>
+    <string name="playlist_created">Created %1$s</string>
+    <string name="playlist_featuring">Featuring %1$s</string>
+
+    <string name="album_more">More</string>
+    <string name="album_less">Less</string>
+    <string name="album_artist">Artist</string>
+    <string name="album_description">Songs from %1$s, collected from your listening.</string>
+    <string name="album_bookmark">Bookmark</string>
+    <string name="album_saved">Saved to your library</string>
+    <string name="album_removed">Removed from your library</string>
+
+    <string name="artist_share">Share artist</string>
+    <string name="artist_star">Save artist</string>
+    <string name="artist_top_songs">Top Songs</string>
+    <string name="artist_bio">Artist page built from your library. Its songs, albums and listening history stay on this device.</string>
+    <string name="artist_songs_count">%1$d songs</string>
 </resources>

@@ -13,6 +13,7 @@ import app.nodes.core.model.HomeFeed
 import app.nodes.core.model.SourceErrorType
 import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceResult
+import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
 import app.nodes.core.source.youtube.YouTubeSignIn
 import app.nodes.core.source.youtubemusic.InnerTubeAccount
@@ -33,6 +34,7 @@ import javax.inject.Inject
 data class HomeUiState(
     val loading: Boolean = true,
     val feed: HomeFeed = HomeFeed(),
+    val recents: List<Track> = emptyList(),
     val error: SourceErrorType? = null,
     val sourceName: String = "",
     val sourceId: SourceId = SourceId.LOCAL,
@@ -74,6 +76,13 @@ class HomeViewModel @Inject constructor(
                 .drop(1)
                 .collect { load(_state.value.sourceId) }
         }
+        // "Recents" is the local listening history, independent of the active
+        // provider: it stays useful while a network source is offline.
+        viewModelScope.launch {
+            library.recentlyPlayed.collect { recents ->
+                _state.update { it.copy(recents = recents) }
+            }
+        }
     }
 
     fun refresh() {
@@ -83,7 +92,7 @@ class HomeViewModel @Inject constructor(
     private suspend fun load(sourceId: SourceId) {
         _state.update { it.copy(loading = true, error = null, sourceId = sourceId) }
         val source = registry.byId(sourceId) ?: registry.primary()
-        val recent = library.recentlyPlayed.first()
+        val recent = _state.value.recents.ifEmpty { library.recentlyPlayed.first() }
 
         when (val result = source.getHome()) {
             is SourceResult.Success -> {

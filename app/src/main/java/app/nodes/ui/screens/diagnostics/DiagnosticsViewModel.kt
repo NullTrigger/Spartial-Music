@@ -93,7 +93,7 @@ class DiagnosticsViewModel @Inject constructor(
             return
         }
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Nodes crash report", text))
+        clipboard.setPrimaryClip(ClipData.newPlainText("Spartial Music crash report", text))
         _state.update { it.copy(message = context.getString(R.string.diagnostics_copied)) }
     }
 
