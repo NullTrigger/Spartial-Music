@@ -6,7 +6,6 @@
 package app.nodes.ui.theme
 
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -19,9 +18,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.WindowCompat
 
 private val NodesDarkScheme: ColorScheme = darkColorScheme(
-    primary = NodesTeal,
+    primary = NodesAccent,
     onPrimary = NodesBlack,
-    primaryContainer = NodesTealDeep,
+    primaryContainer = NodesSurfaceHigh,
     onPrimaryContainer = NodesWhite,
     secondary = NodesWhite,
     onSecondary = NodesBlack,
@@ -42,13 +41,14 @@ private val NodesDarkScheme: ColorScheme = darkColorScheme(
     surfaceContainerLowest = NodesBlack,
     outline = NodesGreyDim,
     outlineVariant = NodesSurfaceHighest,
-    error = androidx.compose.ui.graphics.Color(0xFFFF6B6B),
+    error = NodesDanger,
     onError = NodesBlack,
 )
 
 /**
- * Nodes is dark by default. Light theme and dynamic colour are opt-in in
- * Settings, and dynamic colour is only honoured on Android 12+.
+ * Nodes is dark by default. Light theme is intentionally not shipped: the new
+ * surfaces are artwork-tinted gradients designed against the near-black base.
+ * Dynamic colour can still be opted into in Settings on Android 12+.
  */
 @Composable
 fun NodesTheme(
@@ -57,14 +57,8 @@ fun NodesTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val systemDark = isSystemInDarkTheme()
     val useDynamic = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-
-    val colorScheme = when {
-        useDynamic && darkTheme -> dynamicDarkColorScheme(context)
-        useDynamic && !darkTheme -> dynamicDarkColorScheme(context)
-        else -> NodesDarkScheme
-    }
+    val colorScheme = if (useDynamic) dynamicDarkColorScheme(context) else NodesDarkScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -73,10 +67,8 @@ fun NodesTheme(
             window.statusBarColor = android.graphics.Color.TRANSPARENT
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
             val controller = WindowCompat.getInsetsController(window, view)
-            controller.isAppearanceLightStatusBars = !darkTheme
-            controller.isAppearanceLightNavigationBars = !darkTheme
-            // Keep the vertical system bar contrast scrim off: the glass UI
-            // draws its own backdrop.
+            controller.isAppearanceLightStatusBars = false
+            controller.isAppearanceLightNavigationBars = false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 window.isStatusBarContrastEnforced = false
                 window.isNavigationBarContrastEnforced = false
@@ -84,12 +76,8 @@ fun NodesTheme(
         }
     }
 
-    // Force the dark scheme when the user has not opted into light: the light
-    // palette is intentionally not shipped yet (see Settings > Appearance).
-    val effective = if (darkTheme || !systemDark) colorScheme else colorScheme
-
     MaterialTheme(
-        colorScheme = effective,
+        colorScheme = colorScheme,
         typography = NodesTypography,
         content = content,
     )

@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
@@ -58,6 +60,10 @@ fun TrackMenuButton(
     onViewAlbum: (() -> Unit)? = null,
     onRemoveFromQueue: (() -> Unit)? = null,
     removeEnabled: Boolean = true,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
+    moveUpEnabled: Boolean = true,
+    moveDownEnabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -105,6 +111,29 @@ fun TrackMenuButton(
             ) {
                 expanded = false
                 onAddToQueue()
+            }
+            if (onMoveUp != null || onMoveDown != null) {
+                HorizontalDivider()
+                if (onMoveUp != null) {
+                    QueueMenuItem(
+                        label = stringResource(R.string.player_reorder_up),
+                        icon = Icons.Rounded.ArrowUpward,
+                        enabled = moveUpEnabled,
+                    ) {
+                        expanded = false
+                        onMoveUp()
+                    }
+                }
+                if (onMoveDown != null) {
+                    QueueMenuItem(
+                        label = stringResource(R.string.player_reorder_down),
+                        icon = Icons.Rounded.ArrowDownward,
+                        enabled = moveDownEnabled,
+                    ) {
+                        expanded = false
+                        onMoveDown()
+                    }
+                }
             }
             if (onRemoveFromQueue != null) {
                 HorizontalDivider()

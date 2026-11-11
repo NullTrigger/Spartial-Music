@@ -56,6 +56,9 @@ class NowPlayingViewModel @Inject constructor(
     private val _lyrics = MutableStateFlow(LyricsResult())
     val lyrics: StateFlow<LyricsResult> = _lyrics.asStateFlow()
 
+    private val _lyricsLoading = MutableStateFlow(false)
+    val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
+
     private val _liked = MutableStateFlow(false)
     val liked: StateFlow<Boolean> = _liked.asStateFlow()
 
@@ -70,6 +73,7 @@ class NowPlayingViewModel @Inject constructor(
         lyricsJob?.cancel()
         if (track == null) {
             _lyrics.value = LyricsResult()
+            _lyricsLoading.value = false
             _liked.value = false
             return
         }
@@ -86,7 +90,12 @@ class NowPlayingViewModel @Inject constructor(
             }
         }
         lyricsJob = viewModelScope.launch {
-            _lyrics.value = resolveLyrics(track)
+            _lyricsLoading.value = true
+            try {
+                _lyrics.value = resolveLyrics(track)
+            } finally {
+                _lyricsLoading.value = false
+            }
         }
     }
 
@@ -113,7 +122,12 @@ class NowPlayingViewModel @Inject constructor(
         val track = current ?: return
         lyricsJob?.cancel()
         lyricsJob = viewModelScope.launch {
-            _lyrics.value = resolveLyrics(track, refresh = true)
+            _lyricsLoading.value = true
+            try {
+                _lyrics.value = resolveLyrics(track, refresh = true)
+            } finally {
+                _lyricsLoading.value = false
+            }
         }
     }
 

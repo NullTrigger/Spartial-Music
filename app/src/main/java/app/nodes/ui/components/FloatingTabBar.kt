@@ -25,10 +25,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,11 +43,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodes.R
+import app.nodes.ui.theme.GlassFillTop
+import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesWhite
 
@@ -56,21 +64,12 @@ data class BottomNavItem(
 )
 
 /**
- * Floating glass navigation bar: one pill, four tabs, no separate button.
- *
- * The selected tab is marked by a lighter pill that *slides* between positions
- * (one animated offset rather than a per-item fade), while the icon scales up a
- * little and its label turns white. Unselected tabs stay grey.
- *
- * The surface carries a 90% black scrim under the glass film. Without it the
- * page behind - artwork, list text - read straight through the bar and clashed
- * with the labels. A real backdrop blur is not possible here: `Modifier.blur`
- * blurs the element's own content, not what is behind it, and Compose has no
- * backdrop-filter for content drawn earlier in the tree. A near-opaque scrim is
- * the honest equivalent, and it is what API 26 can afford anyway.
+ * Floating five-tab bar. A single translucent capsule holds the tabs; the
+ * selected tab gets a soft sliding wash and a slightly scaled icon. A heavy
+ * scrim under the glass keeps it readable over artwork.
  */
 @Composable
-fun NodesBottomBar(
+fun FloatingTabBar(
     currentRoute: String?,
     items: List<BottomNavItem>,
     onSelect: (String) -> Unit,
@@ -82,36 +81,31 @@ fun NodesBottomBar(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         val itemWidth = maxWidth / items.size
         val highlightOffset by animateDpAsState(
             targetValue = itemWidth * selectedIndex,
-            label = "navHighlight",
+            label = "tabHighlight",
         )
-
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .glass(shape = CircleShape, strong = true, scrim = 0.9f),
+                .height(66.dp)
+                .glass(RoundedCornerShape(26.dp), strong = true, scrim = 0.84f),
         ) {
             Box(
                 Modifier
                     .offset(x = highlightOffset)
                     .width(itemWidth)
                     .fillMaxHeight()
-                    .padding(horizontal = 7.dp, vertical = 7.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.13f)),
+                    .padding(horizontal = 6.dp, vertical = 5.dp)
+                    .clip(RoundedCornerShape(21.dp))
+                    .background(Color.White.copy(alpha = 0.14f)),
             )
-
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 items.forEach { item ->
-                    NavTab(
+                    Tab(
                         item = item,
                         selected = item.route == currentRoute,
                         onClick = { onSelect(item.route) },
@@ -124,7 +118,7 @@ fun NodesBottomBar(
 }
 
 @Composable
-private fun NavTab(
+private fun Tab(
     item: BottomNavItem,
     selected: Boolean,
     onClick: () -> Unit,
@@ -133,13 +127,17 @@ private fun NavTab(
     val tint = if (selected) NodesWhite else NodesGrey
     val scale by animateFloatAsState(
         targetValue = if (selected) 1.08f else 1f,
-        label = "navIconScale",
+        label = "tabScale",
     )
-
     Column(
         modifier = modifier
             .fillMaxHeight()
-            .clickable(onClick = onClick),
+            .testTag("tab-${item.route}")
+            .clickable(role = Role.Tab, onClick = onClick)
+            .semantics {
+                this.selected = selected
+            }
+            .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -158,24 +156,21 @@ private fun NavTab(
         Text(
             text = stringResource(item.labelRes),
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 10.sp,
+                fontSize = 9.5.sp,
                 letterSpacing = 0.sp,
             ),
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             color = tint,
             maxLines = 1,
-            softWrap = false,
         )
     }
 }
 
-/**
- * Trending is now "Explore": same screen and route, renamed to say what it is
- * for. Search lives inside the bar like the other tabs.
- */
+/** The five destinations of the redesigned app. */
 val NodesNavItems = listOf(
     BottomNavItem("home", R.string.nav_home, Icons.Rounded.Home),
-    BottomNavItem("trending", R.string.nav_explore, Icons.Rounded.Explore),
+    BottomNavItem("trending", R.string.nav_trending, Icons.Rounded.LocalFireDepartment),
+    BottomNavItem("suggestions", R.string.nav_suggestions, Icons.Rounded.AutoAwesome),
     BottomNavItem("library", R.string.nav_library, Icons.Rounded.LibraryMusic),
     BottomNavItem("search", R.string.nav_search, Icons.Rounded.Search),
 )

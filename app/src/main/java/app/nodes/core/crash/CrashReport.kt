@@ -87,7 +87,7 @@ object CrashReport {
      */
     fun describe(thread: Thread, error: Throwable, nonFatalOrigin: String? = null): String =
         buildString {
-            appendLine("Nodes crash report")
+            appendLine("Spartial Music crash report")
             appendLine(SECTION)
             appendLine()
             appendLine("Time: ${stamp(System.currentTimeMillis())}")

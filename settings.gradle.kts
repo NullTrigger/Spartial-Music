@@ -25,5 +25,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Nodes"
+rootProject.name = "SpartialMusic"
 include(":app")

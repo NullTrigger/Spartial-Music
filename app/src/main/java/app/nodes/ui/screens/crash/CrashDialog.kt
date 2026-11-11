@@ -35,7 +35,7 @@ import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesWhite
 
 /**
- * "Nodes crashed last time", shown once on the launch after a crash.
+ * "Spartial Music crashed last time", shown once on the launch after a crash.
  *
  * Reading the file is I/O, so it happens in an effect rather than during
  * composition; until it lands the dialog still offers Dismiss, which is the one

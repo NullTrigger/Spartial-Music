@@ -117,6 +117,8 @@ data class Playlist(
     val sourceId: SourceId = SourceId.LOCAL,
     val ownerName: String? = null,
     val externalUrl: String? = null,
+    /** Local playlists carry their creation time; provider collections may not. */
+    val createdAt: Long? = null,
 ) {
     val isLocal: Boolean get() = sourceId == SourceId.LOCAL
 }

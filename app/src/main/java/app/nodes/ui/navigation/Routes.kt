@@ -10,8 +10,10 @@ import android.net.Uri
 object Routes {
     const val HOME = "home"
     const val TRENDING = "trending"
+    const val SUGGESTIONS = "suggestions"
     const val SESSIONS = "sessions"
     const val LIBRARY = "library"
+    const val SONGS = "songs"
     const val STATS = "stats"
     const val SEARCH = "search"
     const val PLAYER = "player"
@@ -24,8 +26,6 @@ object Routes {
     const val SETTINGS_ABOUT = "settings/about"
     const val DIAGNOSTICS = "diagnostics"
     const val LOGIN = "login"
-    const val LIKED = "liked"
-    const val DOWNLOADS = "downloads"
 
     const val PLAYLIST_ARG = "playlistId"
     const val PLAYLIST_PATTERN = "playlist/{$PLAYLIST_ARG}"

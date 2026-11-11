@@ -42,12 +42,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.nodes.R
-import app.nodes.ui.components.EmptyPanel
+import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.glass
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesTeal
+import app.nodes.ui.theme.NodesAccent
 import app.nodes.ui.theme.NodesWhite
 
 private data class SessionRoom(
@@ -92,7 +92,7 @@ fun SessionsScreen() {
             contentPadding = PaddingValues(bottom = 176.dp),
         ) {
             item(key = "notice") {
-                EmptyPanel(
+                EmptyState(
                     title = stringResource(R.string.sessions_title),
                     description = stringResource(R.string.sessions_stub_notice),
                 )
@@ -131,7 +131,7 @@ fun SessionsScreen() {
 
             if (rooms.isEmpty()) {
                 item(key = "empty") {
-                    EmptyPanel(
+                    EmptyState(
                         title = stringResource(R.string.sessions_title),
                         description = stringResource(R.string.sessions_empty),
                     )
@@ -143,7 +143,7 @@ fun SessionsScreen() {
                     Text(
                         text = message,
                         style = MaterialTheme.typography.bodySmall,
-                        color = NodesTeal,
+                        color = NodesAccent,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     )
                 }
@@ -220,7 +220,7 @@ private fun SessionCard(room: SessionRoom, onJoin: () -> Unit) {
                 Text(
                     text = stringResource(R.string.session_listeners, room.listeners),
                     style = MaterialTheme.typography.labelSmall,
-                    color = NodesTeal,
+                    color = NodesAccent,
                 )
             }
         }

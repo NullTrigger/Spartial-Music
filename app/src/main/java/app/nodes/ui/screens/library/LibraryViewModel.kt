@@ -21,6 +21,29 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** An artist derived from the cached song table; no extra provider call. */
+data class LibraryArtist(
+    val name: String,
+    val artworkUri: String?,
+    val trackCount: Int,
+)
+
+data class LibraryUiState(
+    val loading: Boolean = true,
+    val playlists: List<Playlist> = emptyList(),
+    val likedTracks: List<Track> = emptyList(),
+    val likedIds: Set<String> = emptySet(),
+    val allTracks: List<Track> = emptyList(),
+    val recentlyPlayed: List<Track> = emptyList(),
+    val artists: List<LibraryArtist> = emptyList(),
+) {
+    val isEmpty: Boolean
+        get() = playlists.isEmpty() &&
+            likedTracks.isEmpty() &&
+            allTracks.isEmpty() &&
+            recentlyPlayed.isEmpty()
+}
+
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val library: LibraryRepository,
@@ -31,16 +54,33 @@ class LibraryViewModel @Inject constructor(
     private val remotePlaylists = MutableStateFlow<List<Playlist>>(emptyList())
     private val remoteLiked = MutableStateFlow<List<Track>>(emptyList())
 
-    /** Local playlists plus, when signed in, the account's YouTube Music ones. */
-    val playlists: StateFlow<List<Playlist>> =
-        combine(library.playlists, remotePlaylists) { local, remote -> local + remote }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** Locally liked tracks plus, when signed in, the account's liked songs. */
-    val likedTracks: StateFlow<List<Track>> =
+    /**
+     * One snapshot of everything the Library screen shows. The remote lists are
+     * best effort: when signed out, or when a fetch fails, the local library
+     * stays on screen instead of emptying it.
+     */
+    val state: StateFlow<LibraryUiState> = combine(
+        combine(library.playlists, remotePlaylists) { local, remote -> local + remote },
         combine(library.likedTracks, remoteLiked) { local, remote ->
             (local + remote).distinctBy { it.id }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        },
+        library.recentlyPlayed,
+        library.allTracks,
+    ) { playlists, liked, recent, all ->
+        LibraryUiState(
+            loading = false,
+            playlists = playlists,
+            likedTracks = liked,
+            likedIds = liked.mapTo(HashSet()) { it.id },
+            allTracks = all,
+            recentlyPlayed = recent,
+            artists = artistGroups(all),
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = LibraryUiState(),
+    )
 
     init {
         viewModelScope.launch {
@@ -49,8 +89,6 @@ class LibraryViewModel @Inject constructor(
                     remotePlaylists.value = emptyList()
                     remoteLiked.value = emptyList()
                 } else {
-                    // Both are best effort: a failed fetch leaves the local
-                    // library on screen instead of emptying it.
                     remotePlaylists.value = youTubeMusic.userPlaylists()
                     remoteLiked.value = youTubeMusic.likedSongs()
                 }
@@ -67,3 +105,16 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch { library.toggleLike(track) }
     }
 }
+
+private fun artistGroups(tracks: List<Track>): List<LibraryArtist> =
+    tracks
+        .filter { it.artist.isNotBlank() }
+        .groupBy { it.artist }
+        .map { (name, rows) ->
+            LibraryArtist(
+                name = name,
+                artworkUri = rows.firstNotNullOfOrNull { it.artworkUri },
+                trackCount = rows.size,
+            )
+        }
+        .sortedByDescending { it.trackCount }

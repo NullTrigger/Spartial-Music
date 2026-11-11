@@ -26,14 +26,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.nodes.core.crash.AppSnapshot
+import app.nodes.ui.components.FloatingTabBar
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.MiniPlayer
-import app.nodes.ui.components.NodesBottomBar
 import app.nodes.ui.components.NodesNavItems
+import app.nodes.ui.screens.collection.CollectionScreen
 import app.nodes.ui.screens.diagnostics.DiagnosticsScreen
 import app.nodes.ui.screens.home.HomeScreen
 import app.nodes.ui.screens.library.LibraryScreen
-import app.nodes.ui.screens.collection.CollectionScreen
 import app.nodes.ui.screens.login.MusicLoginScreen
 import app.nodes.ui.screens.onboarding.OnboardingScreen
 import app.nodes.ui.screens.player.NowPlayingScreen
@@ -41,7 +41,6 @@ import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.screens.playlist.PlaylistDetailScreen
 import app.nodes.ui.screens.search.SearchScreen
 import app.nodes.ui.screens.sessions.SessionsScreen
-import app.nodes.ui.screens.stats.StatsScreen
 import app.nodes.ui.screens.settings.AboutSettingsScreen
 import app.nodes.ui.screens.settings.AppearanceSettingsScreen
 import app.nodes.ui.screens.settings.ContentSettingsScreen
@@ -49,9 +48,21 @@ import app.nodes.ui.screens.settings.DataSettingsScreen
 import app.nodes.ui.screens.settings.LyricsSettingsScreen
 import app.nodes.ui.screens.settings.PlaybackSettingsScreen
 import app.nodes.ui.screens.settings.SettingsScreen
+import app.nodes.ui.screens.songs.SongsScreen
+import app.nodes.ui.screens.stats.StatsScreen
+import app.nodes.ui.screens.suggestions.SuggestionsScreen
 import app.nodes.ui.screens.trending.TrendingScreen
 import app.nodes.ui.theme.NodesBlack
 import kotlinx.coroutines.delay
+
+/** The five tab roots; only these show the floating bottom bar. */
+private val TAB_ROUTES = setOf(
+    Routes.HOME,
+    Routes.TRENDING,
+    Routes.SUGGESTIONS,
+    Routes.LIBRARY,
+    Routes.SEARCH,
+)
 
 @Composable
 fun NodesApp() {
@@ -60,10 +71,10 @@ fun NodesApp() {
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
-    val showBar = route in setOf(Routes.HOME, Routes.TRENDING, Routes.SESSIONS, Routes.LIBRARY)
-    // Search is a tab but has no bottom bar of its own; the mini player still
-    // belongs there so playback stays one tap away while typing.
-    val showMiniPlayer = showBar || route == Routes.SEARCH
+    val showBar = route in TAB_ROUTES
+    // The full player owns the screen; every other destination keeps playback
+    // one tap away in the mini player.
+    val showMiniPlayer = route != null && route != Routes.PLAYER
     val message = playerState.message
 
     LaunchedEffect(message) {
@@ -104,7 +115,24 @@ fun NodesApp() {
                 )
             }
 
-            composable(Routes.TRENDING) { TrendingScreen() }
+            composable(Routes.TRENDING) {
+                TrendingScreen(
+                    onOpenArtist = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
+                    },
+                    onOpenAlbum = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ALBUM, name))
+                    },
+                )
+            }
+
+            composable(Routes.SUGGESTIONS) {
+                SuggestionsScreen(
+                    onOpenArtist = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
+                    },
+                )
+            }
 
             composable(Routes.SESSIONS) { SessionsScreen() }
 
@@ -114,14 +142,35 @@ fun NodesApp() {
 
             composable(Routes.LIBRARY) {
                 LibraryScreen(
-                    onOpenPlaylist = { playlistId -> navController.navigate(Routes.playlist(playlistId)) },
-                    onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                    onOpenPlaylist = { playlistId ->
+                        navController.navigate(Routes.playlist(playlistId))
+                    },
+                    onOpenSongs = { navController.navigate(Routes.SONGS) },
+                    onOpenArtist = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
+                    },
                     onOpenSessions = { navController.navigate(Routes.SESSIONS) },
                 )
             }
 
+            composable(Routes.SONGS) {
+                SongsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenArtist = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
+                    },
+                )
+            }
+
             composable(Routes.SEARCH) {
-                SearchScreen(onBack = { navController.popBackStack() })
+                SearchScreen(
+                    onOpenArtist = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
+                    },
+                    onOpenAlbum = { name ->
+                        navController.navigate(Routes.collection(Routes.COLLECTION_ALBUM, name))
+                    },
+                )
             }
 
             composable(Routes.PLAYER) {
@@ -196,7 +245,16 @@ fun NodesApp() {
                     PlaylistDetailScreen(
                         playlistId = playlistId,
                         onBack = { navController.popBackStack() },
-                        onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                        onOpenArtist = { artist ->
+                            navController.navigate(
+                                Routes.collection(Routes.COLLECTION_ARTIST, artist),
+                            )
+                        },
+                        onOpenAlbum = { album ->
+                            navController.navigate(
+                                Routes.collection(Routes.COLLECTION_ALBUM, album),
+                            )
+                        },
                     )
                 }
             }
@@ -209,10 +267,14 @@ fun NodesApp() {
                     CollectionScreen(
                         onBack = { navController.popBackStack() },
                         onOpenArtist = { artist ->
-                            navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, artist))
+                            navController.navigate(
+                                Routes.collection(Routes.COLLECTION_ARTIST, artist),
+                            )
                         },
                         onOpenAlbum = { album ->
-                            navController.navigate(Routes.collection(Routes.COLLECTION_ALBUM, album))
+                            navController.navigate(
+                                Routes.collection(Routes.COLLECTION_ALBUM, album),
+                            )
                         },
                     )
                 }
@@ -235,11 +297,12 @@ fun NodesApp() {
                         onToggle = playerViewModel::togglePlayPause,
                         onPrevious = playerViewModel::previous,
                         onNext = playerViewModel::next,
+                        progress = playerState.progress,
                         modifier = Modifier.padding(bottom = 2.dp),
                     )
                 }
                 if (showBar) {
-                    NodesBottomBar(
+                    FloatingTabBar(
                         currentRoute = route,
                         items = NodesNavItems,
                         onSelect = { target ->

@@ -49,8 +49,8 @@ import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesGreyDim
 import app.nodes.ui.theme.NodesSurface
-import app.nodes.ui.theme.NodesTeal
-import app.nodes.ui.theme.NodesTealDeep
+import app.nodes.ui.theme.NodesAccent
+import app.nodes.ui.theme.NodesAccentDeep
 import app.nodes.ui.theme.NodesWhite
 
 /**
@@ -334,12 +334,12 @@ fun SettingsAccountCard(
             .background(
                 Brush.linearGradient(
                     colors = listOf(
-                        NodesTeal.copy(alpha = 0.16f),
+                        NodesAccent.copy(alpha = 0.16f),
                         NodesSurface.copy(alpha = 0.9f),
                     ),
                 ),
             )
-            .border(1.dp, NodesTeal.copy(alpha = 0.22f), shape)
+            .border(1.dp, NodesAccent.copy(alpha = 0.22f), shape)
             .clickable(enabled = onClick != null) { onClick?.invoke() }
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -350,7 +350,7 @@ fun SettingsAccountCard(
                 .clip(CircleShape)
                 .background(
                     Brush.linearGradient(
-                        colors = listOf(NodesTeal, NodesTealDeep),
+                        colors = listOf(NodesAccent, NodesAccentDeep),
                     ),
                 ),
             contentAlignment = Alignment.Center,
@@ -434,7 +434,7 @@ fun SettingsCheckRow(
             Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = null,
-                tint = NodesTeal,
+                tint = NodesAccent,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -444,7 +444,7 @@ fun SettingsCheckRow(
 @Composable
 private fun settingsSwitchColors() = SwitchDefaults.colors(
     checkedThumbColor = NodesBlack,
-    checkedTrackColor = NodesTeal,
+    checkedTrackColor = NodesAccent,
     uncheckedThumbColor = NodesGrey,
     uncheckedTrackColor = Color.White.copy(alpha = 0.08f),
 )
