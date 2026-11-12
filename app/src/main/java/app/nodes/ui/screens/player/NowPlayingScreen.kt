@@ -42,14 +42,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.FastForward
-import androidx.compose.material.icons.automirrored.rounded.FastRewind
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
@@ -1103,7 +1103,7 @@ private fun PlayerProgress(
                         scrubFraction = (offset.x / size.width).coerceIn(0f, 1f)
                         scrubbing = true
                     },
-                    onDrag = { change, _ ->
+                    onHorizontalDrag = { change, _ ->
                         change.consume()
                         scrubFraction = (change.position.x / size.width).coerceIn(0f, 1f)
                     },
@@ -1216,7 +1216,7 @@ private fun PlayerTransport(
             )
         }
         CircleIconButton(
-            icon = Icons.AutoMirrored.Rounded.FastRewind,
+            icon = Icons.Rounded.FastRewind,
             contentDescription = stringResource(R.string.action_previous),
             onClick = onPrevious,
             tint = accent,
@@ -1246,7 +1246,7 @@ private fun PlayerTransport(
             )
         }
         CircleIconButton(
-            icon = Icons.AutoMirrored.Rounded.FastForward,
+            icon = Icons.Rounded.FastForward,
             contentDescription = stringResource(R.string.action_next),
             onClick = onNext,
             tint = accent,
