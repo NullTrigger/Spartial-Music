@@ -16,6 +16,7 @@ import app.nodes.core.model.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -77,6 +78,8 @@ class NowPlayingViewModel @Inject constructor(
             _liked.value = false
             return
         }
+        _lyrics.value = LyricsResult()
+        _lyricsLoading.value = true
         likedJob = viewModelScope.launch {
             // A flow failure here used to reach the default uncaught-exception
             // handler and kill the process: the library is not worth that.
@@ -90,7 +93,13 @@ class NowPlayingViewModel @Inject constructor(
             }
         }
         lyricsJob = viewModelScope.launch {
-            _lyricsLoading.value = true
+            // A lyrics lookup is up to five sequential provider calls. Started
+            // at the same instant as the tap, it competes with the stream
+            // resolution for the same connection and is a large part of the
+            // delay people describe as "the song takes time to load". The
+            // spinner is raised immediately so opening Lyrics still looks
+            // busy; only the network work waits.
+            delay(LYRICS_START_DELAY_MS)
             try {
                 _lyrics.value = resolveLyrics(track)
             } finally {
@@ -100,10 +109,11 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     /**
-     * Lyrics are looked up the moment a track starts playing. Providers, the
-     * disk cache and the parser all live outside this app's control, so a
-     * failure is answered with "no lyrics" instead of an exception on the
-     * main-scoped coroutine - which would close the app mid-playback.
+     * Lyrics are resolved shortly after a track starts playing - after a short
+     * pause so the stream gets the network first. Providers, the disk cache and
+     * the parser all live outside this app's control, so a failure is answered
+     * with "no lyrics" instead of an exception on the main-scoped coroutine -
+     * which would close the app mid-playback.
      */
     private suspend fun resolveLyrics(track: Track, refresh: Boolean = false): LyricsResult =
         try {
@@ -135,5 +145,10 @@ class NowPlayingViewModel @Inject constructor(
         viewModelScope.launch {
             _liked.value = library.toggleLike(track)
         }
+    }
+
+    private companion object {
+        /** How long the stream is allowed to have the network to itself. */
+        const val LYRICS_START_DELAY_MS = 900L
     }
 }

@@ -109,6 +109,15 @@ class InnerTubeClient @Inject constructor(
      */
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
 
+    /**
+     * Clients that have already served a URL the CDN accepted. Their later
+     * answers skip the one-byte reachability probe, which is a whole extra
+     * round trip on the critical path between the tap and the first sample of
+     * audio. A URL that goes bad anyway is caught by the player's 403 path,
+     * which drops the cached stream and mints a fresh one.
+     */
+    private val validatedClients = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     private fun streamCacheKey(videoId: String, preferHighQuality: Boolean): String =
         "$videoId:${if (preferHighQuality) "hi" else "lo"}"
 
@@ -243,13 +252,14 @@ class InnerTubeClient @Inject constructor(
                     continue
                 }
 
-                if (!isReachable(url, profile.userAgent)) {
-                    notes += "${profile.name}: stream rejected by the CDN"
-                    continue
+                if (profile.name in validatedClients || isReachable(url, profile.userAgent)) {
+                    validatedClients.add(profile.name)
+                    streamCache[key] = CachedStream(url, profile.name, System.currentTimeMillis())
+                    return@withContext InnerTubeStream.Playable(url, profile.name)
                 }
 
-                streamCache[key] = CachedStream(url, profile.name, System.currentTimeMillis())
-                return@withContext InnerTubeStream.Playable(url, profile.name)
+                notes += "${profile.name}: stream rejected by the CDN"
+                continue
             }
 
             InnerTubeStream.Refused(notes.joinToString("; "))

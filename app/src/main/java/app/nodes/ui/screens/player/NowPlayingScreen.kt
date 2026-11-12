@@ -13,6 +13,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,12 +67,17 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,6 +89,7 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -125,6 +134,7 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.Abs
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
 
@@ -208,96 +218,150 @@ fun NowPlayingScreen(
         tracks.firstOrNull()?.let { playerViewModel.play(it, tracks) }
     }
 
-    PlayerBackdrop(
-        artworkUri = track.artworkUri,
-        title = track.title,
-        tint = tint,
-        showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
-    ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .statusBarsPadding(),
-        ) {
-            PlayerTopBar(
-                mode = mode,
-                sourceName = sourceName,
-                onBack = onBack,
-                onExitMode = { mode = PlayerMode.CONTROLS },
-            )
+    // Swipe the controls page down and the player follows the finger, then
+    // closes past a third of the screen or on a downward fling. Only the
+    // controls page owns the gesture: Lyrics and Queue hold scrollable lists
+    // that need vertical drag for themselves.
+    val screenHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+        LocalConfiguration.current.screenHeightDp.dp.toPx()
+    }
+    val dismissScope = rememberCoroutineScope()
+    val dismissOffset = remember { Animatable(0f) }
+    var dismissed by rememberSaveable { mutableStateOf(false) }
+    val dismissDragModifier = Modifier
+        .draggable(
+            state = rememberDraggableState { delta ->
+                if (delta > 0f || dismissOffset.value > 0f) {
+                    dismissScope.launch {
+                        dismissOffset.snapTo((dismissOffset.value + delta).coerceIn(0f, screenHeightPx))
+                    }
+                }
+            },
+            orientation = Orientation.Vertical,
+            enabled = mode == PlayerMode.CONTROLS && !dismissed,
+            startDragImmediately = dismissOffset.value > 0f,
+            onDragStopped = { velocity ->
+                dismissScope.launch {
+                    val shouldClose = dismissOffset.value > screenHeightPx / 3f || velocity > 1_400f
+                    if (shouldClose) {
+                        dismissed = true
+                        dismissOffset.animateTo(screenHeightPx, tween(180))
+                        onBack()
+                        // The screen is leaving, but reset anyway: if the pop is
+                        // refused or the composition survives the transition, a
+                        // stuck flag would leave the player unable to swipe.
+                        dismissed = false
+                        dismissOffset.snapTo(0f)
+                    } else {
+                        dismissOffset.animateTo(0f, spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow))
+                    }
+                }
+            },
+        )
+        .graphicsLayer {
+            translationY = dismissOffset.value
+            val progress = (dismissOffset.value / screenHeightPx).coerceIn(0f, 1f)
+            scaleX = 1f - progress * 0.06f
+            scaleY = 1f - progress * 0.06f
+            alpha = 1f - progress * 0.35f
+        }
 
-            playerState.embeddedVideoId?.let { videoId ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = NodesSpacing.gutter, vertical = 6.dp),
-                ) {
-                    YouTubeEmbeddedCard(
-                        videoId = videoId,
-                        onStop = playerViewModel::stopEmbedded,
+    Box(
+        Modifier
+            .fillMaxSize()
+            .then(if (mode == PlayerMode.CONTROLS) dismissDragModifier else Modifier),
+    ) {
+        PlayerBackdrop(
+            artworkUri = track.artworkUri,
+            title = track.title,
+            tint = tint,
+            showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
+        ) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding(),
+            ) {
+                PlayerTopBar(
+                    mode = mode,
+                    sourceName = sourceName,
+                    onBack = onBack,
+                    onExitMode = { mode = PlayerMode.CONTROLS },
+                )
+
+                playerState.embeddedVideoId?.let { videoId ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = NodesSpacing.gutter, vertical = 6.dp),
+                    ) {
+                        YouTubeEmbeddedCard(
+                            videoId = videoId,
+                            onStop = playerViewModel::stopEmbedded,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = stringResource(R.string.player_youtube_notice),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NodesGrey,
+                        )
+                    }
+                }
+
+                when (mode) {
+                    PlayerMode.CONTROLS -> ControlsMode(
+                        track = track,
+                        modifier = Modifier.weight(1f),
                     )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(R.string.player_youtube_notice),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = NodesGrey,
+
+                    PlayerMode.LYRICS -> LyricsMode(
+                        result = lyrics,
+                        loading = lyricsLoading,
+                        positionMs = playerState.positionMs,
+                        autoScroll = lyricsAutoScroll,
+                        follow = followLyrics,
+                        onFollowChanged = { followLyrics = it },
+                        onRetry = viewModel::refreshLyrics,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    PlayerMode.QUEUE -> QueueMode(
+                        state = playerState,
+                        queueTitle = queueTitle,
+                        onPlayIndex = playerViewModel::playQueueIndex,
+                        onMove = playerViewModel::moveInQueue,
+                        onRemove = playerViewModel::removeFromQueue,
+                        onPlayNext = playerViewModel::playNext,
+                        onAddToQueue = playerViewModel::addToQueue,
+                        onOpenArtist = onOpenArtist,
+                        onOpenAlbum = onOpenAlbum,
+                        onOpenControls = { mode = PlayerMode.CONTROLS },
+                        onInfinite = playerViewModel::toggleInfiniteQueue,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            }
 
-            when (mode) {
-                PlayerMode.CONTROLS -> ControlsMode(
-                    track = track,
-                    modifier = Modifier.weight(1f),
-                )
-
-                PlayerMode.LYRICS -> LyricsMode(
-                    result = lyrics,
-                    loading = lyricsLoading,
-                    positionMs = playerState.positionMs,
-                    autoScroll = lyricsAutoScroll,
-                    follow = followLyrics,
-                    onFollowChanged = { followLyrics = it },
-                    onRetry = viewModel::refreshLyrics,
-                    modifier = Modifier.weight(1f),
-                )
-
-                PlayerMode.QUEUE -> QueueMode(
+                PlayerDock(
+                    mode = mode,
                     state = playerState,
-                    queueTitle = queueTitle,
-                    onPlayIndex = playerViewModel::playQueueIndex,
-                    onMove = playerViewModel::moveInQueue,
-                    onRemove = playerViewModel::removeFromQueue,
-                    onPlayNext = playerViewModel::playNext,
-                    onAddToQueue = playerViewModel::addToQueue,
-                    onOpenArtist = onOpenArtist,
-                    onOpenAlbum = onOpenAlbum,
+                    track = track,
+                    sourceName = sourceName,
+                    liked = liked,
+                    tint = tint,
+                    onToggleLike = { viewModel.toggleLike(track) },
+                    onPlayPause = playerViewModel::togglePlayPause,
+                    onPrevious = playerViewModel::previous,
+                    onNext = playerViewModel::next,
+                    onSeek = playerViewModel::seekTo,
+                    onShuffle = playerViewModel::toggleShuffle,
+                    onRepeat = { playerViewModel.cycleRepeat() },
+                    onOpenLyrics = { mode = PlayerMode.LYRICS },
+                    onOpenQueue = { mode = PlayerMode.QUEUE },
                     onOpenControls = { mode = PlayerMode.CONTROLS },
-                    onInfinite = playerViewModel::toggleInfiniteQueue,
-                    modifier = Modifier.weight(1f),
+                    onAddToQueue = { playerViewModel.addToQueue(track) },
+                    onMore = { showTrackOptions = true },
                 )
             }
-
-            PlayerDock(
-                mode = mode,
-                state = playerState,
-                track = track,
-                sourceName = sourceName,
-                liked = liked,
-                tint = tint,
-                onToggleLike = { viewModel.toggleLike(track) },
-                onPlayPause = playerViewModel::togglePlayPause,
-                onPrevious = playerViewModel::previous,
-                onNext = playerViewModel::next,
-                onSeek = playerViewModel::seekTo,
-                onShuffle = playerViewModel::toggleShuffle,
-                onRepeat = { playerViewModel.cycleRepeat() },
-                onOpenLyrics = { mode = PlayerMode.LYRICS },
-                onOpenQueue = { mode = PlayerMode.QUEUE },
-                onOpenControls = { mode = PlayerMode.CONTROLS },
-                onAddToQueue = { playerViewModel.addToQueue(track) },
-                onMore = { showTrackOptions = true },
-            )
         }
     }
 

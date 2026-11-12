@@ -5,6 +5,10 @@
 
 package app.nodes.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -173,7 +177,25 @@ fun NodesApp() {
                 )
             }
 
-            composable(Routes.PLAYER) {
+            composable(
+                Routes.PLAYER,
+                // The player is a sheet, not another page: it rises from the
+                // bottom when the mini player is tapped or dragged up, and
+                // sinks back when it is popped - including when the player
+                // finishes its own swipe-down animation and calls onBack.
+                enterTransition = {
+                    slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Up,
+                        animationSpec = tween(260),
+                    ) + fadeIn(tween(200))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Down,
+                        animationSpec = tween(240),
+                    ) + fadeOut(tween(180))
+                },
+            ) {
                 NowPlayingScreen(
                     onBack = { navController.popBackStack() },
                     onOpenArtist = { name ->
