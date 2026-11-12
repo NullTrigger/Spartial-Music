@@ -8,16 +8,20 @@ package app.nodes.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -72,15 +76,9 @@ fun TintedBackdrop(
 }
 
 /**
- * The player backdrop: a pure, smooth colour gradient derived from the
- * artwork's dominant tint.
- *
- * There is no stretched copy of the cover behind the controls, lyrics or queue
- * any more. A pixel-scaled artwork wash reads as a dirty blur on real devices
- * and cuts the cover in half on the controls page; the gradient does the same
- * job cleanly on every API level, with no RenderEffect, no decoding and no
- * visible seam. The cover itself is shown sharp and whole as a rounded card by
- * the controls page.
+ * Gradient-only backdrop used on player modes that should not show the cover.
+ * The whole-screen tint remains shared with the full-bleed controls and
+ * playlist surfaces.
  */
 @Composable
 fun PlayerBackdrop(
@@ -88,19 +86,49 @@ fun PlayerBackdrop(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    PlayerBackdrop(
+        artworkUri = null,
+        title = "",
+        tint = tint,
+        showArtwork = false,
+        modifier = modifier,
+        content = content,
+    )
+}
+
+/**
+ * The full-bleed player backdrop from the reference screen.
+ *
+ * The whole surface is a rich, saturated colour wash derived from the cover's
+ * dominant tint - no stretched low-res copy of the artwork anywhere, so Lyrics
+ * and Queue sit on a completely clean gradient. When [showArtwork] is true,
+ * the cover itself fills the top half of the screen edge-to-edge and is
+ * dissolved into that wash with an alpha mask (`BlendMode.DstIn` inside an
+ * offscreen layer), so its bottom edge melts smoothly into the colour instead
+ * of ending at a horizontal line.
+ */
+@Composable
+fun PlayerBackdrop(
+    artworkUri: String?,
+    title: String,
+    tint: Color,
+    showArtwork: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
     val wash = remember(tint) { tint.toPlayerWash() }
     val deep = remember(tint) { tint.toPlayerDeep() }
     Box(modifier.fillMaxSize().background(deep)) {
-        // The main wash: saturated colour up top, fading into the deep base.
+        // The full-screen colour wash: saturated up top, holding its hue all
+        // the way down behind the dock.
         Box(
             Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to wash.copy(alpha = 0.62f),
-                        0.30f to wash.copy(alpha = 0.34f),
-                        0.58f to tint.copy(alpha = 0.14f),
-                        0.80f to deep.copy(alpha = 0.92f),
+                        0f to wash,
+                        0.46f to wash.copy(alpha = 0.92f),
+                        0.76f to deep.copy(alpha = 0.96f),
                         1f to deep,
                     ),
                 ),
@@ -110,47 +138,72 @@ fun PlayerBackdrop(
             Modifier
                 .fillMaxSize()
                 .drawBehind {
-                    // A warm glow from the top-right, and a cooler counter-glow
-                    // at the bottom-left, so the gradient has depth rather than
-                    // reading as one flat colour band.
-                    val topCentre = Offset(size.width * 0.84f, size.height * 0.06f)
+                    val topCentre = Offset(size.width * 0.50f, size.height * 0.42f)
                     val topRadius = size.width * 0.95f
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(tint.copy(alpha = 0.40f), Color.Transparent),
+                            colors = listOf(wash.copy(alpha = 0.55f), Color.Transparent),
                             center = topCentre,
                             radius = topRadius,
                         ),
                         radius = topRadius,
                         center = topCentre,
                     )
-                    val lowCentre = Offset(size.width * 0.08f, size.height * 0.94f)
-                    val lowRadius = size.width * 0.72f
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(wash.copy(alpha = 0.20f), Color.Transparent),
-                            center = lowCentre,
-                            radius = lowRadius,
-                        ),
-                        radius = lowRadius,
-                        center = lowCentre,
-                    )
                 },
         )
 
-        // A light scrim under the status bar so the top buttons stay readable
-        // whatever colour the artwork happens to be.
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0f to Color.Black.copy(alpha = 0.34f),
-                        0.16f to Color.Transparent,
-                        1f to Color.Transparent,
+        if (showArtwork && !artworkUri.isNullOrBlank()) {
+            Artwork(
+                artworkUri = artworkUri,
+                title = title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.62f)
+                    .align(Alignment.TopCenter)
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        // Alpha mask: opaque over the portrait, then a long
+                        // smooth S-curve fade to transparent so the cover
+                        // dissolves into the wash with no visible bottom edge.
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                0f to Color.Black,
+                                0.54f to Color.Black,
+                                0.72f to Color.Black.copy(alpha = 0.78f),
+                                0.86f to Color.Black.copy(alpha = 0.32f),
+                                0.95f to Color.Black.copy(alpha = 0.06f),
+                                1f to Color.Transparent,
+                            ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    },
+                shape = RectangleShape,
+                contentScale = ContentScale.Crop,
+                targetPx = 1280,
+            )
+        }
+
+        // A soft haze across the seam where the title sits, so the transition
+        // reads as mist rather than as an edge.
+        if (showArtwork) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.18f),
+                            0.14f to Color.Transparent,
+                            0.44f to Color.Transparent,
+                            0.58f to wash.copy(alpha = 0.72f),
+                            0.68f to wash.copy(alpha = 0.94f),
+                            1f to deep,
+                        ),
                     ),
-                ),
-        )
+            )
+        }
         content()
     }
 }

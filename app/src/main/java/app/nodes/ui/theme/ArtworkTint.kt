@@ -155,17 +155,21 @@ fun Color.toBackdrop(): Color {
 fun Color.toPlayerWash(): Color {
     val hsv = FloatArray(3)
     android.graphics.Color.colorToHSV(toArgb(), hsv)
-    hsv[1] = hsv[1].coerceIn(0.42f, 0.84f)
-    hsv[2] = hsv[2].coerceIn(0.40f, 0.60f)
+    hsv[1] = hsv[1].coerceIn(0.46f, 0.80f)
+    hsv[2] = hsv[2].coerceIn(0.48f, 0.66f)
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
 
-/** The deepest stop of the player gradient. */
+/**
+ * The lower stop of the player gradient: a darker shade of the same hue rather
+ * than a near-black drop, so the controls sit on colour the way the reference
+ * screen does.
+ */
 fun Color.toPlayerDeep(): Color {
     val hsv = FloatArray(3)
     android.graphics.Color.colorToHSV(toArgb(), hsv)
-    hsv[1] = (hsv[1] * 0.92f).coerceIn(0.26f, 0.72f)
-    hsv[2] = 0.24f
+    hsv[1] = (hsv[1] * 0.94f).coerceIn(0.38f, 0.76f)
+    hsv[2] = 0.34f
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
 

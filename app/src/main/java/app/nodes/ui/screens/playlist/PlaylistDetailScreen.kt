@@ -5,7 +5,6 @@
 
 package app.nodes.ui.screens.playlist
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +20,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
@@ -44,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,7 +59,6 @@ import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
-import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.CircleIconButton
 import app.nodes.ui.components.DetailTopBar
 import app.nodes.ui.components.EmptyState
@@ -69,14 +67,13 @@ import app.nodes.ui.components.LoadingRows
 import app.nodes.ui.components.MetaRow
 import app.nodes.ui.components.PillButton
 import app.nodes.ui.components.PillStyle
+import app.nodes.ui.components.PlayerBackdrop
 import app.nodes.ui.components.SongRow
-import app.nodes.ui.components.TintedBackdrop
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.runtimeLabel
 import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
 import app.nodes.ui.theme.rememberArtworkTint
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -159,9 +156,10 @@ class PlaylistDetailViewModel @Inject constructor(
 }
 
 /**
- * A collection page whose colour comes from its cover. The cover, title and
- * actions scroll as one header; the song list below stays bare and readable on
- * the tinted wash.
+ * Playlist page with the same full-bleed, cover-to-colour treatment as Now
+ * Playing. The artwork fills the upper screen and dissolves into the tinted
+ * wash; playlist identity and actions sit in that transition, with the songs
+ * continuing on the clean colour field below.
  */
 @Composable
 fun PlaylistDetailScreen(
@@ -181,6 +179,7 @@ fun PlaylistDetailScreen(
         ?: stringResource(R.string.playlist_kicker)
     val artworkUri = playlist?.artworkUri ?: tracks.firstOrNull()?.artworkUri
     val tint = rememberArtworkTint(artworkUri, title)
+    val heroTitleOffset = LocalConfiguration.current.screenHeightDp.dp * 0.54f
     val allLiked = tracks.isNotEmpty() && tracks.all { it.id in likedIds }
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -197,7 +196,12 @@ fun PlaylistDetailScreen(
         tracks.forEach(playerViewModel::addToQueue)
     }
 
-    TintedBackdrop(tint = tint) {
+    PlayerBackdrop(
+        artworkUri = artworkUri,
+        title = title,
+        tint = tint,
+        showArtwork = true,
+    ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -269,21 +273,15 @@ fun PlaylistDetailScreen(
                         .padding(horizontal = NodesSpacing.gutter),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Spacer(Modifier.height(10.dp))
-                    Artwork(
-                        artworkUri = artworkUri,
-                        title = title,
-                        modifier = Modifier.size(196.dp),
-                        shape = RoundedCornerShape(26.dp),
-                        targetPx = 900,
-                    )
-                    Spacer(Modifier.height(18.dp))
+                    // Keep the identity over the lower part of the cover so
+                    // the artwork, title and wash read as one full-bleed hero.
+                    Spacer(Modifier.height(heroTitleOffset))
                     Text(
                         text = stringResource(R.string.playlist_kicker).uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = NodesGrey,
+                        color = NodesWhite.copy(alpha = 0.76f),
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text = title,
                         style = MaterialTheme.typography.headlineLarge,
@@ -320,7 +318,7 @@ fun PlaylistDetailScreen(
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(24.dp))
                 }
             }
 
