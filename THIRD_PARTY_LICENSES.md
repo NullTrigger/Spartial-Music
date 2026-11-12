@@ -91,12 +91,18 @@ projects in this space, credited here:
 
 | Project | Licence | What Spartial Music uses |
 | --- | --- | --- |
-| [Metrolist](https://github.com/mostafaalagamy/Metrolist) | GPL-3.0 | InnerTube protocol reference |
+| [Metrolist](https://github.com/mostafaalagamy/Metrolist) | GPL-3.0 | InnerTube protocol reference; Listen Together room protocol and wire field numbers |
 | InnerTune / OuterTune | GPL-3.0 | InnerTube protocol reference |
-| [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube protocol reference, WebView sign-in study (not copied, not used) |
+| [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube protocol reference, WebView sign-in study, and the Listen Together wire protocol (`metroserver-worker/src/protocol.js`), whose field numbers and gzip envelope `core/session/` is written to match |
 
-No source file from those projects is copied into Spartial Music, so nothing here carries
-their copyright headers. If you do port code from one of them, keep that file's
+No source file from those projects is copied verbatim into Spartial Music. The
+Listen Together codec in `core/session/ProtobufWire.kt` and
+`ListenTogetherProtocol.kt` is an independent Kotlin implementation of the same
+on-the-wire format - it has to be byte-compatible to talk to the same servers,
+so it follows their field numbering closely. Both projects are GPL-3.0, the same
+licence as this one, so that derivation is compatible.
+
+If you port code from a project under a different licence, keep that file's
 header, keep the GPL-3.0 licence, and add the project to this table.
 
 InnerTube is not a licensed API. Bundling a client for it does not grant any
