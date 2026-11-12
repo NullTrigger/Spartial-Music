@@ -76,6 +76,7 @@ class SimpMusicProvider(
             title = best.songTitle,
             artist = best.artistName,
             durationSec = best.durationSeconds ?: 0,
+            videoId = best.videoId,
         )
     }
 

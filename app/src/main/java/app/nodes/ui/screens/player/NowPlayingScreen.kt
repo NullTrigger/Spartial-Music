@@ -46,13 +46,15 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lyrics
-import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Sync
@@ -73,7 +75,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
@@ -847,7 +848,10 @@ private fun ControlsActionRow(
     onOpenQueue: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         GlassCircleButton(
@@ -855,10 +859,9 @@ private fun ControlsActionRow(
             contentDescription = stringResource(R.string.player_lyrics),
             onClick = onOpenLyrics,
         )
-        Spacer(Modifier.width(10.dp))
         Row(
             modifier = Modifier
-                .weight(1f)
+                .width(188.dp)
                 .height(52.dp)
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.10f))
@@ -867,23 +870,22 @@ private fun ControlsActionRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             DockAction(
-                icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                icon = if (liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 contentDescription = stringResource(R.string.player_like),
                 tint = NodesWhite,
                 onClick = onToggleLike,
             )
             DockAction(
-                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                icon = Icons.Rounded.MusicNote,
                 contentDescription = stringResource(R.string.player_add_to_queue),
                 onClick = onAddToQueue,
             )
             DockAction(
-                icon = Icons.Rounded.MoreVert,
+                icon = Icons.Rounded.MoreHoriz,
                 contentDescription = stringResource(R.string.player_more),
                 onClick = onMore,
             )
         }
-        Spacer(Modifier.width(10.dp))
         GlassCircleButton(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             contentDescription = stringResource(R.string.player_queue),
@@ -901,7 +903,10 @@ private fun ModeSelectorRow(
     onOpenQueue: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         GlassCircleButton(
@@ -910,10 +915,10 @@ private fun ModeSelectorRow(
             active = mode == PlayerMode.LYRICS,
             onClick = onOpenLyrics,
         )
-        Spacer(Modifier.width(10.dp))
         Row(
             modifier = Modifier
                 .weight(1f)
+                .padding(horizontal = 10.dp)
                 .height(52.dp)
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.10f))
@@ -931,7 +936,6 @@ private fun ModeSelectorRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(10.dp))
         GlassCircleButton(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             contentDescription = stringResource(R.string.player_queue),
@@ -1059,10 +1063,29 @@ private fun PlayerTransport(
 ) {
     val context = LocalContext.current
     val accent = tint.toPlayerAccent()
+    // The reference transport has five controls: cast, previous, play, next and
+    // one combined shuffle/repeat button. That button cycles
+    // off -> shuffle -> repeat track -> off, so both modes stay reachable
+    // without widening the row.
+    val modeActive = state.shuffleOn || state.repeatMode != RepeatMode.OFF
+    val modeIcon = when {
+        state.repeatMode == RepeatMode.ONE -> Icons.Rounded.RepeatOne
+        else -> Icons.Rounded.Shuffle
+    }
+    val onCycleMode: () -> Unit = {
+        when {
+            !state.shuffleOn && state.repeatMode == RepeatMode.OFF -> onShuffle()
+            state.shuffleOn && state.repeatMode == RepeatMode.OFF -> {
+                onShuffle()
+                onRepeat()
+            }
+            else -> onRepeat()
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 2.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1079,28 +1102,18 @@ private fun PlayerTransport(
             )
         }
         CircleIconButton(
-            icon = Icons.Rounded.Shuffle,
-            contentDescription = stringResource(R.string.player_shuffle),
-            onClick = onShuffle,
-            tint = if (state.shuffleOn) accent else NodesWhite.copy(alpha = 0.62f),
-            filled = state.shuffleOn,
-            background = Color.White.copy(alpha = 0.12f),
-            size = 42.dp,
-            iconSize = 21.dp,
-        )
-        CircleIconButton(
             icon = Icons.Rounded.SkipPrevious,
             contentDescription = stringResource(R.string.action_previous),
             onClick = onPrevious,
             tint = accent,
-            size = 46.dp,
-            iconSize = 29.dp,
+            size = 48.dp,
+            iconSize = 31.dp,
         )
         Box(
             modifier = Modifier
-                .size(64.dp)
+                .size(68.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f))
+                .background(Color.White.copy(alpha = 0.10f))
                 .glass(shape = CircleShape, strong = true)
                 .clickable(role = Role.Button, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
@@ -1115,7 +1128,7 @@ private fun PlayerTransport(
                     if (state.isPlaying) R.string.action_pause else R.string.action_play,
                 ),
                 tint = accent,
-                modifier = Modifier.size(34.dp),
+                modifier = Modifier.size(39.dp),
             )
         }
         CircleIconButton(
@@ -1123,26 +1136,16 @@ private fun PlayerTransport(
             contentDescription = stringResource(R.string.action_next),
             onClick = onNext,
             tint = accent,
-            size = 46.dp,
-            iconSize = 29.dp,
+            size = 48.dp,
+            iconSize = 31.dp,
         )
-        CircleIconButton(
-            icon = if (state.repeatMode == RepeatMode.ONE) {
-                Icons.Rounded.RepeatOne
-            } else {
-                Icons.Rounded.Repeat
-            },
-            contentDescription = stringResource(R.string.player_repeat),
-            onClick = onRepeat,
-            tint = if (state.repeatMode != RepeatMode.OFF) {
-                accent
-            } else {
-                NodesWhite.copy(alpha = 0.62f)
-            },
-            filled = state.repeatMode != RepeatMode.OFF,
-            background = Color.White.copy(alpha = 0.12f),
-            size = 42.dp,
-            iconSize = 21.dp,
+        GlassCircleButton(
+            icon = modeIcon,
+            contentDescription = stringResource(
+                if (state.repeatMode == RepeatMode.ONE) R.string.player_repeat else R.string.player_shuffle,
+            ),
+            onClick = onCycleMode,
+            active = modeActive,
         )
     }
 }

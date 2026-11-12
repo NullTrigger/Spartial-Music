@@ -28,6 +28,8 @@ sealed interface LyricsPayload {
         val title: String? = null,
         val artist: String? = null,
         val durationSec: Int = 0,
+        /** Provider's recording/video id, when it can attest a direct lookup. */
+        val videoId: String? = null,
     ) : LyricsPayload
 
     data object NotFound : LyricsPayload

@@ -87,7 +87,7 @@ class LyricsRepository @Inject constructor(
                     trackId = track.id,
                     title = cleanTitle(track.title),
                     artist = cleanArtist(track.artist),
-                    album = track.album,
+                    album = track.album?.let(::cleanTitle),
                     durationSec = (track.durationMs / 1_000L).toInt(),
                     videoId = track.videoId,
                 ),
@@ -123,14 +123,23 @@ class LyricsRepository @Inject constructor(
         val ordered = orderedProviders(prefs)
         if (ordered.isEmpty()) return Resolved()
 
+        // A provider answer is only usable when it names the same recording.
+        // Plain text is held back while the rest of the order is asked, so a
+        // timed result from a later provider can still win.
         var plainFallback: Resolved? = null
-        val synced = withTimeoutOrNull(TOTAL_TIMEOUT_MS) {
+        val result = withTimeoutOrNull(TOTAL_TIMEOUT_MS) {
             for (provider in ordered) {
                 val payload = withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
                     safeFetch(provider, query)
                 } ?: continue
                 if (payload !is LyricsPayload.Found) continue
-                if (!matches(payload, query)) continue
+                // The user's own sidecar is explicitly trusted. Network
+                // results must identify the exact recording or are skipped.
+                if (provider.id != LyricsProviders.LOCAL &&
+                    !isVerifiedLyricsMatch(payload, query)
+                ) {
+                    continue
+                }
 
                 val parsed = LyricsParser.parse(payload.raw)
                 if (parsed.lines.isEmpty()) continue
@@ -149,7 +158,7 @@ class LyricsRepository @Inject constructor(
             }
             null
         }
-        return synced ?: plainFallback ?: Resolved()
+        return result ?: plainFallback ?: Resolved()
     }
 
     private suspend fun safeFetch(provider: LyricsProvider, query: LyricsQuery): LyricsPayload =
@@ -160,48 +169,6 @@ class LyricsRepository @Inject constructor(
             AppLogger.w("Lyrics", "Provider ${provider.id} failed", error)
             LyricsPayload.Failed(error.message ?: "Request failed")
         }
-
-    /**
-     * Refuses an answer that is clearly another song.
-     *
-     * Providers match loosely, and a same-named cover or a live version would
-     * otherwise be shown under this track's title. A provider that returns no
-     * names cannot be judged and is allowed through.
-     */
-    private fun matches(payload: LyricsPayload.Found, query: LyricsQuery): Boolean {
-        if (payload.durationSec > 0 && query.durationSec > 0 &&
-            abs(payload.durationSec - query.durationSec) > MAX_DRIFT_SEC
-        ) {
-            return false
-        }
-        if (!payload.title.isNullOrBlank()) {
-            val wanted = tokens(query.title)
-            val answered = tokens(payload.title)
-            if (wanted.isNotEmpty() && answered.isNotEmpty() && wanted.intersect(answered).isEmpty()) {
-                return false
-            }
-        }
-        if (!payload.artist.isNullOrBlank()) {
-            val wanted = query.artist.lowercase(Locale.ROOT).trim()
-            val answered = payload.artist.lowercase(Locale.ROOT).trim()
-            val namesOverlap = wanted.isNotBlank() && answered.isNotBlank() &&
-                (wanted.contains(answered) || answered.contains(wanted))
-            if (!namesOverlap &&
-                tokens(query.artist).intersect(tokens(payload.artist)).isEmpty()
-            ) {
-                return false
-            }
-        }
-        return true
-    }
-
-    private fun tokens(text: String?): Set<String> {
-        if (text.isNullOrBlank()) return emptySet()
-        return text.lowercase(Locale.ROOT)
-            .split(Regex("[^\\p{L}\\p{N}]+"))
-            .filter { it.length > 1 && it !in IGNORED_TOKENS }
-            .toSet()
-    }
 
     /**
      * Strips the decoration YouTube Music uploads carry - "(Official Audio)",
@@ -277,10 +244,11 @@ class LyricsRepository @Inject constructor(
     private fun fileFor(key: String): File = File(cacheDir(), "$key.json")
 
     private fun cacheKey(track: Track): String = buildString {
-        // v2: the lookup now queries the cleaned title, and every entry saved
-        // before that change is a candidate for the wrong-song lyrics people
-        // reported - the version bump makes those old files simply miss.
-        append("v2-")
+        // v4: network providers now have to pass the exact title+artist+duration
+        // guard in isVerifiedLyricsMatch. Bumping the version discards the
+        // payloads the older loose matcher stored, so a song that previously
+        // showed another song's lyrics is looked up again from scratch.
+        append("v4-")
         append(track.sourceId.key)
         append('-')
         append(track.videoId ?: track.id)
@@ -317,6 +285,45 @@ class LyricsRepository @Inject constructor(
     )
 
     companion object {
+        /**
+         * The lyrics-mismatch guard.
+         *
+         * A provider answer is only trusted when it names the same song and the
+         * same artist as the track - after folding accents, case and
+         * punctuation - and, when both sides know a length, when that length is
+         * within [MAX_DRIFT_SEC]. A provider that reports a video id must
+         * report the same one. Anything looser than that is a cover, a live
+         * version or a lyric video of another recording, which is exactly the
+         * "wrong lyrics" people report, so it is dropped and the next provider
+         * is asked instead.
+         */
+        internal fun isVerifiedLyricsMatch(payload: LyricsPayload.Found, query: LyricsQuery): Boolean {
+            val title = identityTokens(query.title)
+            val answerTitle = identityTokens(payload.title)
+            val artist = identityTokens(query.artist)
+            val answerArtist = identityTokens(payload.artist)
+            if (title.isEmpty() || artist.isEmpty()) return false
+            if (title != answerTitle || artist != answerArtist) return false
+            if (payload.durationSec > 0 && query.durationSec > 0 &&
+                abs(payload.durationSec - query.durationSec) > MAX_DRIFT_SEC
+            ) {
+                return false
+            }
+            return query.videoId.isNullOrBlank() || payload.videoId.isNullOrBlank() ||
+                query.videoId == payload.videoId
+        }
+
+        /** Accent- and punctuation-folded word set used by the guard above. */
+        private fun identityTokens(text: String?): Set<String> {
+            if (text.isNullOrBlank()) return emptySet()
+            return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+                .replace(Regex("\\p{Mn}+"), "")
+                .lowercase(Locale.ROOT)
+                .split(Regex("[^\\p{L}\\p{N}]+"))
+                .filter { it.length > 1 && it !in IGNORED_TOKENS }
+                .toSet()
+        }
+
         /** One provider's budget; enough for a cold CDN, short enough to skip. */
         private const val PER_PROVIDER_TIMEOUT_MS = 6_000L
 
