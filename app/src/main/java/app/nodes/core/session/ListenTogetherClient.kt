@@ -26,7 +26,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
-import okio.toByteString
+import okio.ByteString.Companion.toByteString
 
 /** Where the room is, as far as the UI is concerned. */
 enum class RoomStatus { DISCONNECTED, CONNECTING, IN_ROOM }

@@ -76,7 +76,8 @@ data class RemoteTrack(
 
     companion object {
         fun decode(data: ByteArray?): RemoteTrack {
-            if (data.isNullOrEmpty()) return RemoteTrack()
+            // Kotlin has no isNullOrEmpty() for primitive arrays.
+            if (data == null || data.isEmpty()) return RemoteTrack()
             val f = PbFields(data)
             return RemoteTrack(
                 id = f.string(1),
@@ -130,7 +131,7 @@ data class RoomState(
 
     companion object {
         fun decode(data: ByteArray?): RoomState {
-            if (data.isNullOrEmpty()) return RoomState()
+            if (data == null || data.isEmpty()) return RoomState()
             val f = PbFields(data)
             return RoomState(
                 roomCode = f.string(1),

@@ -108,7 +108,7 @@ fun SessionsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
                             .background(NodesWhite.copy(alpha = 0.08f))
-                            .clickable(viewModel::clearNotice)
+                            .clickable(onClick = viewModel::clearNotice)
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

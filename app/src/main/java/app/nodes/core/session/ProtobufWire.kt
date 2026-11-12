@@ -61,7 +61,8 @@ internal object Pb {
     }
 
     fun bytes(field: Int, value: ByteArray?): ByteArray {
-        if (value.isNullOrEmpty()) return EMPTY
+        // Kotlin has no isNullOrEmpty() for primitive arrays.
+        if (value == null || value.isEmpty()) return EMPTY
         return concat(tag(field, 2), varint(value.size.toLong()), value)
     }
 
