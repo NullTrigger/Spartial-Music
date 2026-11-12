@@ -111,6 +111,7 @@
     <!-- Player -->
     <string name="player_queue">Queue</string>
     <string name="player_lyrics">Lyrics</string>
+    <string name="player_seek_bar">Seek bar</string>
     <string name="player_no_lyrics">No synced lyrics for this track yet.</string>
     <string name="player_youtube_notice">Playing through the official YouTube player. Audio pauses when this screen closes.</string>
     <string name="player_youtube_card">YouTube video</string>

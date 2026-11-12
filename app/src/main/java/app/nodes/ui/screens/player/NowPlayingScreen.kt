@@ -14,6 +14,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,6 +42,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.FastForward
+import androidx.compose.material.icons.automirrored.rounded.FastRewind
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Album
@@ -58,14 +63,10 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -75,6 +76,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -88,11 +90,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -1065,22 +1072,65 @@ private fun PlayerProgress(
     onSeek: (Long) -> Unit,
 ) {
     val fraction = state.progress.coerceIn(0f, 1f)
-    Slider(
-        value = fraction,
-        onValueChange = { value ->
-            val duration = state.durationMs
-            if (duration > 0L) onSeek((value * duration).toLong())
-        },
-        enabled = state.durationMs > 0L,
+    val accent = tint.toPlayerAccent()
+    // A flat bar with no knob, as in the reference: the filled part is the
+    // only marker. Scrubbing tracks the finger and seeks when it lifts, so the
+    // music does not restart on every pixel.
+    var scrubbing by remember { mutableStateOf(false) }
+    var scrubFraction by remember { mutableFloatStateOf(0f) }
+    val shown = if (scrubbing) scrubFraction else fraction
+    val seekable = state.durationMs > 0L
+
+    val seekLabel = stringResource(R.string.player_seek_bar)
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(24.dp),
-        colors = SliderDefaults.colors(
-            thumbColor = NodesWhite,
-            activeTrackColor = tint.toPlayerAccent(),
-            inactiveTrackColor = Color.White.copy(alpha = 0.16f),
-        ),
-    )
+            .height(22.dp)
+            .semantics {
+                contentDescription = seekLabel
+                progressBarRangeInfo = ProgressBarRangeInfo(shown, 0f..1f)
+            }
+            .pointerInput(state.durationMs) {
+                detectTapGestures { offset ->
+                    if (seekable) {
+                        onSeek(((offset.x / size.width).coerceIn(0f, 1f) * state.durationMs).toLong())
+                    }
+                }
+            }
+            .pointerInput(state.durationMs) {
+                detectHorizontalDragGestures(
+                    onDragStart = { offset ->
+                        scrubFraction = (offset.x / size.width).coerceIn(0f, 1f)
+                        scrubbing = true
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        scrubFraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                    },
+                    onDragEnd = {
+                        scrubbing = false
+                        if (seekable) onSeek((scrubFraction * state.durationMs).toLong())
+                    },
+                    onDragCancel = { scrubbing = false },
+                )
+            },
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .align(Alignment.CenterStart)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.White.copy(alpha = 0.22f)),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(shown)
+                    .fillMaxHeight()
+                    .background(if (seekable) accent else Color.White.copy(alpha = 0.35f)),
+            )
+        }
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -1166,12 +1216,12 @@ private fun PlayerTransport(
             )
         }
         CircleIconButton(
-            icon = Icons.Rounded.SkipPrevious,
+            icon = Icons.AutoMirrored.Rounded.FastRewind,
             contentDescription = stringResource(R.string.action_previous),
             onClick = onPrevious,
             tint = accent,
-            size = 48.dp,
-            iconSize = 31.dp,
+            size = 52.dp,
+            iconSize = 34.dp,
         )
         Box(
             modifier = Modifier
@@ -1196,12 +1246,12 @@ private fun PlayerTransport(
             )
         }
         CircleIconButton(
-            icon = Icons.Rounded.SkipNext,
+            icon = Icons.AutoMirrored.Rounded.FastForward,
             contentDescription = stringResource(R.string.action_next),
             onClick = onNext,
             tint = accent,
-            size = 48.dp,
-            iconSize = 31.dp,
+            size = 52.dp,
+            iconSize = 34.dp,
         )
         GlassCircleButton(
             icon = modeIcon,
