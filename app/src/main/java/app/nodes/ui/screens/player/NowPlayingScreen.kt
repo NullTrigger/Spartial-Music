@@ -130,9 +130,9 @@ private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
 /**
  * Full Now Playing, built around the three views in the reference design:
  *
- *  - **Controls** — the cover sits whole and sharp as a rounded card over a
- *    smooth colour wash derived from its tint, and the title, actions,
- *    progress and transport sit below it on the gradient.
+ *  - **Controls** — the cover fills the upper screen and dissolves into a
+ *    saturated colour wash derived from its tint, with the title, actions,
+ *    progress and transport sitting over that gradient.
  *  - **Lyrics** — the current line is sharp and white; upcoming lines are
  *    progressively blurred and dimmed so the eye stays on the line being sung.
  *    The backdrop is the same clean gradient, never a stretched copy of the
@@ -207,7 +207,12 @@ fun NowPlayingScreen(
         tracks.firstOrNull()?.let { playerViewModel.play(it, tracks) }
     }
 
-    PlayerBackdrop(tint = tint) {
+    PlayerBackdrop(
+        artworkUri = track.artworkUri,
+        title = track.title,
+        tint = tint,
+        showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
+    ) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -242,8 +247,6 @@ fun NowPlayingScreen(
             when (mode) {
                 PlayerMode.CONTROLS -> ControlsMode(
                     track = track,
-                    showArtwork = playerState.embeddedVideoId == null,
-                    tint = tint,
                     modifier = Modifier.weight(1f),
                 )
 
@@ -362,43 +365,24 @@ private fun PlayerTopBar(
 }
 
 /**
- * The stage above the dock: the cover shown whole as a rounded, softly
- * shadowed card floating on the gradient, with the title block under it. With
- * a YouTube track on screen the official card takes over the stage instead,
- * because the API terms require the video to stay visible while it plays.
+ * The stage above the dock: the full-bleed cover is already painted by
+ * [PlayerBackdrop] and dissolves into the colour wash, so this carries only
+ * the title block over the transition. The official card takes over when a
+ * YouTube track is playing, because the API terms require that video to stay
+ * visible.
  */
 @Composable
 private fun ControlsMode(
     track: Track,
-    showArtwork: Boolean,
-    tint: Color,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.fillMaxWidth()) {
-        if (showArtwork) {
-            Artwork(
-                artworkUri = track.artworkUri,
-                title = track.title,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth(0.62f)
-                    .aspectRatio(1f)
-                    .shadow(
-                        34.dp,
-                        RoundedCornerShape(26.dp),
-                        ambientColor = tint.copy(alpha = 0.55f),
-                        spotColor = Color.Black,
-                    ),
-                shape = RoundedCornerShape(26.dp),
-                targetPx = 720,
-            )
-        }
         TrackTitleBlock(
             track = track,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 28.dp)
-                .padding(bottom = 10.dp),
+                .padding(bottom = 18.dp),
         )
     }
 }
