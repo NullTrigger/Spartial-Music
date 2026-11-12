@@ -868,7 +868,13 @@ private fun PlayerDock(
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp)
-            .padding(bottom = 10.dp),
+            // The reference player leaves a band of empty backdrop below the
+            // transport row - 62px of a 1280px screen, so about 5% of the
+            // height - so the controls read as a row that sits on the screen
+            // rather than as a row glued to its bottom edge. The system
+            // navigation inset is part of that band; this is the app's share
+            // of it, and it lands the whole gap at roughly the same 5%.
+            .padding(bottom = NodesSpacing.lg),
     ) {
         if (mode == PlayerMode.CONTROLS) {
             ControlsActionRow(
