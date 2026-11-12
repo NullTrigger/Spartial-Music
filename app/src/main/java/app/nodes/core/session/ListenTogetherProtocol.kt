@@ -135,13 +135,13 @@ data class RoomState(
             return RoomState(
                 roomCode = f.string(1),
                 hostId = f.string(2),
-                users = f.repeated(3).map(RemoteUser::decode),
+                users = f.repeated(3).map { RemoteUser.decode(it) },
                 currentTrack = RemoteTrack.decode(f.raw(4)),
                 isPlaying = f.boolean(5),
                 positionMs = f.number(6),
                 lastUpdateMs = f.number(7),
                 volume = f.float(8),
-                queue = f.repeated(9).map(RemoteTrack::decode),
+                queue = f.repeated(9).map { RemoteTrack.decode(it) },
                 revision = f.number(10),
             )
         }
@@ -177,9 +177,9 @@ data class SyncEvent(
                 action = f.string(1),
                 trackId = f.string(2),
                 positionMs = f.number(3),
-                track = f.raw(4)?.let(RemoteTrack::decode),
+                track = f.raw(4)?.let { RemoteTrack.decode(it) },
                 insertNext = f.boolean(5),
-                queue = f.repeated(6).map(RemoteTrack::decode),
+                queue = f.repeated(6).map { RemoteTrack.decode(it) },
                 queueTitle = f.string(7),
                 volume = f.float(8),
                 serverTimeMs = f.number(9),
@@ -190,9 +190,9 @@ data class SyncEvent(
         fun decodeState(data: ByteArray): SyncEvent {
             val f = PbFields(data)
             return SyncEvent(
-                track = f.raw(1)?.let(RemoteTrack::decode),
+                track = f.raw(1)?.let { RemoteTrack.decode(it) },
                 positionMs = f.number(3),
-                queue = f.repeated(5).map(RemoteTrack::decode),
+                queue = f.repeated(5).map { RemoteTrack.decode(it) },
                 volume = f.float(6),
                 revision = f.number(7),
                 serverTimeMs = f.number(4),
