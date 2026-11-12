@@ -62,7 +62,7 @@ import kotlinx.coroutines.delay
 /** The five tab roots; only these show the floating bottom bar. */
 private val TAB_ROUTES = setOf(
     Routes.HOME,
-    Routes.TRENDING,
+    Routes.SESSIONS,
     Routes.SUGGESTIONS,
     Routes.LIBRARY,
     Routes.SEARCH,
@@ -153,7 +153,6 @@ fun NodesApp() {
                     onOpenArtist = { name ->
                         navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
                     },
-                    onOpenSessions = { navController.navigate(Routes.SESSIONS) },
                 )
             }
 

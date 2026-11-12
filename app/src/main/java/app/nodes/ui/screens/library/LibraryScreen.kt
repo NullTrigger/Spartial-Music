@@ -8,7 +8,6 @@ package app.nodes.ui.screens.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -28,7 +27,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -95,7 +93,6 @@ fun LibraryScreen(
     onOpenPlaylist: (String) -> Unit,
     onOpenSongs: () -> Unit,
     onOpenArtist: (String) -> Unit,
-    onOpenSessions: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -138,84 +135,6 @@ fun LibraryScreen(
                 top = 12.dp,
             ),
         )
-
-        // The full song list has its own page; this is the shortcut to it.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = NodesSpacing.gutter, vertical = 8.dp)
-                .glass(RoundedCornerShape(18.dp), scrim = 0.24f)
-                .clickable(onClick = onOpenSongs)
-                .padding(horizontal = 14.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(NodesWhite.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    tint = NodesWhite,
-                    modifier = Modifier.size(19.dp),
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.library_all_songs),
-                    style = NodesType.rowTitle,
-                    color = NodesWhite,
-                    maxLines = 1,
-                )
-                Text(
-                    text = stringResource(R.string.tracks_count, state.allTracks.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
-                    maxLines = 1,
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                contentDescription = null,
-                tint = NodesGrey,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-
-        // Sessions lost its own tab; it keeps a way in from here.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = NodesSpacing.gutter, vertical = 2.dp)
-                .glass(RoundedCornerShape(18.dp), scrim = 0.18f)
-                .clickable(onClick = onOpenSessions)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.sessions_title),
-                    style = NodesType.rowTitle,
-                    color = NodesWhite,
-                    maxLines = 1,
-                )
-                Text(
-                    text = stringResource(R.string.sessions_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
-                    maxLines = 1,
-                )
-            }
-            Text(
-                text = stringResource(R.string.sessions_open),
-                style = MaterialTheme.typography.labelMedium,
-                color = NodesGrey,
-            )
-        }
 
         SegmentedFilter(
             options = LibraryTab.entries.map { stringResource(it.labelRes) },

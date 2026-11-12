@@ -28,9 +28,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -169,7 +169,7 @@ private fun Tab(
 /** The five destinations of the redesigned app. */
 val NodesNavItems = listOf(
     BottomNavItem("home", R.string.nav_home, Icons.Rounded.Home),
-    BottomNavItem("trending", R.string.nav_trending, Icons.Rounded.LocalFireDepartment),
+    BottomNavItem("sessions", R.string.nav_sessions, Icons.Rounded.Groups),
     BottomNavItem("suggestions", R.string.nav_suggestions, Icons.Rounded.AutoAwesome),
     BottomNavItem("library", R.string.nav_library, Icons.Rounded.LibraryMusic),
     BottomNavItem("search", R.string.nav_search, Icons.Rounded.Search),
