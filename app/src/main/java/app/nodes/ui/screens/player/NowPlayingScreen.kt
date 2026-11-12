@@ -1213,6 +1213,13 @@ private fun PlayerTransport(
                         Toast.LENGTH_SHORT,
                     ).show()
                 },
+                onChooserFailure = {
+                    Toast.makeText(
+                        context,
+                        R.string.player_cast_chooser_failed,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
             )
         }
         CircleIconButton(

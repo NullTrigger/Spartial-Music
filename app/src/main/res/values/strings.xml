@@ -169,6 +169,7 @@
     <string name="player_queue_ended">Nothing more to queue yet — like more music and it shows up.</string>
     <string name="player_cast">Cast to a device</string>
     <string name="player_cast_unavailable">YouTube video tracks play in the embedded player and cannot be cast.</string>
+    <string name="player_cast_chooser_failed">The device list could not be opened on this phone. Playback continues here.</string>
 
     <!-- Artist / album pages -->
     <string name="collection_none">Unknown</string>

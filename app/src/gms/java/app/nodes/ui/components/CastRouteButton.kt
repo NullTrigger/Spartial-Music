@@ -5,6 +5,7 @@
 
 package app.nodes.ui.components
 
+import android.content.Context
 import android.view.ContextThemeWrapper
 import android.view.View
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ import androidx.media3.cast.MediaRouteButtonFactory
 import androidx.media3.common.util.UnstableApi
 import androidx.mediarouter.app.MediaRouteButton
 import app.nodes.R
+import app.nodes.core.crash.AppLogger
 import app.nodes.ui.theme.NodesGrey
 
 /**
@@ -40,6 +42,7 @@ fun CastRouteButton(
     modifier: Modifier = Modifier,
     unavailable: Boolean = false,
     onUnavailableTap: () -> Unit = {},
+    onChooserFailure: () -> Unit = {},
 ) {
     if (unavailable) {
         Box(
@@ -69,7 +72,7 @@ fun CastRouteButton(
             // Theme.Nodes.Cast context (gms/res/values/themes.xml).
             val castContext = ContextThemeWrapper(context, R.style.Theme_Nodes_Cast)
             runCatching {
-                MediaRouteButton(castContext).also { button ->
+                GuardedMediaRouteButton(castContext, onChooserFailure).also { button ->
                     runCatching {
                         MediaRouteButtonFactory.setUpMediaRouteButton(castContext, button)
                     }.onFailure {
@@ -87,4 +90,35 @@ fun CastRouteButton(
         },
         modifier = modifier.size(40.dp),
     )
+}
+
+/**
+ * A [MediaRouteButton] that cannot take the player down.
+ *
+ * `performClick()` opens the route chooser, and that path throws
+ * IllegalStateException when the view cannot reach a FragmentManager - which
+ * needs an activity that is a FragmentActivity (crash report 2026-11-12).
+ * MainActivity is one now, so this is a guard rather than the fix: an OEM
+ * theme overlay or a detached view could still take that path, and a tap on
+ * Cast must never end a listening session.
+ *
+ * The super call is what fires the click listeners, so it is kept and only the
+ * chooser failure is swallowed.
+ */
+private class GuardedMediaRouteButton(
+    context: Context,
+    private val onChooserFailure: () -> Unit,
+) : MediaRouteButton(context) {
+
+    override fun performClick(): Boolean = try {
+        super.performClick()
+    } catch (error: IllegalStateException) {
+        AppLogger.e(TAG, "The cast route chooser could not open", error)
+        onChooserFailure()
+        false
+    }
+
+    private companion object {
+        const val TAG = "Cast"
+    }
 }

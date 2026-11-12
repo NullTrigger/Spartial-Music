@@ -213,6 +213,13 @@ dependencies {
     implementation(libs.youtube.player)
     implementation(libs.play.services.auth)
 
+    // androidx.mediarouter shows the cast route chooser as a DialogFragment, and
+    // it reaches the FragmentManager through the host activity: MediaRouteButton
+    // throws "The activity must be a subclass of FragmentActivity" for any other
+    // base class (crash report 2026-11-12). MainActivity is compiled once for
+    // both flavours, so this cannot live in the gms-only block below.
+    implementation(libs.androidx.fragment)
+
     // Cast is a Play services surface, so it only exists in the gms flavour:
     // the FOSS build must never pull in a Google binary it cannot use.
     "gmsImplementation"(libs.androidx.media3.cast)
