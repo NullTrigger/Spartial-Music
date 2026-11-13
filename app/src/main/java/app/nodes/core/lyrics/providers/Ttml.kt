@@ -50,31 +50,35 @@ object Ttml {
             // Network payloads must never resolve entities or fetch DTDs.
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
             val root = factory.newDocumentBuilder().parse(ttml.byteInputStream()).documentElement
-            parseContainer(root, 0.0)
+            val out = mutableListOf<Line>()
+            walk(root, out)
+            out
         } catch (error: Exception) {
             emptyList()
         }
     }
 
-    private fun parseContainer(element: Element, offset: Double): List<Line> {
-        val out = mutableListOf<Line>()
-        val begin = timingAttr(element, "begin")
-        val localOffset = if (begin.isNotEmpty()) parseTime(begin) else offset
+    /**
+     * Descends through every container (`tt`, `body`, `div`, anything else)
+     * until a `<p>`: the hierarchy varies between producers, and assuming a
+     * single fixed chain - as the first version did, walking only `div` -
+     * skips the `<body>` every real document wraps its content in.
+     */
+    private fun walk(element: Element, out: MutableList<Line>) {
+        val name = element.localName ?: element.nodeName.substringAfterLast(':')
+        if (name == "p") {
+            parseP(element, out)
+            // parseP owns the paragraph's children; do not descend further.
+            return
+        }
         var child = element.firstChild
         while (child != null) {
-            if (child is Element) {
-                val name = child.localName ?: child.nodeName.substringAfterLast(':')
-                when (name) {
-                    "p" -> parseP(child, out, localOffset)
-                    "div" -> out += parseContainer(child, localOffset)
-                }
-            }
+            if (child is Element) walk(child, out)
             child = child.nextSibling
         }
-        return out
     }
 
-    private fun parseP(p: Element, out: MutableList<Line>, offset: Double) {
+    private fun parseP(p: Element, out: MutableList<Line>) {
         val beginAttr = timingAttr(p, "begin")
         val direct = if (beginAttr.isNotEmpty()) parseTime(beginAttr) else Double.NaN
         val fromSpan = if (beginAttr.isNotEmpty() && !direct.isNaN()) null else firstSpanBegin(p)?.let(::parseTime)
@@ -82,14 +86,16 @@ object Ttml {
             .filterNotNull()
             .filter { !it.isNaN() && it.isFinite() }
             .firstOrNull() ?: return
+        // Begin attributes are absolute on the document timeline; nesting adds
+        // nothing. Chaining a div's begin into its children double-counted it.
         val agent = getAttr(p, "agent").takeIf { it.isNotEmpty() }
         val isBackground = p.getAttribute("ttm:role") == "x-bg"
 
         val words = mutableListOf<Word>()
-        val text = collectContent(p, startSeconds + offset, words, agent, isBackground)
+        val text = collectContent(p, startSeconds, words, agent, isBackground)
         val clean = text.trim()
         if (clean.isNotEmpty()) {
-            out += Line(text = clean, startSeconds = startSeconds + offset, words = words.toList())
+            out += Line(text = clean, startSeconds = startSeconds, words = words.toList())
         }
     }
 
