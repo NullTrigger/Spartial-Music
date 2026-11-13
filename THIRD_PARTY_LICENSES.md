@@ -93,7 +93,9 @@ projects in this space, credited here:
 | --- | --- | --- |
 | [Metrolist](https://github.com/mostafaalagamy/Metrolist) | GPL-3.0 | InnerTube protocol reference; Listen Together room protocol and wire field numbers |
 | InnerTune / OuterTune | GPL-3.0 | InnerTube protocol reference |
-| [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube protocol reference, WebView sign-in study, and the Listen Together wire protocol (`metroserver-worker/src/protocol.js`), whose field numbers and gzip envelope `core/session/` is written to match |
+| [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube protocol reference, WebView sign-in study, the Listen Together wire protocol (`metroserver-worker/src/protocol.js`), and the lyrics provider set: the TTML handling in `core/lyrics/providers/Ttml.kt` and the KuGou/Paxsenix/LyricsPlus/BetterLyrics endpoints are written to match its `betterlyrics/`, `kugou/` and `paxsenix/` modules, which derive from ViMusic and BetterLyrics upstream |
+| [ViMusic](https://github.com/vfsfitvnm/ViMusic) | GPL-3.0 | Upstream of the KuGou lyrics search the KuGou provider follows |
+| [BetterLyrics](https://github.com/boiduthewise/betterlyrics) | GPL-3.0 | Upstream of the TTML parsing the `Ttml` object follows |
 
 No source file from those projects is copied verbatim into Spartial Music. The
 Listen Together codec in `core/session/ProtobufWire.kt` and

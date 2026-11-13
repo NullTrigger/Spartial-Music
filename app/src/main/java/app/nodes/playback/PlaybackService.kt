@@ -104,16 +104,28 @@ class PlaybackService : MediaSessionService() {
         // timelines (YouTube tracks carry their stream URL per play), so we
         // add explicit media buttons for next, previous and repeat-cycle
         // instead of relying on the hidden platform ones.
+        //
+        // They must also claim the back and forward SLOTS. DefaultMediaNotificationProvider
+        // builds the row as "if the custom layout has a button for SLOT_BACK use it,
+        // ELSE IF the platform command is available add the standard previous button"
+        // - an unslotted custom button therefore does not replace anything, so the
+        // notification ended up with the platform previous plus all three of ours:
+        // four skip-ish controls, no obvious play/pause, and the repeat button pushed
+        // to the edge. Naming the slots is what makes ours take over those positions.
         val previousButton = CommandButton.Builder()
             .setDisplayName(getString(R.string.player_previous))
             .setSessionCommand(SessionCommand(PREVIOUS_COMMAND, Bundle.EMPTY))
             .setIconResId(R.drawable.ic_notification_previous)
+            .setSlots(CommandButton.SLOT_BACK)
             .build()
         val nextButton = CommandButton.Builder()
             .setDisplayName(getString(R.string.player_next))
             .setSessionCommand(SessionCommand(NEXT_COMMAND, Bundle.EMPTY))
             .setIconResId(R.drawable.ic_notification_next)
+            .setSlots(CommandButton.SLOT_FORWARD)
             .build()
+        // Deliberately unslotted: it belongs after the play/pause pair, not in
+        // place of it.
         val repeatButton = CommandButton.Builder()
             .setDisplayName(getString(R.string.player_repeat))
             .setSessionCommand(SessionCommand(REPEAT_CYCLE_COMMAND, Bundle.EMPTY))

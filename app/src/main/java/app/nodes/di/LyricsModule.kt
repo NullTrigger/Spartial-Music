@@ -7,11 +7,17 @@ package app.nodes.di
 
 import android.content.Context
 import app.nodes.core.lyrics.LyricsProvider
+import app.nodes.core.lyrics.providers.BetterLyricsProvider
+import app.nodes.core.lyrics.providers.KuGouProvider
 import app.nodes.core.lyrics.providers.LocalLyricsProvider
 import app.nodes.core.lyrics.providers.LrcLibProvider
 import app.nodes.core.lyrics.providers.LyricsOvhProvider
+import app.nodes.core.lyrics.providers.LyricsPlusProvider
 import app.nodes.core.lyrics.providers.NetEaseProvider
+import app.nodes.core.lyrics.providers.PaxsenixProvider
 import app.nodes.core.lyrics.providers.SimpMusicProvider
+import app.nodes.core.lyrics.providers.YouTubeCaptionsProvider
+import app.nodes.core.source.youtubemusic.InnerTubeClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -55,4 +61,29 @@ object LyricsModule {
     @IntoSet
     fun provideLyricsOvhProvider(client: OkHttpClient, json: Json): LyricsProvider =
         LyricsOvhProvider(client, json)
+
+    @Provides
+    @IntoSet
+    fun provideKuGouProvider(client: OkHttpClient, json: Json): LyricsProvider =
+        KuGouProvider(client, json)
+
+    @Provides
+    @IntoSet
+    fun provideBetterLyricsProvider(client: OkHttpClient, json: Json): LyricsProvider =
+        BetterLyricsProvider(client, json)
+
+    @Provides
+    @IntoSet
+    fun provideLyricsPlusProvider(client: OkHttpClient, json: Json): LyricsProvider =
+        LyricsPlusProvider(client, json)
+
+    @Provides
+    @IntoSet
+    fun providePaxsenixProvider(client: OkHttpClient, json: Json): LyricsProvider =
+        PaxsenixProvider(client, json)
+
+    @Provides
+    @IntoSet
+    fun provideYouTubeCaptionsProvider(innerTube: InnerTubeClient): LyricsProvider =
+        YouTubeCaptionsProvider(innerTube)
 }

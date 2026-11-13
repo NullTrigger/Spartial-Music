@@ -1236,12 +1236,12 @@ private fun PlayerTransport(
             size = 52.dp,
             iconSize = 34.dp,
         )
+        // A bare icon, as in the reference: the transport reads as glyphs on
+        // the wash, not as a row of buttons. The whole 68dp square is the tap
+        // target so the hit area does not shrink with the chrome.
         Box(
             modifier = Modifier
                 .size(68.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.10f))
-                .glass(shape = CircleShape, strong = true)
                 .clickable(role = Role.Button, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
         ) {
@@ -1255,7 +1255,7 @@ private fun PlayerTransport(
                     if (state.isPlaying) R.string.action_pause else R.string.action_play,
                 ),
                 tint = accent,
-                modifier = Modifier.size(39.dp),
+                modifier = Modifier.size(44.dp),
             )
         }
         CircleIconButton(
@@ -1266,13 +1266,18 @@ private fun PlayerTransport(
             size = 52.dp,
             iconSize = 34.dp,
         )
-        GlassCircleButton(
+        // Bare glyph like its neighbours; the accent tint carries the active
+        // state now that there is no pill behind it.
+        CircleIconButton(
             icon = modeIcon,
             contentDescription = stringResource(
                 if (state.repeatMode == RepeatMode.ONE) R.string.player_repeat else R.string.player_shuffle,
             ),
             onClick = onCycleMode,
-            active = modeActive,
+            tint = if (modeActive) accent else accent.copy(alpha = 0.62f),
+            filled = false,
+            size = 52.dp,
+            iconSize = 30.dp,
         )
     }
 }

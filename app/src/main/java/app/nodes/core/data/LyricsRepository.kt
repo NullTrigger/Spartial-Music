@@ -327,8 +327,16 @@ class LyricsRepository @Inject constructor(
         /** One provider's budget; enough for a cold CDN, short enough to skip. */
         private const val PER_PROVIDER_TIMEOUT_MS = 6_000L
 
-        /** The whole lookup, however many providers are enabled. */
-        private const val TOTAL_TIMEOUT_MS = 12_000L
+        /**
+         * The whole lookup, however many providers are enabled.
+         *
+         * Sized for the provider list, not a fixed number: a synced hit returns
+         * early, so the budget only binds when every provider misses, and the
+         * floor must be enough for the slowest useful provider in the order to
+         * still be reached - the captions source sits last on purpose, and with
+         * ten providers a 12 s budget never got there.
+         */
+        private const val TOTAL_TIMEOUT_MS = 25_000L
 
         /** Anything further off than this is another version of the song. */
         private const val MAX_DRIFT_SEC = 15

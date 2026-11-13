@@ -23,6 +23,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -333,6 +334,31 @@ class InnerTubeClient @Inject constructor(
         }
         runCatching { postEmptyOk("like/like", payload, WEB_REMIX, authenticated = true) }
             .getOrDefault(false)
+    }
+
+    /**
+     * The video's own captions, as line-synced plain text.
+     *
+     * This is the fallback lyric source when every provider misses: YouTube
+     * knows the words even when nobody indexed them, and the timing comes
+     * straight from the video. A music video's captions are not a licensed
+     * lyric sheet - punctuation and formatting are whatever the uploader
+     * typed - so the result carries lower confidence and is used last.
+     *
+     * The endpoint wants the video id packed into a protobuf-ish params blob,
+     * base64 of `\n + field 11 + videoId`, which is what every public client
+     * sends for get_transcript.
+     */
+    suspend fun transcript(videoId: String): String? = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject {
+            put("context", contextFor(WEB_REMIX))
+            put("params", Base64.getEncoder().encodeToString(
+                ("\n" + 11.toChar() + videoId).encodeToByteArray(),
+            ))
+        }
+        val root = runCatching { post("get_transcript", payload, WEB_REMIX, authenticated = false) }
+            .getOrElse { return@withContext null }
+        InnerTubeParser.transcript(root)
     }
 
     // ------------------------------------------------------------------

@@ -64,18 +64,36 @@ object LyricsProviders {
     const val LRCLIB = "lrclib"
     const val SIMPMUSIC = "simp_music"
     const val LYRICS_OVH = "lyrics_ovh"
+    const val KUGOU = "kugou"
+    const val BETTER_LYRICS = "better_lyrics"
+    const val LYRICS_PLUS = "lyrics_plus"
+    const val PAXSENIX = "paxsenix"
+    const val YOUTUBE_CAPTIONS = "youtube_captions"
 
     /**
-     * Local files win: the user put them there on purpose. Then LRCLIB, whose
-     * exact-match endpoint checks title, artist and duration together and is
-     * the least likely of the online sources to hand back another song. Then
-     * SimpMusic and NetEase, whose catalogues are large but whose matching is
-     * loose enough to return covers, live versions and lyric videos with the
-     * timing of a different recording. Lyrics.ovh is last, for plain text when
-     * none of the timed providers know the song.
+     * Local files win: the user put them there on purpose. Then the word-level
+     * sources that actually sing along - BetterLyrics and LyricsPlus - and
+     * Paxsenix, whose Apple Music payloads are syllable-timed but need a token
+     * scrape per session. LRCLIB follows: its exact-match endpoint is the least
+     * likely of the line-synced sources to hand back another song. SimpMusic is
+     * keyed by video id and is the best line-synced source for YouTube Music
+     * tracks, NetEase and KuGou cover Asian and international catalogues,
+     * Lyrics.ovh is plain text, and the video's own captions are the floor:
+     * always there for a YouTube track, but only ever as good as the uploader
+     * typed them.
      */
-    val DEFAULT_ORDER: List<String> =
-        listOf(LOCAL, LRCLIB, SIMPMUSIC, NETEASE, LYRICS_OVH)
+    val DEFAULT_ORDER: List<String> = listOf(
+        LOCAL,
+        BETTER_LYRICS,
+        LYRICS_PLUS,
+        PAXSENIX,
+        LRCLIB,
+        SIMPMUSIC,
+        NETEASE,
+        KUGOU,
+        LYRICS_OVH,
+        YOUTUBE_CAPTIONS,
+    )
 
     /** Providers that need no account or key, so the UI can list them all. */
     val KNOWN: List<String> = DEFAULT_ORDER
