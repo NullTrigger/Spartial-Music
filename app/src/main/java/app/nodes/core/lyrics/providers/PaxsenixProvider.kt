@@ -9,14 +9,13 @@ import app.nodes.core.lyrics.LyricsPayload
 import app.nodes.core.lyrics.LyricsProvider
 import app.nodes.core.lyrics.LyricsQuery
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -118,7 +117,7 @@ class PaxsenixProvider(
                 trackName = attr.name ?: return@mapNotNull null,
                 artistName = attr.artistName.orEmpty(),
                 albumName = attr.albumName,
-                durationSec = attr.durationInMillis?.let { it / 1000 },
+                durationSec = attr.durationInMillis?.let { (it / 1000).toInt() },
             )
         }
     }
@@ -186,7 +185,9 @@ class PaxsenixProvider(
 
         if (response.content.isEmpty()) return null
         // Line arrays carry per-line timestamps; word arrays carry syllables.
-        val words = response.content.firstOrNull()?.text?.firstOrNull()?.timestamp != null
+        // Word entries always carry a timestamp field, so "not null" proves
+        // nothing; a real word-synced payload has positive offsets.
+        val words = response.content.any { line -> line.text.any { it.timestamp > 0L } }
         return Timed(
             response.content.joinToString("\n") { line ->
                 formatStamp(line.timestamp) + line.text.joinToString(" ") { it.text }
@@ -235,10 +236,15 @@ class PaxsenixProvider(
     /** The web player's JWT, scraped once and reused until Apple expires it. */
     private inner class AppleToken {
 
-        private val mutex = Mutex()
         private var cached: String? = null
 
-        fun token(): String? = cached ?: mutex.withLock {
+        /**
+         * Blocking `synchronized` rather than a coroutine Mutex: every caller
+         * is already on Dispatchers.IO behind OkHttp's execute(), and making
+         * this suspend would ripple the token hop through the whole search
+         * path for no concurrency benefit.
+         */
+        fun token(): String? = cached ?: synchronized(this) {
             cached ?: scrape()?.also { cached = it }
         }
 
@@ -335,7 +341,5 @@ class PaxsenixProvider(
         private val ARTIST_SEPARATORS = listOf(
             " & ", " and ", ", ", " x ", " feat. ", " feat ", " ft. ", " ft ", " featuring ", " with ",
         )
-
-        @Suppress("unused")
     }
 }

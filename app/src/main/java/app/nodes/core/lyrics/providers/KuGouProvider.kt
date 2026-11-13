@@ -51,9 +51,20 @@ class KuGouProvider(
         val durationSec = query.durationSec.takeIf { it > 0 } ?: -1
 
         // Best song first, then the keyword index if that dead-ends - the same
-        // two-step order the reference implementation uses.
+        // two-step order the reference implementation uses. The two search
+        // paths return different shapes, so both are normalised here rather
+        // than in an elvis chain.
         val candidate = bestCandidate(searchSongs(keyword), durationSec, keyword)
             ?: searchLyricsByKeyword(keyword, durationSec).candidates.firstOrNull()
+                ?.let { wire ->
+                    Candidate(
+                        id = wire.id,
+                        accesskey = wire.accesskey,
+                        durationSec = wire.duration.toInt(),
+                        songName = null,
+                        artistName = null,
+                    )
+                }
             ?: return LyricsPayload.NotFound
 
         val raw = download(candidate.id, candidate.accesskey)

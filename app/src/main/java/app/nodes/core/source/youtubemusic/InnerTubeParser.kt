@@ -355,6 +355,8 @@ internal object InnerTubeParser {
                 is JsonArray -> for (item in value) {
                     (item as? JsonObject)?.walkTo(key)?.let { return it }
                 }
+                // JsonPrimitive and JsonNull can hold nothing but themselves.
+                else -> Unit
             }
         }
         return null
