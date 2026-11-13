@@ -53,6 +53,15 @@ sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
 
 `local.properties` and `keystore.properties` are git-ignored. Never commit them.
 
+One keystore *is* committed on purpose: `keystores/debug.keystore`, the stable
+signing key for debug builds. Every debug APK - built locally or on CI -
+carries the same signature, so a new APK from GitHub installs over the
+installed one instead of Android reporting a package conflict. Its
+credentials are the standard Android debug credentials (`android` /
+`androiddebugkey`); it is a continuity key for side-loaded updates, not a
+secret. Your own `~/.android/debug.keystore` is untouched but no longer used
+by this project.
+
 ## 3. Add your keys
 
 Both keys are **optional**: without them the app builds and runs with the

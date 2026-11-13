@@ -83,6 +83,21 @@ android {
     }
 
     signingConfigs {
+        /**
+         * A committed, stable debug key. CI and local builds sign identically,
+         * so an APK from GitHub installs over the previous one instead of
+         * Android reporting a package conflict with the installed one. The
+         * credentials are the well-known Android debug credentials (the same
+         * ones every SDK's auto-generated debug keystore carries), so this is
+         * a continuity key for side-loaded updates, not a secret - anyone can
+         * build this repository anyway.
+         */
+        create("stableDebug") {
+            storeFile = rootProject.file("keystores/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (keystorePropertiesFile.exists()) {
             create("release") {
                 storeFile = rootProject.file(
@@ -101,16 +116,22 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            // Not the per-machine debug key: the committed one, so every build
+            // - here or on CI - is an in-place update of every other.
+            signingConfig = signingConfigs.getByName("stableDebug")
         }
         release {
             val releaseSigning = signingConfigs.findByName("release")
             if (releaseSigning == null) {
                 logger.warn(
                     "keystore.properties not found: the release build is signed with the " +
-                        "debug key and must not be distributed. See BUILDING.md.",
+                        "stable debug key and must not be distributed. See BUILDING.md.",
                 )
             }
-            signingConfig = releaseSigning ?: signingConfigs.getByName("debug")
+            // The stable key, not the platform default: a release APK built on
+            // CI without keystore.properties stays updatable over the debug
+            // builds distributed beside it.
+            signingConfig = releaseSigning ?: signingConfigs.getByName("stableDebug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

@@ -15,6 +15,7 @@ captures/
 # Secrets and keys
 *.jks
 *.keystore
+!keystores/debug.keystore
 keystore.properties
 secrets.properties
 google-services.json
