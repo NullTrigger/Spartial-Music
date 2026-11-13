@@ -28,7 +28,6 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -46,9 +45,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.nodes.R
 import app.nodes.core.model.Track
+import app.nodes.ui.components.glassNavBackdrop
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
 
 /**
@@ -70,6 +71,7 @@ fun MiniPlayer(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
     progress: Float = 0f,
+    hazeState: HazeState? = null,
 ) {
     val scope = rememberCoroutineScope()
     // Negative while dragging up, so the capsule lifts toward the player.
@@ -104,7 +106,8 @@ fun MiniPlayer(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 3.dp)
             .then(dragModifier)
-            .glass(RoundedCornerShape(22.dp), strong = true, scrim = 0.82f)
+            // The same real-blur glass as the bar, layout untouched.
+            .glassNavBackdrop(hazeState, RoundedCornerShape(22.dp))
             .clickable(role = Role.Button, onClick = onClick),
     ) {
         if (progress > 0f) {

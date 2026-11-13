@@ -109,7 +109,7 @@ class HomeViewModel @Inject constructor(
                         feed = feed.copy(
                             continuePlaying = recent.ifEmpty { feed.continuePlaying },
                         ),
-                        banners = banners(feed),
+                        banners = banners(feed, recent),
                         newSongs = newSongs(feed, recent),
                     )
                 }
@@ -128,12 +128,22 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Banner carousel source: the provider's own hero rail - the existing
-     * recommendation output - deduped and capped at eight. No new ranking is
-     * applied here; a banner is a poster of a song the algorithm already chose.
+     * Banner carousel source, padded to exactly eight: the provider's hero
+     * rail first (the existing recommendation output), then the user's recent
+     * plays, then the provider's own fallback shelves. Every stage is deduped,
+     * so no song repeats inside the carousel. Fewer than eight only when the
+     * app genuinely knows fewer than eight songs.
      */
-    private fun banners(feed: HomeFeed): List<Track> =
-        feed.hero.map { it.track }.distinctBy { it.id }.take(BANNER_COUNT)
+    private fun banners(feed: HomeFeed, recents: List<Track>): List<Track> {
+        val hero = feed.hero.map { it.track }
+        val recent = recents.filterNot { track -> track.id in hero.map { it.id }.toSet() }
+        val shelved = feed.sections
+            .flatMap { it.tracks }
+            .filterNot { track -> track.id in (hero + recent).map { it.id }.toSet() }
+        return (hero + recent + shelved)
+            .distinctBy { it.id }
+            .take(BANNER_COUNT)
+    }
 
     /**
      * "New songs you may like" runs the same derive the Suggestions screen

@@ -223,6 +223,9 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.coil.compose)
+    // Backdrop blur for the floating bar and mini player (API 31+, scrim
+    // fallback below). Haze is Apache-2.0, see THIRD_PARTY_LICENSES.md.
+    implementation(libs.haze)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)

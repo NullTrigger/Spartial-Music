@@ -97,6 +97,8 @@ projects in this space, credited here:
 | [ViMusic](https://github.com/vfsfitvnm/ViMusic) | GPL-3.0 | Upstream of the KuGou lyrics search the KuGou provider follows |
 | [BetterLyrics](https://github.com/boiduthewise/betterlyrics) | GPL-3.0 | Upstream of the TTML parsing the `Ttml` object follows |
 | [Manrope](https://github.com/googlefonts/manrope) | SIL OFL 1.1 | The app typeface (`res/font/manrope.ttf` variable font); licence at `docs/fonts/MANROPE-OFL.txt` |
+| [Haze](https://github.com/chrisbanes/haze) | Apache-2.0 | The real backdrop blur behind the floating bar and mini player on API 31+ |
+| [Phosphor Icons](https://github.com/phosphor-icons/core) | MIT | The navigation bar's fill-weight glyphs, converted to vector drawables in `res/drawable/ic_nav_*.xml` |
 
 No source file from those projects is copied verbatim into Spartial Music. The
 Listen Together codec in `core/session/ProtobufWire.kt` and

@@ -204,7 +204,10 @@ fun HomeBannerCarousel(
         ) {
             header()
             Spacer(Modifier.weight(1f))
-            Column(Modifier.padding(horizontal = 20.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
                     text = stringResource(R.string.now_playing_label),
                     style = MaterialTheme.typography.labelSmall,
@@ -213,10 +216,11 @@ fun HomeBannerCarousel(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = banners[active].title,
-                    style = NodesType.sheetTitle.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                    style = NodesType.sheetTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
                     color = NodesWhite,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 Text(
                     text = banners[active].artist,
@@ -226,13 +230,17 @@ fun HomeBannerCarousel(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Play is a centred pill at about half the screen width; Next
+                // advances the carousel, not the song, and sits at the right
+                // margin, vertically centred on Play.
+                Box(Modifier.fillMaxWidth()) {
                     Box(
                         modifier = Modifier
-                            .weight(1f)
+                            .align(Alignment.Center)
+                            .fillMaxWidth(0.5f)
                             .height(48.dp)
                             .clip(RoundedCornerShape(24.dp))
-                            .background(NodesWhite.copy(alpha = 0.20f))
+                            .background(NodesWhite.copy(alpha = 0.18f))
                             .clickable(role = Role.Button) {
                                 onPlay(banners[active], banners)
                             },
@@ -244,10 +252,8 @@ fun HomeBannerCarousel(
                             color = NodesWhite,
                         )
                     }
-                    // Next advances the carousel, not the song: the same slide
-                    // the auto-advance uses, and it restarts the timer by
-                    // virtue of being the only writer while this effect runs.
                     TextButton(
+                        modifier = Modifier.align(Alignment.CenterEnd),
                         onClick = {
                             scope.launch {
                                 runCatching {
@@ -276,8 +282,12 @@ fun HomeBannerCarousel(
                 // Page dots: the active one elongates into a pill.
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(bottom = 12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Spacer(Modifier.weight(1f))
                     repeat(count) { index ->
                         val isActive = index == active
                         Box(
@@ -296,6 +306,7 @@ fun HomeBannerCarousel(
                                 .background(NodesWhite.copy(alpha = if (isActive) 1f else 0.30f)),
                         )
                     }
+                    Spacer(Modifier.weight(1f))
                 }
             }
         }
