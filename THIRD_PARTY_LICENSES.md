@@ -96,6 +96,7 @@ projects in this space, credited here:
 | [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube protocol reference, WebView sign-in study, the Listen Together wire protocol (`metroserver-worker/src/protocol.js`), and the lyrics provider set: the TTML handling in `core/lyrics/providers/Ttml.kt` and the KuGou/Paxsenix/LyricsPlus/BetterLyrics endpoints are written to match its `betterlyrics/`, `kugou/` and `paxsenix/` modules, which derive from ViMusic and BetterLyrics upstream |
 | [ViMusic](https://github.com/vfsfitvnm/ViMusic) | GPL-3.0 | Upstream of the KuGou lyrics search the KuGou provider follows |
 | [BetterLyrics](https://github.com/boiduthewise/betterlyrics) | GPL-3.0 | Upstream of the TTML parsing the `Ttml` object follows |
+| [Manrope](https://github.com/googlefonts/manrope) | SIL OFL 1.1 | The app typeface (`res/font/manrope.ttf` variable font); licence at `docs/fonts/MANROPE-OFL.txt` |
 
 No source file from those projects is copied verbatim into Spartial Music. The
 Listen Together codec in `core/session/ProtobufWire.kt` and

@@ -34,6 +34,7 @@ import app.nodes.ui.components.FloatingTabBar
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.MiniPlayer
 import app.nodes.ui.components.NodesNavItems
+import app.nodes.ui.components.ScrollTopBus
 import app.nodes.ui.screens.collection.CollectionScreen
 import app.nodes.ui.screens.diagnostics.DiagnosticsScreen
 import app.nodes.ui.screens.home.HomeScreen
@@ -59,15 +60,6 @@ import app.nodes.ui.screens.trending.TrendingScreen
 import app.nodes.ui.theme.NodesBlack
 import kotlinx.coroutines.delay
 
-/** The five tab roots; only these show the floating bottom bar. */
-private val TAB_ROUTES = setOf(
-    Routes.HOME,
-    Routes.SESSIONS,
-    Routes.SUGGESTIONS,
-    Routes.LIBRARY,
-    Routes.SEARCH,
-)
-
 @Composable
 fun NodesApp() {
     val navController = rememberNavController()
@@ -75,10 +67,15 @@ fun NodesApp() {
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
-    val showBar = route in TAB_ROUTES
+    // The bar is persistent: every screen except the full-screen player (and
+    // the pre-auth login flow) keeps it docked, nested screens included.
+    val showBar = route != null && route != Routes.PLAYER && route != Routes.LOGIN
     // The full player owns the screen; every other destination keeps playback
     // one tap away in the mini player.
     val showMiniPlayer = route != null && route != Routes.PLAYER
+    // The bar is persistent: every screen except the full-screen player (and
+    // the pre-auth login flow) keeps it docked, nested screens included.
+    val showBar = route != null && route != Routes.PLAYER && route != Routes.LOGIN
     val message = playerState.message
 
     LaunchedEffect(message) {
@@ -106,6 +103,7 @@ fun NodesApp() {
                 HomeScreen(
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                    onOpenSuggestions = { navController.navigate(Routes.SUGGESTIONS) },
                     onOpenCollection = { collectionId ->
                         navController.navigate(Routes.playlist(collectionId))
                     },
@@ -333,6 +331,10 @@ fun NodesApp() {
                                     launchSingleTop = true
                                     restoreState = true
                                 }
+                            } else {
+                                // Already here: ask the screen to scroll back
+                                // to the top rather than reloading it.
+                                ScrollTopBus.request(target)
                             }
                         },
                     )

@@ -6,50 +6,72 @@
 package app.nodes.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
 import app.nodes.core.model.HomeSection
 import app.nodes.core.model.Track
 import app.nodes.core.source.youtubemusic.InnerTubeAccount
+import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.ArtworkCard
-import app.nodes.ui.components.ContinuePlayingCard
-import app.nodes.ui.components.HomeHero
-import app.nodes.ui.components.HomeTopBar
+import app.nodes.ui.components.HomeBannerCarousel
 import app.nodes.ui.components.LoadingRows
+import app.nodes.ui.components.NewSongsPager
+import app.nodes.ui.components.ScrollTopBus
 import app.nodes.ui.components.SectionHeader
 import app.nodes.ui.components.ErrorState
 import app.nodes.ui.components.EmptyState
 import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.theme.NodesBlack
+import app.nodes.ui.theme.NodesRadius
 import app.nodes.ui.theme.NodesSpacing
 import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
 
 /**
- * Home is a single dark stage: a full-bleed hero, the listener's own recent
- * music, then the provider's shelves. The header floats over the hero artwork;
- * when there is no hero the list reserves the same strip so the wordmark never
- * lands on a section title.
+ * Home is one vertical scroll:
+ *
+ *  1. the banner carousel with the header and the now-playing block riding on
+ *     it, dissolving into black at its foot;
+ *  2. Continue Playing - the play history, most recent first;
+ *  3. New Songs You May Like - the suggestions algorithm's output;
+ *  4. the provider's own shelves (Quick picks and friends), unchanged.
+ *
+ * The old Recents rail is gone: Continue Playing carries the history now.
  */
 @Composable
 fun HomeScreen(
@@ -58,56 +80,52 @@ fun HomeScreen(
     onOpenSection: (HomeSection) -> Unit,
     onOpenCollection: (String) -> Unit,
     onOpenStats: () -> Unit,
+    onOpenSuggestions: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
-    val heroTracks = state.feed.hero.map { it.track }
+    val playerState by playerViewModel.state.collectAsStateWithLifecycle()
+    val banners = state.banners
     val loading = state.loading
-    val hasContent = heroTracks.isNotEmpty() ||
-        state.feed.continuePlaying.isNotEmpty() ||
-        state.recents.isNotEmpty() ||
-        state.feed.sections.any { it.tracks.isNotEmpty() }
 
     Box(
         Modifier
             .fillMaxSize()
             .background(NodesBlack),
     ) {
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        // The bar's "tap the active tab" contract: return to the top, never
+        // reload. Other screens that hoist a list can subscribe the same way.
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            ScrollTopBus.events.collect { target ->
+                if (target == "home") {
+                    runCatching { listState.scrollToItem(0) }
+                }
+            }
+        }
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
         ) {
-            if (heroTracks.isNotEmpty()) {
-                item(key = "hero") {
-                    HomeHero(
-                        slides = state.feed.hero,
-                        onPlay = { track -> playerViewModel.play(track, heroTracks) },
-                    )
-                }
-            } else {
-                item(key = "top-space") {
-                    Spacer(
-                        Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .height(72.dp),
-                    )
-                }
-                item(key = "greeting") {
-                    Text(
-                        text = stringResource(R.string.home_title),
-                        style = NodesType.heroTitle,
-                        color = NodesWhite,
-                        modifier = Modifier.padding(
-                            start = NodesSpacing.gutter,
-                            end = NodesSpacing.gutter,
-                            top = 6.dp,
-                            bottom = 8.dp,
-                        ),
-                    )
-                }
+            item(key = "banner") {
+                HomeBannerCarousel(
+                    banners = banners,
+                    loading = loading,
+                    onPlay = { track, queue ->
+                        playerViewModel.play(track, queue)
+                        onOpenPlayer()
+                    },
+                    header = {
+                        HomeHeader(
+                            account = account,
+                            onOpenSettings = onOpenSettings,
+                            onOpenStats = onOpenStats,
+                        )
+                    },
+                )
             }
 
             state.error?.let { error ->
@@ -119,60 +137,43 @@ fun HomeScreen(
                 }
             }
 
-            if (loading && !hasContent) {
-                item(key = "loading") {
-                    LoadingRows()
-                }
-            }
-
-            if (state.recents.isNotEmpty()) {
-                item(key = "recents-header") {
-                    SectionHeader(
-                        title = stringResource(R.string.home_recents),
-                        onClick = onOpenPlayer,
-                    )
-                }
-                item(key = "recents") {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        items(items = state.recents, key = { "recent-${it.id}" }) { track ->
-                            ArtworkCard(
-                                track = track,
-                                onClick = { playerViewModel.play(track, state.recents) },
-                                width = 136.dp,
-                                showPlay = true,
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (state.recents.isEmpty() && state.feed.continuePlaying.isNotEmpty()) {
+            // Continue Playing: the history, most recent first, the song that is
+            // on right now left out of the row it would only duplicate.
+            val history = state.feed.continuePlaying
+                .filter { it.id != playerState.current?.id }
+            if (history.isNotEmpty()) {
                 item(key = "continue-header") {
-                    SectionHeader(
-                        title = stringResource(R.string.continue_playing),
-                        onClick = onOpenPlayer,
+                    Text(
+                        text = stringResource(R.string.continue_playing),
+                        style = NodesType.sectionTitle,
+                        color = NodesWhite,
+                        modifier = Modifier.padding(
+                            start = NodesSpacing.gutter,
+                            end = NodesSpacing.gutter,
+                            top = 26.dp,
+                            bottom = 12.dp,
+                        ),
                     )
                 }
                 item(key = "continue") {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        items(
-                            items = state.feed.continuePlaying,
-                            key = { "continue-${it.id}" },
-                        ) { track ->
-                            ContinuePlayingCard(
-                                track = track,
-                                onClick = {
-                                    playerViewModel.play(track, state.feed.continuePlaying)
-                                },
-                            )
-                        }
-                    }
+                    ContinuePlayingRow(
+                        tracks = history,
+                        onPlay = { track ->
+                            playerViewModel.play(track, history)
+                        },
+                    )
+                }
+            }
+
+            if (state.newSongs.isNotEmpty() || loading) {
+                item(key = "new-songs") {
+                    NewSongsPager(
+                        songs = state.newSongs,
+                        loading = loading,
+                        onPlay = { track, queue -> playerViewModel.play(track, queue) },
+                        onSeeAll = onOpenSuggestions,
+                        modifier = Modifier.padding(top = 26.dp),
+                    )
                 }
             }
 
@@ -193,7 +194,17 @@ fun HomeScreen(
                 }
             }
 
-            if (!loading && !hasContent && state.error == null) {
+            if (loading && banners.isEmpty() && state.newSongs.isEmpty() &&
+                state.feed.sections.all { it.tracks.isEmpty() }
+            ) {
+                item(key = "loading") {
+                    LoadingRows()
+                }
+            }
+
+            if (!loading && banners.isEmpty() && state.newSongs.isEmpty() &&
+                state.feed.sections.all { it.tracks.isEmpty() } && state.error == null
+            ) {
                 item(key = "empty") {
                     EmptyState(
                         title = stringResource(R.string.home_title),
@@ -206,14 +217,127 @@ fun HomeScreen(
                 Spacer(Modifier.height(8.dp))
             }
         }
+    }
+}
 
-        HomeTopBar(
-            onOpenSettings = onOpenSettings,
-            onOpenStats = onOpenStats,
-            avatarInitial = profileInitial(account),
-            signedIn = account != null,
-            modifier = Modifier.align(Alignment.TopStart),
+/**
+ * The home header, riding on the banner: the word "Home" on the left, the
+ * settings shortcut and the profile avatar on the right - the same two
+ * controls HomeTopBar used to carry, with the wordmark retired.
+ */
+@Composable
+private fun HomeHeader(
+    account: InnerTubeAccount?,
+    onOpenSettings: () -> Unit,
+    onOpenStats: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = NodesSpacing.gutter, end = 16.dp, top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.home_title),
+            style = NodesType.heroTitle.copy(fontSize = 27.sp),
+            color = NodesWhite,
+            modifier = Modifier.weight(1f),
         )
+        Icon(
+            imageVector = Icons.Rounded.Settings,
+            contentDescription = stringResource(R.string.cd_open_settings),
+            tint = NodesWhite,
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpenSettings)
+                .padding(6.dp)
+                .size(24.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(NodesWhite)
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpenStats),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = profileInitial(account),
+                style = NodesType.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = NodesBlack,
+            )
+        }
+    }
+}
+
+/**
+ * One history entry: the artwork at the left, the title with its artist
+ * riding on the same line, and the album beneath when the song has one.
+ */
+@Composable
+private fun ContinuePlayingRow(
+    tracks: List<Track>,
+    onPlay: (Track) -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(items = tracks, key = { "continue-${it.id}" }) { track ->
+            Row(
+                modifier = Modifier
+                    .fillParentMaxWidth(0.86f)
+                    .height(76.dp)
+                    .clip(RoundedCornerShape(NodesRadius.card))
+                    .background(NodesWhite.copy(alpha = 0.05f))
+                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { onPlay(track) }
+                    .padding(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Artwork(
+                    artworkUri = track.artworkUri,
+                    title = track.title,
+                    modifier = Modifier.size(64.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    targetPx = 256,
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(
+                                androidx.compose.ui.text.SpanStyle(
+                                    fontWeight = FontWeight.Bold,
+                                    color = NodesWhite,
+                                ),
+                            ) { append(track.title) }
+                            track.artist.takeIf { it.isNotBlank() }?.let { artist ->
+                                withStyle(
+                                    androidx.compose.ui.text.SpanStyle(
+                                        fontWeight = FontWeight.Normal,
+                                        color = NodesWhite.copy(alpha = 0.60f),
+                                    ),
+                                ) { append(" (${artist})") }
+                            }
+                        },
+                        style = NodesType.rowTitle.copy(fontSize = 16.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    track.album?.takeIf { it.isNotBlank() }?.let { album ->
+                        Text(
+                            text = album,
+                            style = NodesType.rowMeta,
+                            color = NodesWhite.copy(alpha = 0.55f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

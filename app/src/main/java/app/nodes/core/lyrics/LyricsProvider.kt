@@ -71,27 +71,24 @@ object LyricsProviders {
     const val YOUTUBE_CAPTIONS = "youtube_captions"
 
     /**
-     * Local files win: the user put them there on purpose. Then the word-level
-     * sources that actually sing along - BetterLyrics and LyricsPlus - and
-     * Paxsenix, whose Apple Music payloads are syllable-timed but need a token
-     * scrape per session. LRCLIB follows: its exact-match endpoint is the least
-     * likely of the line-synced sources to hand back another song. SimpMusic is
-     * keyed by video id and is the best line-synced source for YouTube Music
-     * tracks, NetEase and KuGou cover Asian and international catalogues,
-     * Lyrics.ovh is plain text, and the video's own captions are the floor:
-     * always there for a YouTube track, but only ever as good as the uploader
-     * typed them.
+     * Local files win: the user put them there on purpose. Then the proven
+     * line-synced sources, cheapest and most reliable first: LRCLIB's exact
+     * match, SimpMusic (keyed by the video id), NetEase, KuGou, then
+     * Lyrics.ovh's plain text. The word-level sources follow - richer when
+     * they hit, but they are new, community-run and slower (Paxsenix needs a
+     * token scrape), so they must never hold up the sources that almost always
+     * answer. The video's own captions are the floor.
      */
     val DEFAULT_ORDER: List<String> = listOf(
         LOCAL,
-        BETTER_LYRICS,
-        LYRICS_PLUS,
-        PAXSENIX,
         LRCLIB,
         SIMPMUSIC,
         NETEASE,
         KUGOU,
         LYRICS_OVH,
+        BETTER_LYRICS,
+        LYRICS_PLUS,
+        PAXSENIX,
         YOUTUBE_CAPTIONS,
     )
 
