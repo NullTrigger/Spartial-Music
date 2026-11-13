@@ -53,6 +53,7 @@ class ComponentsRenderTest {
                     currentRoute = "home",
                     items = NodesNavItems,
                     onSelect = { selected = it },
+                    hazeState = null,
                 )
             }
         }

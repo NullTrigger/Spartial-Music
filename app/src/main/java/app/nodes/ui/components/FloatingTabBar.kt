@@ -72,7 +72,7 @@ fun FloatingTabBar(
     currentRoute: String?,
     items: List<BottomNavItem>,
     onSelect: (String) -> Unit,
-    hazeState: HazeState?,
+    hazeState: HazeState? = null,
     modifier: Modifier = Modifier,
 ) {
     // Order comes from the caller; the last item is the circular search.
