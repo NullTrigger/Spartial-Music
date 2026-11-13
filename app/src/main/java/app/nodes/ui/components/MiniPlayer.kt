@@ -107,7 +107,7 @@ fun MiniPlayer(
             .padding(horizontal = 16.dp, vertical = 3.dp)
             .then(dragModifier)
             // The same real-blur glass as the bar, layout untouched.
-            .glassNavBackdrop(Modifier, hazeState, RoundedCornerShape(22.dp))
+            .then(glassNavBackdrop(Modifier, hazeState, RoundedCornerShape(22.dp)))
             .clickable(role = Role.Button, onClick = onClick),
     ) {
         if (progress > 0f) {
