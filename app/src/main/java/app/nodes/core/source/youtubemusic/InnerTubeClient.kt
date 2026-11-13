@@ -23,6 +23,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -102,6 +103,25 @@ class InnerTubeClient @Inject constructor(
     private val json: Json,
     private val auth: InnerTubeAuth,
 ) {
+
+    /**
+     * Recently minted stream URLs, keyed by `"videoId:quality"`. Only Playable
+     * answers are stored; a Refused answer is re-tried on the next play.
+     */
+    private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
+
+    /**
+     * Clients that have already served a URL the CDN accepted. Their later
+     * answers skip the one-byte reachability probe, which is a whole extra
+     * round trip on the critical path between the tap and the first sample of
+     * audio. A URL that goes bad anyway is caught by the player's 403 path,
+     * which drops the cached stream and mints a fresh one.
+     */
+    private val validatedClients = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    private fun streamCacheKey(videoId: String, preferHighQuality: Boolean): String =
+        "$videoId:${if (preferHighQuality) "hi" else "lo"}"
+
 
     // ------------------------------------------------------------------
     // Browsing
@@ -192,12 +212,21 @@ class InnerTubeClient @Inject constructor(
      * Resolves a directly playable audio URL for [videoId].
      *
      * The clients in [PLAYBACK_CLIENTS] are asked in turn, best first; the first
-     * answer that is both `OK` and actually fetchable wins. Each URL is
-     * short-lived and bound to the client that minted it, so it must be used
-     * immediately and never cached.
+     * answer that is both `OK` and actually fetchable wins. Each URL is bound to
+     * the client that minted it and expires after a few hours, so a minted URL
+     * is reused only inside [STREAM_CACHE_TTL_MS] - comfortably shorter than
+     * googlevideo's own lifetime. The cache is what makes replays, skipping
+     * back, and a prefetched next track start instantly instead of paying for
+     * the whole client round-trip again; a stale entry is dropped by
+     * [invalidateStream] when the CDN answers 403.
      */
     suspend fun audioUrl(videoId: String, preferHighQuality: Boolean): InnerTubeStream =
         withContext(Dispatchers.IO) {
+            val key = streamCacheKey(videoId, preferHighQuality)
+            streamCache[key]?.takeIf { it.isFresh() }?.let { cached ->
+                return@withContext InnerTubeStream.Playable(cached.url, cached.client)
+            }
+
             val notes = mutableListOf<String>()
 
             for (profile in PLAYBACK_CLIENTS) {
@@ -224,16 +253,28 @@ class InnerTubeClient @Inject constructor(
                     continue
                 }
 
-                if (!isReachable(url, profile.userAgent)) {
-                    notes += "${profile.name}: stream rejected by the CDN"
-                    continue
+                if (profile.name in validatedClients || isReachable(url, profile.userAgent)) {
+                    validatedClients.add(profile.name)
+                    streamCache[key] = CachedStream(url, profile.name, System.currentTimeMillis())
+                    return@withContext InnerTubeStream.Playable(url, profile.name)
                 }
 
-                return@withContext InnerTubeStream.Playable(url, profile.name)
+                notes += "${profile.name}: stream rejected by the CDN"
+                continue
             }
 
             InnerTubeStream.Refused(notes.joinToString("; "))
         }
+
+    /** Drops the cached URL(s) for [videoId] so the next play re-mints one. */
+    fun invalidateStream(videoId: String) {
+        streamCache.keys.removeAll { it.startsWith("$videoId:") }
+    }
+
+    private class CachedStream(val url: String, val client: String, val mintedAt: Long) {
+        fun isFresh(): Boolean =
+            System.currentTimeMillis() - mintedAt < STREAM_CACHE_TTL_MS
+    }
 
     private suspend fun requestStream(
         profile: InnerTubeClientProfile,
@@ -293,6 +334,31 @@ class InnerTubeClient @Inject constructor(
         }
         runCatching { postEmptyOk("like/like", payload, WEB_REMIX, authenticated = true) }
             .getOrDefault(false)
+    }
+
+    /**
+     * The video's own captions, as line-synced plain text.
+     *
+     * This is the fallback lyric source when every provider misses: YouTube
+     * knows the words even when nobody indexed them, and the timing comes
+     * straight from the video. A music video's captions are not a licensed
+     * lyric sheet - punctuation and formatting are whatever the uploader
+     * typed - so the result carries lower confidence and is used last.
+     *
+     * The endpoint wants the video id packed into a protobuf-ish params blob,
+     * base64 of `\n + field 11 + videoId`, which is what every public client
+     * sends for get_transcript.
+     */
+    suspend fun transcript(videoId: String): String? = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject {
+            put("context", contextFor(WEB_REMIX))
+            put("params", Base64.getEncoder().encodeToString(
+                ("\n" + 11.toChar() + videoId).encodeToByteArray(),
+            ))
+        }
+        val root = runCatching { post("get_transcript", payload, WEB_REMIX, authenticated = false) }
+            .getOrElse { return@withContext null }
+        InnerTubeParser.transcript(root)
     }
 
     // ------------------------------------------------------------------
@@ -438,6 +504,13 @@ class InnerTubeClient @Inject constructor(
         private const val EMBED_URL = "https://www.reddit.com/"
         private const val RETRIES = 3
         private const val RETRY_DELAY_MS = 500L
+
+        /**
+         * How long a minted googlevideo URL may be reused. YouTube's own expiry
+         * is roughly six hours; half an hour keeps a wide safety margin so a
+         * cached URL still plays even if the clock or the CDN drifts.
+         */
+        private const val STREAM_CACHE_TTL_MS = 30L * 60_000L
 
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 

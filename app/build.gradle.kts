@@ -83,6 +83,21 @@ android {
     }
 
     signingConfigs {
+        /**
+         * A committed, stable debug key. CI and local builds sign identically,
+         * so an APK from GitHub installs over the previous one instead of
+         * Android reporting a package conflict with the installed one. The
+         * credentials are the well-known Android debug credentials (the same
+         * ones every SDK's auto-generated debug keystore carries), so this is
+         * a continuity key for side-loaded updates, not a secret - anyone can
+         * build this repository anyway.
+         */
+        create("stableDebug") {
+            storeFile = rootProject.file("keystores/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (keystorePropertiesFile.exists()) {
             create("release") {
                 storeFile = rootProject.file(
@@ -101,16 +116,22 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            // Not the per-machine debug key: the committed one, so every build
+            // - here or on CI - is an in-place update of every other.
+            signingConfig = signingConfigs.getByName("stableDebug")
         }
         release {
             val releaseSigning = signingConfigs.findByName("release")
             if (releaseSigning == null) {
                 logger.warn(
                     "keystore.properties not found: the release build is signed with the " +
-                        "debug key and must not be distributed. See BUILDING.md.",
+                        "stable debug key and must not be distributed. See BUILDING.md.",
                 )
             }
-            signingConfig = releaseSigning ?: signingConfigs.getByName("debug")
+            // The stable key, not the platform default: a release APK built on
+            // CI without keystore.properties stays updatable over the debug
+            // builds distributed beside it.
+            signingConfig = releaseSigning ?: signingConfigs.getByName("stableDebug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -212,6 +233,13 @@ dependencies {
 
     implementation(libs.youtube.player)
     implementation(libs.play.services.auth)
+
+    // androidx.mediarouter shows the cast route chooser as a DialogFragment, and
+    // it reaches the FragmentManager through the host activity: MediaRouteButton
+    // throws "The activity must be a subclass of FragmentActivity" for any other
+    // base class (crash report 2026-11-12). MainActivity is compiled once for
+    // both flavours, so this cannot live in the gms-only block below.
+    implementation(libs.androidx.fragment)
 
     // Cast is a Play services surface, so it only exists in the gms flavour:
     // the FOSS build must never pull in a Google binary it cannot use.

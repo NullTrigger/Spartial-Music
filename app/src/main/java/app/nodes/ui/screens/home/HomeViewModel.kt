@@ -35,6 +35,10 @@ data class HomeUiState(
     val loading: Boolean = true,
     val feed: HomeFeed = HomeFeed(),
     val recents: List<Track> = emptyList(),
+    /** Banner carousel: the recommendation rail, deduped, capped at eight. */
+    val banners: List<Track> = emptyList(),
+    /** The suggestions derive's "fresh" list, unchanged. */
+    val newSongs: List<Track> = emptyList(),
     val error: SourceErrorType? = null,
     val sourceName: String = "",
     val sourceId: SourceId = SourceId.LOCAL,
@@ -105,6 +109,8 @@ class HomeViewModel @Inject constructor(
                         feed = feed.copy(
                             continuePlaying = recent.ifEmpty { feed.continuePlaying },
                         ),
+                        banners = banners(feed),
+                        newSongs = newSongs(feed, recent),
                     )
                 }
             }
@@ -119,5 +125,48 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Banner carousel source: the provider's own hero rail - the existing
+     * recommendation output - deduped and capped at eight. No new ranking is
+     * applied here; a banner is a poster of a song the algorithm already chose.
+     */
+    private fun banners(feed: HomeFeed): List<Track> =
+        feed.hero.map { it.track }.distinctBy { it.id }.take(BANNER_COUNT)
+
+    /**
+     * "New songs you may like" runs the same derive the Suggestions screen
+     * runs over the same feed - hero, shelves and recent plays - so the home
+     * screen shows that algorithm's output without a second implementation:
+     *
+     * top = the algorithm's own first picks (excluded), because = tracks that
+     * share the most recent song's artist, then everything else that remains.
+     */
+    private fun newSongs(feed: HomeFeed, recents: List<Track>): List<Track> {
+        val hero = feed.hero.map { it.track }
+        val shelved = feed.sections.flatMap { it.tracks }
+        val all = (hero + shelved + feed.continuePlaying).distinctBy { it.id }
+        val seed = recents.firstOrNull()
+        val top = (hero + shelved).distinctBy { it.id }.take(8)
+        val topIds = top.mapTo(HashSet()) { it.id }
+        val related = seed?.let { first ->
+            all.filter { track ->
+                track.id != first.id && track.artist.equals(first.artist, ignoreCase = true)
+            }
+        }.orEmpty()
+        val because = (related + all)
+            .distinctBy { it.id }
+            .filterNot { it.id in topIds }
+            .take(6)
+        val becauseIds = because.mapTo(HashSet()) { it.id }
+        return all
+            .filterNot { it.id in topIds || it.id in becauseIds }
+            .take(NEW_SONG_COUNT)
+    }
+
+    private companion object {
+        const val BANNER_COUNT = 8
+        const val NEW_SONG_COUNT = 10
     }
 }

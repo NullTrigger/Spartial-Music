@@ -93,6 +93,9 @@ class PlaybackController @Inject constructor(
     @Volatile
     private var extendingQueue = false
 
+    /** Id of the queue entry whose stream URL was already warmed. */
+    private var prefetchedTrackId: String? = null
+
     private var sleepJob: Job? = null
 
     /**
@@ -125,7 +128,7 @@ class PlaybackController @Inject constructor(
                 refreshedStreams.add(track.id)
             ) {
                 _state.update { it.copy(message = "Stream expired, refreshing…") }
-                playNow(track, queue.ifEmpty { listOf(track) })
+                playNow(track, queue.ifEmpty { listOf(track) }, forceRefresh = true)
                 return
             }
             _state.update { it.copy(message = error.errorCodeName.ifBlank { "Playback error" }) }
@@ -187,6 +190,7 @@ class PlaybackController @Inject constructor(
                                 durationMs = player.duration.takeIf { it > 0L } ?: state.durationMs,
                             )
                         }
+                        prefetchUpcoming()
                     }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -195,6 +199,34 @@ class PlaybackController @Inject constructor(
                     AppLogger.w("Player", "Playback tick skipped", error)
                 }
                 delay(TICK_MS)
+            }
+        }
+    }
+
+    /**
+     * Ask the source behind the next queue entry to warm whatever [playNow]
+     * will need for it - for YouTube Music that is the stream URL round-trip,
+     * which is most of the wait when skipping ahead. Fired once per track,
+     * shortly after playback is comfortably established, and never for a track
+     * the player already holds a resolved URL for.
+     */
+    private fun prefetchUpcoming() {
+        val state = _state.value
+        if (state.isBuffering || state.embeddedVideoId != null) return
+        if (state.positionMs < PREFETCH_AFTER_MS) return
+        val upcoming = queue.getOrNull(queuePosition + 1) ?: return
+        if (upcoming.mediaUri != null) return
+        if (upcoming.id == prefetchedTrackId || upcoming.id == state.current?.id) return
+        prefetchedTrackId = upcoming.id
+        scope.launch {
+            try {
+                registry.forTrack(upcoming.sourceId)?.prefetch(upcoming)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                // Prefetching is an optimisation; a failure just means the
+                // next skip takes the normal route.
+                AppLogger.w("Player", "Stream prefetch failed", error)
             }
         }
     }
@@ -228,19 +260,42 @@ class PlaybackController @Inject constructor(
         return controller
     }
 
-    fun playNow(track: Track, playbackQueue: List<Track> = listOf(track)) {
+    fun playNow(track: Track, playbackQueue: List<Track> = listOf(track), forceRefresh: Boolean = false) {
         scope.launch {
+            // Minting a stream costs at least one network round trip, and the
+            // tap that started it would otherwise appear to do nothing until
+            // that answer arrives. Show the tapped track immediately with the
+            // buffering ring, and put the previous state back if the stream
+            // cannot be started.
+            val before = _state.value
+            val optimistic = track.id != before.current?.id
+            if (optimistic) {
+                _state.value = before.copy(
+                    current = track,
+                    queue = playbackQueue.ifEmpty { listOf(track) },
+                    isPlaying = false,
+                    isBuffering = true,
+                    positionMs = 0L,
+                    durationMs = track.durationMs,
+                    message = null,
+                )
+            }
+            fun fail(reason: String) {
+                _state.value = before.copy(message = reason)
+            }
+
             // Resolving a stream is provider and network code. A failure there
             // has to become a message; an uncaught exception on this (main)
             // scope would take the whole process down mid-listen.
             val result = try {
                 val source = registry.forTrack(track.sourceId)
+                if (forceRefresh) runCatching { source?.invalidateStream(track) }
                 source?.play(track) ?: SourceResult.Failure(SourceErrorType.UNKNOWN)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
                 AppLogger.e("Player", "Resolving the stream failed", error)
-                _state.update { it.copy(message = context.getString(R.string.playback_could_not_start)) }
+                fail(context.getString(R.string.playback_could_not_start))
                 return@launch
             }
 
@@ -251,12 +306,13 @@ class PlaybackController @Inject constructor(
             val handle = (result as? SourceResult.Success)?.data
 
             try {
-                applyHandle(track, playbackQueue, handle)
+                val reason = applyHandle(track, playbackQueue, handle)
+                if (reason != null) fail(reason)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
                 AppLogger.e("Player", "Starting the player failed", error)
-                _state.update { it.copy(message = context.getString(R.string.playback_could_not_start)) }
+                fail(context.getString(R.string.playback_could_not_start))
             }
         }
     }
@@ -267,18 +323,19 @@ class PlaybackController @Inject constructor(
      * Split out of [playNow] so every Media3 call sits inside one guarded
      * block: a player rejecting an item becomes a message on the player, not an
      * uncaught exception that closes the app while music is playing.
+     *
+     * @return null when playback started, otherwise the reason to show.
      */
     private suspend fun applyHandle(
         track: Track,
         playbackQueue: List<Track>,
         handle: PlaybackHandle?,
-    ) {
-        when (handle) {
+    ): String? {
+        return when (handle) {
             is PlaybackHandle.Stream -> {
                 val player = awaitController()
                 if (player == null) {
-                    _state.update { it.copy(message = "The player is still starting. Try again.") }
-                    return
+                    return "The player is still starting. Try again."
                 }
                 // The URL was minted for this track a moment ago, so it is
                 // attached to the copy that goes into the player. Tracks from
@@ -299,8 +356,7 @@ class PlaybackController @Inject constructor(
                     withUrls.filter { it.mediaUri != null }
                 }
                 if (playable.isEmpty()) {
-                    _state.update { it.copy(message = "Nothing in this list can be streamed.") }
-                    return
+                    return "Nothing in this list can be streamed."
                 }
                 val startIndex = playable.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
                 queue = withUrls
@@ -321,6 +377,7 @@ class PlaybackController @Inject constructor(
                         message = null,
                     )
                 }
+                null
             }
 
             is PlaybackHandle.EmbeddedVideo -> {
@@ -344,13 +401,12 @@ class PlaybackController @Inject constructor(
                         message = null,
                     )
                 }
+                null
             }
 
-            is PlaybackHandle.Unavailable -> _state.update { it.copy(message = handle.reason) }
+            is PlaybackHandle.Unavailable -> handle.reason
 
-            null -> _state.update {
-                it.copy(message = "This track cannot be played from ${track.sourceId.key}.")
-            }
+            null -> "This track cannot be played from ${track.sourceId.key}."
         }
     }
 
@@ -839,6 +895,9 @@ class PlaybackController @Inject constructor(
 
     private companion object {
         const val TICK_MS = 500L
+
+        /** How far into a song we wait before warming the next track's stream. */
+        const val PREFETCH_AFTER_MS = 10_000L
 
         /** Tracks appended at a time while the infinite queue is on. */
         const val EXTEND_COUNT = 10

@@ -48,4 +48,18 @@ interface MusicSource {
 
     /** Decide how this track should be played. */
     suspend fun play(track: Track): SourceResult<PlaybackHandle>
+
+    /**
+     * Drop any cached stream URL for [track]. A 403 from the CDN means the URL
+     * went stale; the next [play] must mint a fresh one. Sources that resolve
+     * nothing have nothing to drop.
+     */
+    fun invalidateStream(track: Track) = Unit
+
+    /**
+     * Do the slow network work [play] would need, ahead of time, so the track
+     * starts fast when it is reached. Must never throw; the default does
+     * nothing.
+     */
+    suspend fun prefetch(track: Track) = Unit
 }

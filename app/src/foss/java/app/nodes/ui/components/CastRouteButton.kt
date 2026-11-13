@@ -22,6 +22,7 @@ fun CastRouteButton(
     modifier: Modifier = Modifier,
     unavailable: Boolean = false,
     onUnavailableTap: () -> Unit = {},
+    onChooserFailure: () -> Unit = {},
 ) {
     // Nothing to cast without the Cast framework.
 }

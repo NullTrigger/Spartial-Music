@@ -5,8 +5,13 @@
 
 package app.nodes.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,10 +31,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -41,10 +49,13 @@ import app.nodes.core.model.Track
 import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
+import kotlinx.coroutines.launch
 
 /**
  * Compact now-playing bar that sits above the floating tab bar. The whole
- * capsule opens the full player; the transport controls remain separate touch
+ * capsule opens the full player: by tap, or by dragging it upwards - the bar
+ * follows the finger and opens on release, which is the gesture the full player
+ * answers with a downward swipe. The transport controls remain separate touch
  * targets. A hairline at the top carries playback progress without adding a
  * second row of chrome.
  */
@@ -60,10 +71,39 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
     progress: Float = 0f,
 ) {
+    val scope = rememberCoroutineScope()
+    // Negative while dragging up, so the capsule lifts toward the player.
+    val lift = remember { Animatable(0f) }
+    val openThreshold = 72f
+    val dragModifier = Modifier
+        .draggable(
+            state = rememberDraggableState { delta ->
+                scope.launch {
+                    lift.snapTo((lift.value + delta).coerceIn(-openThreshold * 2f, 0f))
+                }
+            },
+            orientation = Orientation.Vertical,
+            onDragStopped = { velocity ->
+                scope.launch {
+                    if (lift.value < -openThreshold || velocity < -900f) {
+                        lift.snapTo(0f)
+                        onClick()
+                    } else {
+                        lift.animateTo(0f, spring())
+                    }
+                }
+            },
+        )
+        .graphicsLayer {
+            translationY = lift.value
+            alpha = 1f - (-lift.value / (openThreshold * 3f)).coerceIn(0f, 0.6f)
+        }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 3.dp)
+            .then(dragModifier)
             .glass(RoundedCornerShape(22.dp), strong = true, scrim = 0.82f)
             .clickable(role = Role.Button, onClick = onClick),
     ) {

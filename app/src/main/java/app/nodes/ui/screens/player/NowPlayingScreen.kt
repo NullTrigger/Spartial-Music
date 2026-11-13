@@ -13,6 +13,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +26,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,32 +48,38 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lyrics
-import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -78,10 +90,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -123,16 +141,20 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.Abs
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
 
 /**
  * Full Now Playing, built around the three views in the reference design:
  *
- *  - **Controls** — the cover fills the screen, fades into the album wash, and
- *    the title, actions, progress and transport sit over the gradient.
+ *  - **Controls** — the cover fills the upper screen and dissolves into a
+ *    saturated colour wash derived from its tint, with the title, actions,
+ *    progress and transport sitting over that gradient.
  *  - **Lyrics** — the current line is sharp and white; upcoming lines are
  *    progressively blurred and dimmed so the eye stays on the line being sung.
+ *    The backdrop is the same clean gradient, never a stretched copy of the
+ *    cover.
  *  - **Queue** — “Playing from”, the next rows and their artwork menus.
  *
  * All three share one bottom dock, so the transport never moves. The screen has
@@ -140,10 +162,10 @@ private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
  * YouTube player stays composed above every mode; leaving Now Playing pauses it
  * and drops the handle (YOUTUBE.md).
  *
- * The surface behind everything is the artwork's dominant colour, sampled
- * locally by [rememberArtworkTint]. API 26 has no RenderEffect, so the large
- * soft backdrop is a genuinely low-resolution copy of the cover scaled up
- * instead of a fake black overlay; see [PlayerBackdrop].
+ * The surface behind everything is a smooth gradient built from the artwork's
+ * dominant colour, sampled locally by [rememberArtworkTint]; see
+ * [PlayerBackdrop]. API 26 has no RenderEffect, and the design no longer needs
+ * one: the wash is pure geometry, identical on every device.
  */
 @Composable
 fun NowPlayingScreen(
@@ -203,96 +225,150 @@ fun NowPlayingScreen(
         tracks.firstOrNull()?.let { playerViewModel.play(it, tracks) }
     }
 
-    PlayerBackdrop(
-        artworkUri = track.artworkUri,
-        title = track.title,
-        tint = tint,
-        showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
-    ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .statusBarsPadding(),
-        ) {
-            PlayerTopBar(
-                mode = mode,
-                sourceName = sourceName,
-                onBack = onBack,
-                onExitMode = { mode = PlayerMode.CONTROLS },
-            )
+    // Swipe the controls page down and the player follows the finger, then
+    // closes past a third of the screen or on a downward fling. Only the
+    // controls page owns the gesture: Lyrics and Queue hold scrollable lists
+    // that need vertical drag for themselves.
+    val screenHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+        LocalConfiguration.current.screenHeightDp.dp.toPx()
+    }
+    val dismissScope = rememberCoroutineScope()
+    val dismissOffset = remember { Animatable(0f) }
+    var dismissed by rememberSaveable { mutableStateOf(false) }
+    val dismissDragModifier = Modifier
+        .draggable(
+            state = rememberDraggableState { delta ->
+                if (delta > 0f || dismissOffset.value > 0f) {
+                    dismissScope.launch {
+                        dismissOffset.snapTo((dismissOffset.value + delta).coerceIn(0f, screenHeightPx))
+                    }
+                }
+            },
+            orientation = Orientation.Vertical,
+            enabled = mode == PlayerMode.CONTROLS && !dismissed,
+            startDragImmediately = dismissOffset.value > 0f,
+            onDragStopped = { velocity ->
+                dismissScope.launch {
+                    val shouldClose = dismissOffset.value > screenHeightPx / 3f || velocity > 1_400f
+                    if (shouldClose) {
+                        dismissed = true
+                        dismissOffset.animateTo(screenHeightPx, tween(180))
+                        onBack()
+                        // The screen is leaving, but reset anyway: if the pop is
+                        // refused or the composition survives the transition, a
+                        // stuck flag would leave the player unable to swipe.
+                        dismissed = false
+                        dismissOffset.snapTo(0f)
+                    } else {
+                        dismissOffset.animateTo(0f, spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow))
+                    }
+                }
+            },
+        )
+        .graphicsLayer {
+            translationY = dismissOffset.value
+            val progress = (dismissOffset.value / screenHeightPx).coerceIn(0f, 1f)
+            scaleX = 1f - progress * 0.06f
+            scaleY = 1f - progress * 0.06f
+            alpha = 1f - progress * 0.35f
+        }
 
-            playerState.embeddedVideoId?.let { videoId ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = NodesSpacing.gutter, vertical = 6.dp),
-                ) {
-                    YouTubeEmbeddedCard(
-                        videoId = videoId,
-                        onStop = playerViewModel::stopEmbedded,
+    Box(
+        Modifier
+            .fillMaxSize()
+            .then(if (mode == PlayerMode.CONTROLS) dismissDragModifier else Modifier),
+    ) {
+        PlayerBackdrop(
+            artworkUri = track.artworkUri,
+            title = track.title,
+            tint = tint,
+            showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
+        ) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding(),
+            ) {
+                PlayerTopBar(
+                    mode = mode,
+                    sourceName = sourceName,
+                    onBack = onBack,
+                    onExitMode = { mode = PlayerMode.CONTROLS },
+                )
+
+                playerState.embeddedVideoId?.let { videoId ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = NodesSpacing.gutter, vertical = 6.dp),
+                    ) {
+                        YouTubeEmbeddedCard(
+                            videoId = videoId,
+                            onStop = playerViewModel::stopEmbedded,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = stringResource(R.string.player_youtube_notice),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NodesGrey,
+                        )
+                    }
+                }
+
+                when (mode) {
+                    PlayerMode.CONTROLS -> ControlsMode(
+                        track = track,
+                        modifier = Modifier.weight(1f),
                     )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(R.string.player_youtube_notice),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = NodesGrey,
+
+                    PlayerMode.LYRICS -> LyricsMode(
+                        result = lyrics,
+                        loading = lyricsLoading,
+                        positionMs = playerState.positionMs,
+                        autoScroll = lyricsAutoScroll,
+                        follow = followLyrics,
+                        onFollowChanged = { followLyrics = it },
+                        onRetry = viewModel::refreshLyrics,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    PlayerMode.QUEUE -> QueueMode(
+                        state = playerState,
+                        queueTitle = queueTitle,
+                        onPlayIndex = playerViewModel::playQueueIndex,
+                        onMove = playerViewModel::moveInQueue,
+                        onRemove = playerViewModel::removeFromQueue,
+                        onPlayNext = playerViewModel::playNext,
+                        onAddToQueue = playerViewModel::addToQueue,
+                        onOpenArtist = onOpenArtist,
+                        onOpenAlbum = onOpenAlbum,
+                        onOpenControls = { mode = PlayerMode.CONTROLS },
+                        onInfinite = playerViewModel::toggleInfiniteQueue,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            }
 
-            when (mode) {
-                PlayerMode.CONTROLS -> ControlsMode(
-                    track = track,
-                    modifier = Modifier.weight(1f),
-                )
-
-                PlayerMode.LYRICS -> LyricsMode(
-                    result = lyrics,
-                    loading = lyricsLoading,
-                    positionMs = playerState.positionMs,
-                    autoScroll = lyricsAutoScroll,
-                    follow = followLyrics,
-                    onFollowChanged = { followLyrics = it },
-                    onRetry = viewModel::refreshLyrics,
-                    modifier = Modifier.weight(1f),
-                )
-
-                PlayerMode.QUEUE -> QueueMode(
+                PlayerDock(
+                    mode = mode,
                     state = playerState,
-                    queueTitle = queueTitle,
-                    onPlayIndex = playerViewModel::playQueueIndex,
-                    onMove = playerViewModel::moveInQueue,
-                    onRemove = playerViewModel::removeFromQueue,
-                    onPlayNext = playerViewModel::playNext,
-                    onAddToQueue = playerViewModel::addToQueue,
-                    onOpenArtist = onOpenArtist,
-                    onOpenAlbum = onOpenAlbum,
+                    track = track,
+                    sourceName = sourceName,
+                    liked = liked,
+                    tint = tint,
+                    onToggleLike = { viewModel.toggleLike(track) },
+                    onPlayPause = playerViewModel::togglePlayPause,
+                    onPrevious = playerViewModel::previous,
+                    onNext = playerViewModel::next,
+                    onSeek = playerViewModel::seekTo,
+                    onShuffle = playerViewModel::toggleShuffle,
+                    onRepeat = { playerViewModel.cycleRepeat() },
+                    onOpenLyrics = { mode = PlayerMode.LYRICS },
+                    onOpenQueue = { mode = PlayerMode.QUEUE },
                     onOpenControls = { mode = PlayerMode.CONTROLS },
-                    onInfinite = playerViewModel::toggleInfiniteQueue,
-                    modifier = Modifier.weight(1f),
+                    onAddToQueue = { playerViewModel.addToQueue(track) },
+                    onMore = { showTrackOptions = true },
                 )
             }
-
-            PlayerDock(
-                mode = mode,
-                state = playerState,
-                track = track,
-                sourceName = sourceName,
-                liked = liked,
-                tint = tint,
-                onToggleLike = { viewModel.toggleLike(track) },
-                onPlayPause = playerViewModel::togglePlayPause,
-                onPrevious = playerViewModel::previous,
-                onNext = playerViewModel::next,
-                onSeek = playerViewModel::seekTo,
-                onShuffle = playerViewModel::toggleShuffle,
-                onRepeat = { playerViewModel.cycleRepeat() },
-                onOpenLyrics = { mode = PlayerMode.LYRICS },
-                onOpenQueue = { mode = PlayerMode.QUEUE },
-                onOpenControls = { mode = PlayerMode.CONTROLS },
-                onAddToQueue = { playerViewModel.addToQueue(track) },
-                onMore = { showTrackOptions = true },
-            )
         }
     }
 
@@ -361,10 +437,11 @@ private fun PlayerTopBar(
 }
 
 /**
- * The stage above the dock: the artwork is already painted by [PlayerBackdrop],
- * so this only carries the title block. With a YouTube track on screen the
- * official card takes over the stage instead, because the API terms require the
- * video to stay visible while it plays.
+ * The stage above the dock: the full-bleed cover is already painted by
+ * [PlayerBackdrop] and dissolves into the colour wash, so this carries only
+ * the title block over the transition. The official card takes over when a
+ * YouTube track is playing, because the API terms require that video to stay
+ * visible.
  */
 @Composable
 private fun ControlsMode(
@@ -377,7 +454,7 @@ private fun ControlsMode(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 28.dp)
-                .padding(bottom = 10.dp),
+                .padding(bottom = 18.dp),
         )
     }
 }
@@ -791,7 +868,13 @@ private fun PlayerDock(
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp)
-            .padding(bottom = 10.dp),
+            // The reference player leaves a band of empty backdrop below the
+            // transport row - 62px of a 1280px screen, so about 5% of the
+            // height - so the controls read as a row that sits on the screen
+            // rather than as a row glued to its bottom edge. The system
+            // navigation inset is part of that band; this is the app's share
+            // of it, and it lands the whole gap at roughly the same 5%.
+            .padding(bottom = NodesSpacing.lg),
     ) {
         if (mode == PlayerMode.CONTROLS) {
             ControlsActionRow(
@@ -842,7 +925,10 @@ private fun ControlsActionRow(
     onOpenQueue: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         GlassCircleButton(
@@ -850,10 +936,9 @@ private fun ControlsActionRow(
             contentDescription = stringResource(R.string.player_lyrics),
             onClick = onOpenLyrics,
         )
-        Spacer(Modifier.width(10.dp))
         Row(
             modifier = Modifier
-                .weight(1f)
+                .width(188.dp)
                 .height(52.dp)
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.10f))
@@ -862,23 +947,22 @@ private fun ControlsActionRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             DockAction(
-                icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                icon = if (liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 contentDescription = stringResource(R.string.player_like),
                 tint = NodesWhite,
                 onClick = onToggleLike,
             )
             DockAction(
-                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                icon = Icons.Rounded.MusicNote,
                 contentDescription = stringResource(R.string.player_add_to_queue),
                 onClick = onAddToQueue,
             )
             DockAction(
-                icon = Icons.Rounded.MoreVert,
+                icon = Icons.Rounded.MoreHoriz,
                 contentDescription = stringResource(R.string.player_more),
                 onClick = onMore,
             )
         }
-        Spacer(Modifier.width(10.dp))
         GlassCircleButton(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             contentDescription = stringResource(R.string.player_queue),
@@ -896,7 +980,10 @@ private fun ModeSelectorRow(
     onOpenQueue: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         GlassCircleButton(
@@ -905,10 +992,10 @@ private fun ModeSelectorRow(
             active = mode == PlayerMode.LYRICS,
             onClick = onOpenLyrics,
         )
-        Spacer(Modifier.width(10.dp))
         Row(
             modifier = Modifier
                 .weight(1f)
+                .padding(horizontal = 10.dp)
                 .height(52.dp)
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.10f))
@@ -926,7 +1013,6 @@ private fun ModeSelectorRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(10.dp))
         GlassCircleButton(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             contentDescription = stringResource(R.string.player_queue),
@@ -992,22 +1078,65 @@ private fun PlayerProgress(
     onSeek: (Long) -> Unit,
 ) {
     val fraction = state.progress.coerceIn(0f, 1f)
-    Slider(
-        value = fraction,
-        onValueChange = { value ->
-            val duration = state.durationMs
-            if (duration > 0L) onSeek((value * duration).toLong())
-        },
-        enabled = state.durationMs > 0L,
+    val accent = tint.toPlayerAccent()
+    // A flat bar with no knob, as in the reference: the filled part is the
+    // only marker. Scrubbing tracks the finger and seeks when it lifts, so the
+    // music does not restart on every pixel.
+    var scrubbing by remember { mutableStateOf(false) }
+    var scrubFraction by remember { mutableFloatStateOf(0f) }
+    val shown = if (scrubbing) scrubFraction else fraction
+    val seekable = state.durationMs > 0L
+
+    val seekLabel = stringResource(R.string.player_seek_bar)
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(24.dp),
-        colors = SliderDefaults.colors(
-            thumbColor = NodesWhite,
-            activeTrackColor = tint.toPlayerAccent(),
-            inactiveTrackColor = Color.White.copy(alpha = 0.16f),
-        ),
-    )
+            .height(22.dp)
+            .semantics {
+                contentDescription = seekLabel
+                progressBarRangeInfo = ProgressBarRangeInfo(shown, 0f..1f)
+            }
+            .pointerInput(state.durationMs) {
+                detectTapGestures { offset ->
+                    if (seekable) {
+                        onSeek(((offset.x / size.width).coerceIn(0f, 1f) * state.durationMs).toLong())
+                    }
+                }
+            }
+            .pointerInput(state.durationMs) {
+                detectHorizontalDragGestures(
+                    onDragStart = { offset ->
+                        scrubFraction = (offset.x / size.width).coerceIn(0f, 1f)
+                        scrubbing = true
+                    },
+                    onHorizontalDrag = { change, _ ->
+                        change.consume()
+                        scrubFraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                    },
+                    onDragEnd = {
+                        scrubbing = false
+                        if (seekable) onSeek((scrubFraction * state.durationMs).toLong())
+                    },
+                    onDragCancel = { scrubbing = false },
+                )
+            },
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .align(Alignment.CenterStart)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.White.copy(alpha = 0.22f)),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(shown)
+                    .fillMaxHeight()
+                    .background(if (seekable) accent else Color.White.copy(alpha = 0.35f)),
+            )
+        }
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -1054,10 +1183,29 @@ private fun PlayerTransport(
 ) {
     val context = LocalContext.current
     val accent = tint.toPlayerAccent()
+    // The reference transport has five controls: cast, previous, play, next and
+    // one combined shuffle/repeat button. That button cycles
+    // off -> shuffle -> repeat track -> off, so both modes stay reachable
+    // without widening the row.
+    val modeActive = state.shuffleOn || state.repeatMode != RepeatMode.OFF
+    val modeIcon = when {
+        state.repeatMode == RepeatMode.ONE -> Icons.Rounded.RepeatOne
+        else -> Icons.Rounded.Shuffle
+    }
+    val onCycleMode: () -> Unit = {
+        when {
+            !state.shuffleOn && state.repeatMode == RepeatMode.OFF -> onShuffle()
+            state.shuffleOn && state.repeatMode == RepeatMode.OFF -> {
+                onShuffle()
+                onRepeat()
+            }
+            else -> onRepeat()
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 2.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1071,32 +1219,29 @@ private fun PlayerTransport(
                         Toast.LENGTH_SHORT,
                     ).show()
                 },
+                onChooserFailure = {
+                    Toast.makeText(
+                        context,
+                        R.string.player_cast_chooser_failed,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
             )
         }
         CircleIconButton(
-            icon = Icons.Rounded.Shuffle,
-            contentDescription = stringResource(R.string.player_shuffle),
-            onClick = onShuffle,
-            tint = if (state.shuffleOn) accent else NodesWhite.copy(alpha = 0.62f),
-            filled = state.shuffleOn,
-            background = Color.White.copy(alpha = 0.12f),
-            size = 42.dp,
-            iconSize = 21.dp,
-        )
-        CircleIconButton(
-            icon = Icons.Rounded.SkipPrevious,
+            icon = Icons.Rounded.FastRewind,
             contentDescription = stringResource(R.string.action_previous),
             onClick = onPrevious,
             tint = accent,
-            size = 46.dp,
-            iconSize = 29.dp,
+            size = 52.dp,
+            iconSize = 34.dp,
         )
+        // A bare icon, as in the reference: the transport reads as glyphs on
+        // the wash, not as a row of buttons. The whole 68dp square is the tap
+        // target so the hit area does not shrink with the chrome.
         Box(
             modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f))
-                .glass(shape = CircleShape, strong = true)
+                .size(68.dp)
                 .clickable(role = Role.Button, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
         ) {
@@ -1110,34 +1255,29 @@ private fun PlayerTransport(
                     if (state.isPlaying) R.string.action_pause else R.string.action_play,
                 ),
                 tint = accent,
-                modifier = Modifier.size(34.dp),
+                modifier = Modifier.size(44.dp),
             )
         }
         CircleIconButton(
-            icon = Icons.Rounded.SkipNext,
+            icon = Icons.Rounded.FastForward,
             contentDescription = stringResource(R.string.action_next),
             onClick = onNext,
             tint = accent,
-            size = 46.dp,
-            iconSize = 29.dp,
+            size = 52.dp,
+            iconSize = 34.dp,
         )
+        // Bare glyph like its neighbours; the accent tint carries the active
+        // state now that there is no pill behind it.
         CircleIconButton(
-            icon = if (state.repeatMode == RepeatMode.ONE) {
-                Icons.Rounded.RepeatOne
-            } else {
-                Icons.Rounded.Repeat
-            },
-            contentDescription = stringResource(R.string.player_repeat),
-            onClick = onRepeat,
-            tint = if (state.repeatMode != RepeatMode.OFF) {
-                accent
-            } else {
-                NodesWhite.copy(alpha = 0.62f)
-            },
-            filled = state.repeatMode != RepeatMode.OFF,
-            background = Color.White.copy(alpha = 0.12f),
-            size = 42.dp,
-            iconSize = 21.dp,
+            icon = modeIcon,
+            contentDescription = stringResource(
+                if (state.repeatMode == RepeatMode.ONE) R.string.player_repeat else R.string.player_shuffle,
+            ),
+            onClick = onCycleMode,
+            tint = if (modeActive) accent else accent.copy(alpha = 0.62f),
+            filled = false,
+            size = 52.dp,
+            iconSize = 30.dp,
         )
     }
 }

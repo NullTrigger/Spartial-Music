@@ -104,7 +104,11 @@ Windows: `.\gradlew.bat`. JDK 17. Details: [BUILDING.md](BUILDING.md).
 
 ## Things that are deliberately incomplete
 
-- `SessionsScreen` is a labelled UI stub (shared listening is not implemented).
+- Shared listening is implemented (`core/session/`) against the Metrolist room
+  protocol and talks to a relay server - the only server contact the app makes
+  with an endpoint of its own. It is opt-in and `PRIVACY.md` documents exactly
+  what crosses the socket. Do not add a second relay, or route any other feature
+  through it, without a maintainer decision.
 - Mode 2 (unofficial InnerTube) is not implemented, by design. See
   [YOUTUBE.md](YOUTUBE.md).
 - Store screenshots must be captured from a real device; see

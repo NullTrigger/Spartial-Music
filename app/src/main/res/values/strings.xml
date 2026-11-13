@@ -35,6 +35,8 @@
 
     <!-- Home -->
     <string name="home_title">Home</string>
+    <string name="home_new_songs_title">New Songs You May Like</string>
+    <string name="home_new_songs_open">Open all suggestions</string>
     <string name="now_playing_label">NOW PLAYING</string>
     <string name="action_play">Play</string>
     <string name="action_next">Next</string>
@@ -68,10 +70,31 @@
     <string name="sessions_subtitle">Listen together, in sync.</string>
     <string name="sessions_create">Create a session</string>
     <string name="sessions_join">Join</string>
-    <string name="sessions_stub_notice">Sessions is a designed stub: the room UI is real, the shared playback backend is not wired up yet.</string>
     <string name="sessions_empty">No live sessions. Start one and invite a friend.</string>
     <string name="session_room">Session</string>
     <string name="session_listeners">%1$d listening</string>
+    <string name="sessions_name_label">Your name</string>
+    <string name="sessions_name_hint">Shown to everyone in the room</string>
+    <string name="sessions_server_label">Room server</string>
+    <string name="sessions_custom_server">Custom server</string>
+    <string name="sessions_change">Change</string>
+    <string name="sessions_code_label">Room code</string>
+    <string name="sessions_code_hint">ABCDEF</string>
+    <string name="sessions_copy_code">Copy the room code</string>
+    <string name="sessions_code_share">Share this code so friends can join</string>
+    <string name="sessions_role_host">You are hosting</string>
+    <string name="sessions_role_guest">Listening to the host</string>
+    <string name="sessions_people">%1$d in this room</string>
+    <string name="sessions_you">You</string>
+    <string name="sessions_pending">Waiting for you</string>
+    <string name="sessions_approve">Let in</string>
+    <string name="sessions_decline">Block</string>
+    <string name="sessions_leave">Leave</string>
+    <string name="sessions_stop">End session</string>
+    <string name="sessions_host_hint">Your play, pause, seek and skips move everyone in the room.</string>
+    <string name="sessions_guest_hint">The host controls this room. Mute and volume stay yours.</string>
+    <string name="sessions_dismiss">Dismiss</string>
+    <string name="sessions_privacy_note">Shared listening is the one place this app talks to a server. Only the room code, your name and the track the host is playing cross the socket - never your account, your library or your listening history. See PRIVACY.md.</string>
     <string name="session_now_playing">Now playing: %1$s</string>
 
     <!-- Library -->
@@ -111,6 +134,7 @@
     <!-- Player -->
     <string name="player_queue">Queue</string>
     <string name="player_lyrics">Lyrics</string>
+    <string name="player_seek_bar">Seek bar</string>
     <string name="player_no_lyrics">No synced lyrics for this track yet.</string>
     <string name="player_youtube_notice">Playing through the official YouTube player. Audio pauses when this screen closes.</string>
     <string name="player_youtube_card">YouTube video</string>
@@ -147,6 +171,7 @@
     <string name="player_queue_ended">Nothing more to queue yet — like more music and it shows up.</string>
     <string name="player_cast">Cast to a device</string>
     <string name="player_cast_unavailable">YouTube video tracks play in the embedded player and cannot be cast.</string>
+    <string name="player_cast_chooser_failed">The device list could not be opened on this phone. Playback continues here.</string>
 
     <!-- Artist / album pages -->
     <string name="collection_none">Unknown</string>
@@ -265,10 +290,15 @@
     <string name="settings_lyrics_move_up">Move up</string>
     <string name="settings_lyrics_move_down">Move down</string>
     <string name="lyrics_provider_local">Local files</string>
+    <string name="lyrics_provider_better_lyrics">BetterLyrics (word-synced)</string>
+    <string name="lyrics_provider_lyrics_plus">LyricsPlus (word-synced)</string>
+    <string name="lyrics_provider_paxsenix">Paxsenix (Apple Music, word-synced)</string>
     <string name="lyrics_provider_lrclib">LRCLIB</string>
     <string name="lyrics_provider_simp_music">SimpMusic</string>
     <string name="lyrics_provider_netease">NetEase Cloud Music</string>
+    <string name="lyrics_provider_kugou">KuGou</string>
     <string name="lyrics_provider_lyrics_ovh">Lyrics.ovh</string>
+    <string name="lyrics_provider_youtube_captions">YouTube captions (fallback)</string>
     <string name="lyrics_provider_none">No source enabled</string>
 
     <!-- Search history -->

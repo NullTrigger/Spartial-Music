@@ -18,8 +18,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -74,15 +76,36 @@ fun TintedBackdrop(
 }
 
 /**
- * The player backdrop from the reference design.
+ * Gradient-only backdrop used on player modes that should not show the cover.
+ * The whole-screen tint remains shared with the full-bleed controls and
+ * playlist surfaces.
+ */
+@Composable
+fun PlayerBackdrop(
+    tint: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    PlayerBackdrop(
+        artworkUri = null,
+        title = "",
+        tint = tint,
+        showArtwork = false,
+        modifier = modifier,
+        content = content,
+    )
+}
+
+/**
+ * The full-bleed player backdrop from the reference screen.
  *
- * A low-resolution copy of the cover is stretched over the whole screen. That
- * is a real blur, not a translucent black rectangle: the image is decoded at
- * roughly 160px and then scaled to the device width, so it is soft on every API
- * level (including 26, where RenderEffect does not exist). On the controls page
- * a sharp copy of the same cover sits on the top two thirds, and a tinted
- * gradient carries it into the controls at the bottom. Lyrics and Queue use only
- * the soft copy, which is why they read as one continuous wash of the artwork.
+ * The whole surface is a rich, saturated colour wash derived from the cover's
+ * dominant tint - no stretched low-res copy of the artwork anywhere, so Lyrics
+ * and Queue sit on a completely clean gradient. When [showArtwork] is true,
+ * the cover itself fills the top half of the screen edge-to-edge and is
+ * dissolved into that wash with an alpha mask (`BlendMode.DstIn` inside an
+ * offscreen layer), so its bottom edge melts smoothly into the colour instead
+ * of ending at a horizontal line.
  */
 @Composable
 fun PlayerBackdrop(
@@ -96,61 +119,16 @@ fun PlayerBackdrop(
     val wash = remember(tint) { tint.toPlayerWash() }
     val deep = remember(tint) { tint.toPlayerDeep() }
     Box(modifier.fillMaxSize().background(deep)) {
-        if (!artworkUri.isNullOrBlank()) {
-            Artwork(
-                artworkUri = artworkUri,
-                title = title,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = 1.16f
-                        scaleY = 1.16f
-                        alpha = if (showArtwork) 0.92f else 0.58f
-                    },
-                shape = RectangleShape,
-                contentScale = ContentScale.Crop,
-                targetPx = 160,
-            )
-        }
-
-        if (showArtwork && !artworkUri.isNullOrBlank()) {
-            Artwork(
-                artworkUri = artworkUri,
-                title = title,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.68f)
-                    .align(Alignment.TopCenter),
-                shape = RectangleShape,
-                contentScale = ContentScale.Crop,
-                targetPx = 1280,
-            )
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.68f)
-                    .align(Alignment.TopCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            0f to Color.Transparent,
-                            0.56f to Color.Transparent,
-                            0.78f to wash.copy(alpha = 0.58f),
-                            1f to wash.copy(alpha = 0.96f),
-                        ),
-                    ),
-            )
-        }
-
+        // The full-screen colour wash: saturated up top, holding its hue all
+        // the way down behind the dock.
         Box(
             Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to Color.Black.copy(alpha = 0.30f),
-                        0.18f to Color.Transparent,
-                        0.46f to wash.copy(alpha = 0.16f),
-                        0.62f to wash.copy(alpha = 0.54f),
-                        0.80f to wash.copy(alpha = 0.84f),
+                        0f to wash,
+                        0.46f to wash.copy(alpha = 0.92f),
+                        0.76f to deep.copy(alpha = 0.96f),
                         1f to deep,
                     ),
                 ),
@@ -160,19 +138,72 @@ fun PlayerBackdrop(
             Modifier
                 .fillMaxSize()
                 .drawBehind {
-                    val centre = Offset(size.width * 0.86f, size.height * 0.04f)
-                    val radius = size.width * 0.86f
+                    val topCentre = Offset(size.width * 0.50f, size.height * 0.42f)
+                    val topRadius = size.width * 0.95f
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(wash.copy(alpha = 0.24f), Color.Transparent),
-                            center = centre,
-                            radius = radius,
+                            colors = listOf(wash.copy(alpha = 0.55f), Color.Transparent),
+                            center = topCentre,
+                            radius = topRadius,
                         ),
-                        radius = radius,
-                        center = centre,
+                        radius = topRadius,
+                        center = topCentre,
                     )
                 },
         )
+
+        if (showArtwork && !artworkUri.isNullOrBlank()) {
+            Artwork(
+                artworkUri = artworkUri,
+                title = title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.62f)
+                    .align(Alignment.TopCenter)
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        // Alpha mask: opaque over the portrait, then a long
+                        // smooth S-curve fade to transparent so the cover
+                        // dissolves into the wash with no visible bottom edge.
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                0f to Color.Black,
+                                0.54f to Color.Black,
+                                0.72f to Color.Black.copy(alpha = 0.78f),
+                                0.86f to Color.Black.copy(alpha = 0.32f),
+                                0.95f to Color.Black.copy(alpha = 0.06f),
+                                1f to Color.Transparent,
+                            ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    },
+                shape = RectangleShape,
+                contentScale = ContentScale.Crop,
+                targetPx = 1280,
+            )
+        }
+
+        // A soft haze across the seam where the title sits, so the transition
+        // reads as mist rather than as an edge.
+        if (showArtwork) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.18f),
+                            0.14f to Color.Transparent,
+                            0.44f to Color.Transparent,
+                            0.58f to wash.copy(alpha = 0.72f),
+                            0.68f to wash.copy(alpha = 0.94f),
+                            1f to deep,
+                        ),
+                    ),
+            )
+        }
         content()
     }
 }

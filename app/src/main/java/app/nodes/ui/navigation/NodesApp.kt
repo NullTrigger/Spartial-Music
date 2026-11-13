@@ -5,6 +5,10 @@
 
 package app.nodes.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +34,7 @@ import app.nodes.ui.components.FloatingTabBar
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.MiniPlayer
 import app.nodes.ui.components.NodesNavItems
+import app.nodes.ui.components.ScrollTopBus
 import app.nodes.ui.screens.collection.CollectionScreen
 import app.nodes.ui.screens.diagnostics.DiagnosticsScreen
 import app.nodes.ui.screens.home.HomeScreen
@@ -55,15 +60,6 @@ import app.nodes.ui.screens.trending.TrendingScreen
 import app.nodes.ui.theme.NodesBlack
 import kotlinx.coroutines.delay
 
-/** The five tab roots; only these show the floating bottom bar. */
-private val TAB_ROUTES = setOf(
-    Routes.HOME,
-    Routes.TRENDING,
-    Routes.SUGGESTIONS,
-    Routes.LIBRARY,
-    Routes.SEARCH,
-)
-
 @Composable
 fun NodesApp() {
     val navController = rememberNavController()
@@ -71,7 +67,9 @@ fun NodesApp() {
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
-    val showBar = route in TAB_ROUTES
+    // The bar is persistent: every screen except the full-screen player (and
+    // the pre-auth login flow) keeps it docked, nested screens included.
+    val showBar = route != null && route != Routes.PLAYER && route != Routes.LOGIN
     // The full player owns the screen; every other destination keeps playback
     // one tap away in the mini player.
     val showMiniPlayer = route != null && route != Routes.PLAYER
@@ -102,6 +100,7 @@ fun NodesApp() {
                 HomeScreen(
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                    onOpenSuggestions = { navController.navigate(Routes.SUGGESTIONS) },
                     onOpenCollection = { collectionId ->
                         navController.navigate(Routes.playlist(collectionId))
                     },
@@ -149,7 +148,6 @@ fun NodesApp() {
                     onOpenArtist = { name ->
                         navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
                     },
-                    onOpenSessions = { navController.navigate(Routes.SESSIONS) },
                 )
             }
 
@@ -173,7 +171,25 @@ fun NodesApp() {
                 )
             }
 
-            composable(Routes.PLAYER) {
+            composable(
+                Routes.PLAYER,
+                // The player is a sheet, not another page: it rises from the
+                // bottom when the mini player is tapped or dragged up, and
+                // sinks back when it is popped - including when the player
+                // finishes its own swipe-down animation and calls onBack.
+                enterTransition = {
+                    slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Up,
+                        animationSpec = tween(260),
+                    ) + fadeIn(tween(200))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Down,
+                        animationSpec = tween(240),
+                    ) + fadeOut(tween(180))
+                },
+            ) {
                 NowPlayingScreen(
                     onBack = { navController.popBackStack() },
                     onOpenArtist = { name ->
@@ -312,6 +328,10 @@ fun NodesApp() {
                                     launchSingleTop = true
                                     restoreState = true
                                 }
+                            } else {
+                                // Already here: ask the screen to scroll back
+                                // to the top rather than reloading it.
+                                ScrollTopBus.request(target)
                             }
                         },
                     )

@@ -1,10 +1,15 @@
 # Privacy
 
 Spartial Music is a local-first music player. There is no Spartial Music account,
-no Spartial Music server, no analytics, no remote crash reporting, no advertising
-SDK and no tracking of any kind.
+no analytics, no remote crash reporting, no advertising SDK and no tracking of
+any kind.
 
-Last updated: 2026-11-03.
+The one exception is **Sessions**: shared listening needs a relay, because two
+phones have no other way to agree on what is playing and where in the track they
+are. It is opt-in, off until you create or join a room, and it is described in
+full below rather than buried.
+
+Last updated: 2026-11-12.
 
 ## What stays on your device
 
@@ -39,12 +44,29 @@ Nodes only talks to a provider when you browse or play something:
    streaming, including artwork and audio URLs.
 4. **Artwork CDNs** — cover images are fetched by Coil from the URL the provider
    returned.
-5. **Lyrics providers** (`music.163.com`, `lrclib.net`,
-   `api-lyrics.simpmusic.org`, `api.lyrics.ovh`) — when a track starts and no
-   local `.lrc` file exists, Nodes asks these services in the order chosen in
-   Settings. A lookup contains the track title, artist, album and duration (and
-   the YouTube video id for SimpMusic). No account cookie, email or listening
-   history is sent. See [docs/LYRICS.md](docs/LYRICS.md).
+5. **Lyrics providers** — when a track starts and no local `.lrc` file exists,
+   Nodes asks these services in the order chosen in Settings: BetterLyrics
+   (`lyrics-api.boidu.dev`), the LyricsPlus community mirrors,
+   Paxsenix (`lyrics.paxsenix.org` plus Apple's public catalogue host
+   `amp-api.music.apple.com` for its search), LRCLIB, SimpMusic, NetEase,
+   KuGou, Lyrics.ovh, and finally the video's own captions on
+   `music.youtube.com`. A lookup contains the track title, artist, album and
+   duration (and the YouTube video id for SimpMusic and the captions source).
+   No account cookie, email or listening history is sent. Paxsenix reads the
+   web player's public JWT from Apple's own page bundle; no Apple account is
+   involved and nothing is purchased or signed into. See
+   [docs/LYRICS.md](docs/LYRICS.md).
+6. **Session relay** (the room server shown on the Sessions screen; by default
+   a Cloudflare Worker) — **only while you are hosting or listening in a room.**
+   A room message carries the room code, the display name you typed, and for the
+   host the track the room is playing (title, artist, album, duration, artwork
+   URL and, for YouTube Music tracks, the video id) plus a position in the song.
+   It carries no account cookie, no OAuth token, no e-mail, no device
+   identifier and no play history, and it sends nothing about tracks you never
+   start. The relay holds room state only for as long as the room has members;
+   there is no user account to build a profile against and nothing is written to
+   a database you could later be identified from. Leaving a session stops all of
+   it, and the rest of the app never touches this server.
 
 The unofficial YouTube Music source (Settings → YouTube Music) is on by default
 in this build. It calls YouTube's private `youtubei` endpoints on

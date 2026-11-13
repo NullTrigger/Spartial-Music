@@ -320,6 +320,48 @@ internal object InnerTubeParser {
         return out.distinct()
     }
 
+    /**
+     * The caption track of a video, as `[mm:ss.mmm]line` text.
+     *
+     * `get_transcript` answers with one engagement panel whose cue groups are
+     * the timed lines. The musical notes the uploaders pad with are trimmed,
+     * and a panel without cues yields null rather than empty text, so the
+     * caller can distinguish "no captions" from "captions exist".
+     */
+    fun transcript(root: JsonObject): String? {
+        val cueGroups = root.walkTo("transcriptBodyRenderer")
+            ?.get("cueGroups") as? JsonArray ?: return null
+        val lines = cueGroups.mapNotNull { group ->
+            val renderer = (group as? JsonObject)
+                ?.get("transcriptCueGroupRenderer")?.obj() ?: return@mapNotNull null
+            val cue = (renderer["cues"] as? JsonArray)
+                ?.firstOrNull()?.obj()
+                ?.get("transcriptCueRenderer")?.obj() ?: return@mapNotNull null
+            val time = (cue["startOffsetMs"] as? JsonPrimitive)?.content?.toLongOrNull()
+                ?: return@mapNotNull null
+            val text = cue["cue"]?.text()?.trim('♪', ' ', '\u2005')
+                ?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            "[%02d:%02d.%03d]%s".format(java.util.Locale.US, time / 60_000, time / 1_000 % 60, time % 1_000, text)
+        }
+        return lines.joinToString("\n").ifEmpty { null }
+    }
+
+    /** First nested object under [key], depth-first. */
+    private fun JsonObject.walkTo(key: String): JsonObject? {
+        this[key]?.obj()?.let { return it }
+        for (value in values) {
+            when (value) {
+                is JsonObject -> value.walkTo(key)?.let { return it }
+                is JsonArray -> for (item in value) {
+                    (item as? JsonObject)?.walkTo(key)?.let { return it }
+                }
+                // JsonPrimitive and JsonNull can hold nothing but themselves.
+                else -> Unit
+            }
+        }
+        return null
+    }
+
     // ------------------------------------------------------------------
     // Playback
     // ------------------------------------------------------------------

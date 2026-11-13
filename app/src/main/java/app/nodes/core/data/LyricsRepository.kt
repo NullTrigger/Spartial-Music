@@ -85,9 +85,9 @@ class LyricsRepository @Inject constructor(
             resolve(
                 LyricsQuery(
                     trackId = track.id,
-                    title = track.title,
-                    artist = track.artist,
-                    album = track.album,
+                    title = cleanTitle(track.title),
+                    artist = cleanArtist(track.artist),
+                    album = track.album?.let(::cleanTitle),
                     durationSec = (track.durationMs / 1_000L).toInt(),
                     videoId = track.videoId,
                 ),
@@ -123,14 +123,23 @@ class LyricsRepository @Inject constructor(
         val ordered = orderedProviders(prefs)
         if (ordered.isEmpty()) return Resolved()
 
+        // A provider answer is only usable when it names the same recording.
+        // Plain text is held back while the rest of the order is asked, so a
+        // timed result from a later provider can still win.
         var plainFallback: Resolved? = null
-        val synced = withTimeoutOrNull(TOTAL_TIMEOUT_MS) {
+        val result = withTimeoutOrNull(TOTAL_TIMEOUT_MS) {
             for (provider in ordered) {
                 val payload = withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
                     safeFetch(provider, query)
                 } ?: continue
                 if (payload !is LyricsPayload.Found) continue
-                if (!matches(payload, query)) continue
+                // The user's own sidecar is explicitly trusted. Network
+                // results must identify the exact recording or are skipped.
+                if (provider.id != LyricsProviders.LOCAL &&
+                    !isVerifiedLyricsMatch(payload, query)
+                ) {
+                    continue
+                }
 
                 val parsed = LyricsParser.parse(payload.raw)
                 if (parsed.lines.isEmpty()) continue
@@ -149,7 +158,7 @@ class LyricsRepository @Inject constructor(
             }
             null
         }
-        return synced ?: plainFallback ?: Resolved()
+        return result ?: plainFallback ?: Resolved()
     }
 
     private suspend fun safeFetch(provider: LyricsProvider, query: LyricsQuery): LyricsPayload =
@@ -162,45 +171,24 @@ class LyricsRepository @Inject constructor(
         }
 
     /**
-     * Refuses an answer that is clearly another song.
-     *
-     * Providers match loosely, and a same-named cover or a live version would
-     * otherwise be shown under this track's title. A provider that returns no
-     * names cannot be judged and is allowed through.
+     * Strips the decoration YouTube Music uploads carry - "(Official Audio)",
+     * "[Lyrics]", "- Topic" channels - before the title and artist are asked
+     * of a lyrics provider. Left in, that decoration breaks LRCLIB's
+     * exact-match endpoint and lets a loose provider lock onto a lyric video
+     * of a different recording, which is where "the lyrics are wrong" comes
+     * from. Falls back to the original text whenever cleaning would leave
+     * nothing behind.
      */
-    private fun matches(payload: LyricsPayload.Found, query: LyricsQuery): Boolean {
-        if (payload.durationSec > 0 && query.durationSec > 0 &&
-            abs(payload.durationSec - query.durationSec) > MAX_DRIFT_SEC
-        ) {
-            return false
-        }
-        if (!payload.title.isNullOrBlank()) {
-            val wanted = tokens(query.title)
-            val answered = tokens(payload.title)
-            if (wanted.isNotEmpty() && answered.isNotEmpty() && wanted.intersect(answered).isEmpty()) {
-                return false
-            }
-        }
-        if (!payload.artist.isNullOrBlank()) {
-            val wanted = query.artist.lowercase(Locale.ROOT).trim()
-            val answered = payload.artist.lowercase(Locale.ROOT).trim()
-            val namesOverlap = wanted.isNotBlank() && answered.isNotBlank() &&
-                (wanted.contains(answered) || answered.contains(wanted))
-            if (!namesOverlap &&
-                tokens(query.artist).intersect(tokens(payload.artist)).isEmpty()
-            ) {
-                return false
-            }
-        }
-        return true
+    internal fun cleanTitle(title: String): String {
+        var t = BRACKETED_JUNK.replace(title, " ")
+        t = TRAILING_JUNK.replace(t, " ")
+        t = t.replace(WS_RUN, " ").trim()
+        return t.ifBlank { title.trim() }
     }
 
-    private fun tokens(text: String?): Set<String> {
-        if (text.isNullOrBlank()) return emptySet()
-        return text.lowercase(Locale.ROOT)
-            .split(Regex("[^\\p{L}\\p{N}]+"))
-            .filter { it.length > 1 && it !in IGNORED_TOKENS }
-            .toSet()
+    internal fun cleanArtist(artist: String): String {
+        val t = ARTIST_CHANNEL_SUFFIX.replace(artist, "").trim()
+        return t.ifBlank { artist.trim() }
     }
 
     private fun orderedProviders(prefs: AppSettings): List<LyricsProvider> {
@@ -256,11 +244,16 @@ class LyricsRepository @Inject constructor(
     private fun fileFor(key: String): File = File(cacheDir(), "$key.json")
 
     private fun cacheKey(track: Track): String = buildString {
+        // v4: network providers now have to pass the exact title+artist+duration
+        // guard in isVerifiedLyricsMatch. Bumping the version discards the
+        // payloads the older loose matcher stored, so a song that previously
+        // showed another song's lyrics is looked up again from scratch.
+        append("v4-")
         append(track.sourceId.key)
         append('-')
         append(track.videoId ?: track.id)
         append('-')
-        append(track.title)
+        append(cleanTitle(track.title))
     }
         .lowercase(Locale.ROOT)
         .replace(Regex("[^a-z0-9]+"), "-")
@@ -292,11 +285,58 @@ class LyricsRepository @Inject constructor(
     )
 
     companion object {
+        /**
+         * The lyrics-mismatch guard.
+         *
+         * A provider answer is only trusted when it names the same song and the
+         * same artist as the track - after folding accents, case and
+         * punctuation - and, when both sides know a length, when that length is
+         * within [MAX_DRIFT_SEC]. A provider that reports a video id must
+         * report the same one. Anything looser than that is a cover, a live
+         * version or a lyric video of another recording, which is exactly the
+         * "wrong lyrics" people report, so it is dropped and the next provider
+         * is asked instead.
+         */
+        internal fun isVerifiedLyricsMatch(payload: LyricsPayload.Found, query: LyricsQuery): Boolean {
+            val title = identityTokens(query.title)
+            val answerTitle = identityTokens(payload.title)
+            val artist = identityTokens(query.artist)
+            val answerArtist = identityTokens(payload.artist)
+            if (title.isEmpty() || artist.isEmpty()) return false
+            if (title != answerTitle || artist != answerArtist) return false
+            if (payload.durationSec > 0 && query.durationSec > 0 &&
+                abs(payload.durationSec - query.durationSec) > MAX_DRIFT_SEC
+            ) {
+                return false
+            }
+            return query.videoId.isNullOrBlank() || payload.videoId.isNullOrBlank() ||
+                query.videoId == payload.videoId
+        }
+
+        /** Accent- and punctuation-folded word set used by the guard above. */
+        private fun identityTokens(text: String?): Set<String> {
+            if (text.isNullOrBlank()) return emptySet()
+            return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+                .replace(Regex("\\p{Mn}+"), "")
+                .lowercase(Locale.ROOT)
+                .split(Regex("[^\\p{L}\\p{N}]+"))
+                .filter { it.length > 1 && it !in IGNORED_TOKENS }
+                .toSet()
+        }
+
         /** One provider's budget; enough for a cold CDN, short enough to skip. */
         private const val PER_PROVIDER_TIMEOUT_MS = 6_000L
 
-        /** The whole lookup, however many providers are enabled. */
-        private const val TOTAL_TIMEOUT_MS = 12_000L
+        /**
+         * The whole lookup, however many providers are enabled.
+         *
+         * Sized for the provider list, not a fixed number: a synced hit returns
+         * early, so the budget only binds when every provider misses, and the
+         * floor must be enough for the slowest useful provider in the order to
+         * still be reached - the captions source sits last on purpose, and with
+         * ten providers a 12 s budget never got there.
+         */
+        private const val TOTAL_TIMEOUT_MS = 25_000L
 
         /** Anything further off than this is another version of the song. */
         private const val MAX_DRIFT_SEC = 15
@@ -305,6 +345,31 @@ class LyricsRepository @Inject constructor(
         private const val NOT_FOUND_TTL_MS = 24L * 60 * 60 * 1000
 
         private val IGNORED_TOKENS = setOf("the", "and", "feat", "ft", "official", "video")
+
+        /**
+         * Bracketed junk like "(Official Music Video)", "[Lyrics]",
+         * "(Visualizer)", "(Remastered 2014)". Only brackets whose content
+         * names a release decoration are removed; "(feat. X)" stays, because
+         * the featured artist is part of the song a provider indexes.
+         */
+        private val BRACKETED_JUNK = Regex(
+            "[\\[{(][^\\])}]*?(?:official|lyrics?|visuali[sz]er|remastered|remaster|audio\\s*version|mv|hq|4k)[^\\])}]*?[\\])}]",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** A trailing " - official audio", " | lyrics", ": audio" tail. */
+        private val TRAILING_JUNK = Regex(
+            "\\s*[-–—|:]\\s*(?:official(?:\\s+\\w+)*|lyrics?|audio|video|visuali[sz]er|remastered|remaster)\\s*$",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** YouTube Music channel suffixes: "Ella Langley - Topic". */
+        private val ARTIST_CHANNEL_SUFFIX = Regex(
+            "\\s*[-–—]?\\s*(?:topic|vevo)\\s*$",
+            RegexOption.IGNORE_CASE,
+        )
+
+        private val WS_RUN = Regex("\\s+")
 
         private val LINE_STAMP = Regex("""^\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?]""")
 

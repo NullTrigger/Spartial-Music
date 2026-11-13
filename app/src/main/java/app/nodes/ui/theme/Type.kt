@@ -7,17 +7,26 @@ package app.nodes.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.sp
+import app.nodes.R
 
 /**
- * Nodes uses a system sans (SF on iOS-like designs, Roboto on Android) with
- * tight tracking and heavy weights for titles, plus a serif face for the
- * wordmark only - matching the reference lockup.
+ * Manrope carries the whole app. The variable file (wght 200–800) is pinned to
+ * named weights so every existing TextStyle keeps its weight without touching
+ * a single screen; variation settings require API 26, which is also minSdk.
  */
-val NodesSans = FontFamily.SansSerif
+val NodesSans = FontFamily(
+    Font(R.font.manrope, weight = FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.manrope, weight = FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    Font(R.font.manrope, weight = FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+    Font(R.font.manrope, weight = FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+    Font(R.font.manrope, weight = FontWeight.ExtraBold, variationSettings = FontVariation.Settings(FontVariation.weight(800))),
+)
 val NodesSerif = FontFamily.Serif
 
 private val tight = LineHeightStyle(
