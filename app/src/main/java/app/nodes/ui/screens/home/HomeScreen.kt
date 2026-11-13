@@ -145,7 +145,10 @@ fun HomeScreen(
                 item(key = "continue-header") {
                     Text(
                         text = stringResource(R.string.continue_playing),
-                        style = NodesType.sectionTitle,
+                        style = NodesType.sectionTitle.copy(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
                         color = NodesWhite,
                         modifier = Modifier.padding(
                             start = NodesSpacing.gutter,
@@ -239,7 +242,7 @@ private fun HomeHeader(
     ) {
         Text(
             text = stringResource(R.string.home_title),
-            style = NodesType.heroTitle.copy(fontSize = 27.sp),
+            style = NodesType.heroTitle.copy(fontSize = 28.sp),
             color = NodesWhite,
             modifier = Modifier.weight(1f),
         )
@@ -273,8 +276,13 @@ private fun HomeHeader(
 }
 
 /**
- * One history entry: the artwork at the left, the title with its artist
- * riding on the same line, and the album beneath when the song has one.
+ * One history entry, directly on the black background - no card, no fill.
+ *
+ * The title and artist share one line as a single annotated string: the
+ * ellipsis cuts from the right, so the artist (at the end) truncates first and
+ * the title second, which is exactly the priority the design asks for. The
+ * album line appears whenever the song has one; the model has no producer
+ * field, so `Track.album` is the metadata used here.
  */
 @Composable
 private fun ContinuePlayingRow(
@@ -288,19 +296,17 @@ private fun ContinuePlayingRow(
         items(items = tracks, key = { "continue-${it.id}" }) { track ->
             Row(
                 modifier = Modifier
-                    .fillParentMaxWidth(0.86f)
+                    .fillParentMaxWidth(0.88f)
                     .height(76.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(NodesWhite.copy(alpha = 0.05f))
                     .clickable(role = androidx.compose.ui.semantics.Role.Button) { onPlay(track) }
-                    .padding(6.dp),
+                    .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Artwork(
                     artworkUri = track.artworkUri,
                     title = track.title,
-                    modifier = Modifier.size(64.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.size(56.dp),
+                    shape = RoundedCornerShape(8.dp),
                     targetPx = 256,
                 )
                 Spacer(Modifier.width(12.dp))
@@ -310,6 +316,7 @@ private fun ContinuePlayingRow(
                             withStyle(
                                 androidx.compose.ui.text.SpanStyle(
                                     fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
                                     color = NodesWhite,
                                 ),
                             ) { append(track.title) }
@@ -317,20 +324,22 @@ private fun ContinuePlayingRow(
                                 withStyle(
                                     androidx.compose.ui.text.SpanStyle(
                                         fontWeight = FontWeight.Normal,
+                                        fontSize = 13.sp,
                                         color = NodesWhite.copy(alpha = 0.60f),
                                     ),
-                                ) { append(" (${artist})") }
+                                ) { append(" ($artist)") }
                             }
                         },
-                        style = NodesType.rowTitle.copy(fontSize = 16.sp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     track.album?.takeIf { it.isNotBlank() }?.let { album ->
                         Text(
                             text = album,
-                            style = NodesType.rowMeta,
-                            color = NodesWhite.copy(alpha = 0.55f),
+                            style = NodesType.rowMeta.copy(
+                                fontSize = 12.sp,
+                                color = NodesWhite.copy(alpha = 0.50f),
+                            ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

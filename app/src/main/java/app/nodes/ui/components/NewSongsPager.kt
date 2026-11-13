@@ -8,6 +8,7 @@ package app.nodes.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -75,12 +77,16 @@ fun NewSongsPager(
         ) {
             Text(
                 text = stringResource(R.string.home_new_songs_title),
-                style = NodesType.sectionTitle,
+                style = NodesType.sectionTitle.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                ),
                 color = NodesWhite,
-                modifier = Modifier.weight(1f),
             )
-            // The chevron opens the full suggestions list. When the list is
-            // empty there is nothing to open, so the arrow is inert and dimmed.
+            Spacer(Modifier.width(6.dp))
+            // The chevron rides right after the heading text, not at the far
+            // edge: it opens the full suggestions list, and is inert when the
+            // list is empty.
             val enabled = songs.isNotEmpty()
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
@@ -162,19 +168,28 @@ fun NewSongsPager(
     }
 }
 
-/** Card height: tall enough for portrait posters, bounded for landscape. */
-private val CARD_HEIGHT = 320.dp
+/** Card stage: 16:9 of the card width, never taller than the design cap. */
+private val CARD_MAX_HEIGHT = 230.dp
 
+/**
+ * One card: a fixed 16:9 stage (never taller than [CARD_MAX_HEIGHT]), with the
+ * whole artwork fit inside, centred, aspect preserved - nothing is cropped.
+ * The area the artwork does not cover shows a heavily dimmed, blurred copy of
+ * the same image (the blur needs API 31; below it the dim alone carries it).
+ */
 @Composable
 private fun ArtworkStage(track: Track) {
     val context = LocalContext.current
-    Box(
+    BoxWithConstraints(
         Modifier
             .fillMaxWidth()
-            .height(CARD_HEIGHT),
+            .clip(RoundedCornerShape(16.dp))
+            // 16:9 bounded by the design's maximum height.
+            .height(
+                minOf(maxWidth * 9f / 16f, CARD_MAX_HEIGHT),
+            ),
     ) {
-        // The dimmed backdrop: the same artwork scaled to cover, at a tenth of
-        // its strength - a tint of the image, not a blur and not a colour.
+        // The dimmed, blurred backdrop: the same artwork scaled to cover.
         if (!track.artworkUri.isNullOrBlank()) {
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(context)
@@ -183,13 +198,16 @@ private fun ArtworkStage(track: Track) {
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                alpha = 0.14f,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    // A no-op below API 31, where the dim alone carries it.
+                    .blur(24.dp),
+                alpha = 0.16f,
             )
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(NodesBlack.copy(alpha = 0.45f)),
+                    .background(NodesBlack.copy(alpha = 0.55f)),
             )
         }
         // The artwork itself: fit, never cropped, centred.
@@ -198,8 +216,8 @@ private fun ArtworkStage(track: Track) {
             title = track.title,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(10.dp),
-            shape = RoundedCornerShape(14.dp),
+                .padding(8.dp),
+            shape = RoundedCornerShape(10.dp),
             contentScale = ContentScale.Fit,
             targetPx = 900,
         )

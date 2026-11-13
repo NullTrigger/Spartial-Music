@@ -5,11 +5,13 @@
 
 package app.nodes.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,19 +27,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.LibraryMusic
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.TrendingUp
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,8 +36,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -57,43 +50,119 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodes.R
 import app.nodes.ui.theme.NodesWhite
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 
 /**
  * One destination of the floating bar.
  *
- * [activeIcon] is the filled variant shown while the tab is selected, matching
- * the SF-style "filled state" the design calls for; [icon] is the line-weight
- * outline shown otherwise.
+ * The glyph is a Phosphor fill-weight drawable (MIT), always filled: active is
+ * white, inactive white at 55%.
  */
 data class BottomNavItem(
     val route: String,
     @StringRes val labelRes: Int,
-    val icon: ImageVector,
-    val activeIcon: ImageVector = icon,
+    @DrawableRes val icon: Int,
 )
+
+/** Shared glass styling for the bar and the mini player. */
+object GlassNav {
+
+    /**
+     * The backdrop style on API 31+, where Haze blurs for real: ~28dp radius
+     * (inside the 24–32dp window) and a dark tint at 28% so labels stay
+     * legible over bright artwork. The white 9% sheen is drawn as a film on
+     * top so it applies identically on both branches.
+     */
+    val blurredStyle = HazeStyle(
+        backgroundColor = Color(0xFF07080A),
+        tints = listOf(HazeTint(Color.Black.copy(alpha = 0.28f))),
+        blurRadius = 28.dp,
+        noiseFactor = 0.06f,
+    )
+
+    /**
+     * Below API 31 Haze cannot blur; the spec's fallback is a dark tinted
+     * surface at ~75%, same border and highlight, used there only.
+     */
+    val fallbackStyle = HazeStyle(
+        backgroundColor = Color(0xFF07080A),
+        tints = listOf(HazeTint(Color.Black.copy(alpha = 0.75f))),
+    )
+
+    /** Sheen with a faint top-edge inner highlight, as one subtle gradient. */
+    val sheen: Brush = Brush.verticalGradient(
+        0f to Color.White.copy(alpha = 0.14f),
+        0.18f to Color.White.copy(alpha = 0.09f),
+        1f to Color.White.copy(alpha = 0.07f),
+    )
+
+    /** 1dp border, brighter at the top-left, dimmer at the bottom-right. */
+    val border: Brush = Brush.linearGradient(
+        colors = listOf(
+            Color.White.copy(alpha = 0.40f),
+            Color.White.copy(alpha = 0.10f),
+        ),
+    )
+}
+
+/**
+ * The glass surface for the floating bar and mini player: soft shadow, a real
+ * backdrop blur through [hazeEffect] when [hazeState] is present (Haze falls
+ * back to its solid dark scrim below API 31), then the sheen and the gradient
+ * border on top.
+ *
+ * Performance: on API 31+ the blur is a RenderEffect the GPU composites; Haze
+ * samples the backdrop down before blurring, so the cost is one extra layer
+ * compositing per frame while the content behind the bar moves, and nothing
+ * when it does not. There is no per-pixel work on the UI thread to jank the
+ * scroll; the fallback branch below API 31 is a plain tint and costs nothing.
+ */
+internal fun Modifier.glassNavBackdrop(hazeState: HazeState?, shape: Shape): Modifier =
+    this
+        .shadow(elevation = 12.dp, shape = shape, clip = false)
+        .clip(shape)
+        .then(
+            if (hazeState != null) {
+                hazeEffect(
+                    state = hazeState,
+                    style = HazeStyle(
+                        backgroundColor = GlassNav.blurredStyle.backgroundColor,
+                        tints = GlassNav.blurredStyle.tints,
+                        blurRadius = GlassNav.blurredStyle.blurRadius,
+                        noiseFactor = GlassNav.blurredStyle.noiseFactor,
+                        fallbackTint = HazeTint(Color.Black.copy(alpha = 0.75f)),
+                    ),
+                )
+            } else {
+                background(Color.Black.copy(alpha = 0.75f))
+            },
+        )
+        .background(GlassNav.sheen)
+        .border(width = 1.dp, brush = GlassNav.border, shape = shape)
 
 /**
  * The floating bar: a glass pill with the four primary destinations and a
  * separate glass circle for Search, docked above the system gesture area.
  *
- * The active tab sits inside a lighter rounded wash that slides between tabs
- * on a short spring rather than cutting. The glass look is the shared film in
- * [glass] - a translucent white fill with a hairline border and a faint top
- * highlight - which is the deliberate fallback the design allows where real
- * backdrop blur would cost frames; a real blur behind a bar that sits over a
- * scrolling feed would redraw on every scroll tick.
+ * The active tab's wash slides between tabs on its spring; the glyphs are
+ * always filled, white when active and 55% white otherwise.
  */
 @Composable
 fun FloatingTabBar(
     currentRoute: String?,
     items: List<BottomNavItem>,
     onSelect: (String) -> Unit,
+    hazeState: HazeState?,
     modifier: Modifier = Modifier,
 ) {
     // Order comes from the caller; the last item is the circular search.
     val pillItems = items.dropLast(1)
     val searchItem = items.lastOrNull() ?: return
     if (pillItems.isEmpty()) return
+    val glass = glassNavBackdrop(hazeState, RoundedCornerShape(32.dp))
 
     Row(
         modifier = modifier
@@ -106,7 +175,7 @@ fun FloatingTabBar(
             modifier = Modifier
                 .weight(1f)
                 .height(64.dp)
-                .glass(shape = RoundedCornerShape(32.dp), strong = true, scrim = 0.30f),
+                .then(glass),
         ) {
             TabPill(
                 items = pillItems,
@@ -119,23 +188,23 @@ fun FloatingTabBar(
         Box(
             modifier = Modifier
                 .size(64.dp)
-                .glass(shape = CircleShape, strong = true, scrim = 0.30f)
+                .then(glass)
                 .clickable(role = Role.Tab, onClick = { onSelect(searchItem.route) })
                 .testTag("tab-${searchItem.route}")
                 .semantics { selected = searchSelected },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = if (searchSelected) searchItem.activeIcon else searchItem.icon,
+                painter = painterResource(searchItem.icon),
                 contentDescription = stringResource(searchItem.labelRes),
                 tint = NodesWhite,
-                modifier = Modifier.size(23.dp),
+                modifier = Modifier.size(24.dp),
             )
         }
     }
 }
 
-/** The pill's four slots, with the highlight riding between them. */
+/** The pill's four slots, with the highlight riding between them on its spring. */
 @Composable
 private fun TabPill(
     items: List<BottomNavItem>,
@@ -192,16 +261,16 @@ private fun Tab(
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = if (selected) item.activeIcon else item.icon,
+            painter = painterResource(item.icon),
             contentDescription = stringResource(item.labelRes),
-            tint = NodesWhite,
-            modifier = Modifier.size(22.dp),
+            tint = if (selected) NodesWhite else NodesWhite.copy(alpha = 0.55f),
+            modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.height(3.dp))
         Text(
             text = stringResource(item.labelRes),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.2.sp),
-            color = if (selected) NodesWhite else NodesWhite.copy(alpha = 0.60f),
+            color = if (selected) NodesWhite else NodesWhite.copy(alpha = 0.55f),
             maxLines = 1,
         )
     }
@@ -209,12 +278,13 @@ private fun Tab(
 
 /**
  * The bar's destinations, in display order: the four primary tabs in the pill,
- * Search last (it renders as the separate circle).
+ * Search last (it renders as the separate circle). Glyphs are Phosphor
+ * fill-weight drawables.
  */
 val NodesNavItems = listOf(
-    BottomNavItem("home", R.string.nav_home, Icons.Outlined.Home, Icons.Rounded.Home),
-    BottomNavItem("trending", R.string.nav_trending, Icons.Outlined.TrendingUp, Icons.Rounded.TrendingUp),
-    BottomNavItem("sessions", R.string.nav_sessions, Icons.Outlined.Group, Icons.Rounded.Group),
-    BottomNavItem("library", R.string.nav_library, Icons.Outlined.LibraryMusic, Icons.Rounded.LibraryMusic),
-    BottomNavItem("search", R.string.nav_search, Icons.Outlined.Search, Icons.Rounded.Search),
+    BottomNavItem("home", R.string.nav_home, R.drawable.ic_nav_home),
+    BottomNavItem("trending", R.string.nav_trending, R.drawable.ic_nav_trending),
+    BottomNavItem("sessions", R.string.nav_sessions, R.drawable.ic_nav_sessions),
+    BottomNavItem("library", R.string.nav_library, R.drawable.ic_nav_library),
+    BottomNavItem("search", R.string.nav_search, R.drawable.ic_nav_search),
 )

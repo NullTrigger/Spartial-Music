@@ -35,6 +35,7 @@ import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.MiniPlayer
 import app.nodes.ui.components.NodesNavItems
 import app.nodes.ui.components.ScrollTopBus
+import dev.chrisbanes.haze.hazeSource
 import app.nodes.ui.screens.collection.CollectionScreen
 import app.nodes.ui.screens.diagnostics.DiagnosticsScreen
 import app.nodes.ui.screens.home.HomeScreen
@@ -86,6 +87,10 @@ fun NodesApp() {
     // route is copied somewhere a dying process can still read it.
     LaunchedEffect(route) { AppSnapshot.route = route }
 
+    // The glass bar and mini player blur whatever scrolls behind them; the
+    // NavHost content is that backdrop.
+    val hazeState = androidx.compose.runtime.remember { dev.chrisbanes.haze.HazeState() }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -94,7 +99,9 @@ fun NodesApp() {
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(hazeState),
         ) {
             composable(Routes.HOME) {
                 HomeScreen(
@@ -314,6 +321,7 @@ fun NodesApp() {
                         onPrevious = playerViewModel::previous,
                         onNext = playerViewModel::next,
                         progress = playerState.progress,
+                        hazeState = hazeState,
                         modifier = Modifier.padding(bottom = 2.dp),
                     )
                 }
@@ -334,6 +342,7 @@ fun NodesApp() {
                                 ScrollTopBus.request(target)
                             }
                         },
+                        hazeState = hazeState,
                     )
                 }
             }
