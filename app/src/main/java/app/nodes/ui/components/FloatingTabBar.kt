@@ -11,7 +11,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,7 +35,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
@@ -62,46 +60,6 @@ data class BottomNavItem(
     @DrawableRes val icon: Int,
 )
 
-/** Shared glass styling for the bar and the mini player. */
-object GlassNav {
-
-    /**
-     * The backdrop style on API 31+, where Haze blurs for real: ~28dp radius
-     * (inside the 24–32dp window) and a dark tint at 28% so labels stay
-     * legible over bright artwork. The white 9% sheen is drawn as a film on
-     * top so it applies identically on both branches.
-     */
-    val blurredStyle = HazeStyle(
-        backgroundColor = Color(0xFF07080A),
-        tints = listOf(HazeTint(Color.Black.copy(alpha = 0.28f))),
-        blurRadius = 28.dp,
-        noiseFactor = 0.06f,
-    )
-
-    /**
-     * Below API 31 Haze cannot blur; the spec's fallback is a dark tinted
-     * surface at ~75%, same border and highlight, used there only.
-     */
-    val fallbackStyle = HazeStyle(
-        backgroundColor = Color(0xFF07080A),
-        tints = listOf(HazeTint(Color.Black.copy(alpha = 0.75f))),
-    )
-
-    /** Sheen with a faint top-edge inner highlight, as one subtle gradient. */
-    val sheen: Brush = Brush.verticalGradient(
-        0f to Color.White.copy(alpha = 0.14f),
-        0.18f to Color.White.copy(alpha = 0.09f),
-        1f to Color.White.copy(alpha = 0.07f),
-    )
-
-    /** 1dp border, brighter at the top-left, dimmer at the bottom-right. */
-    val border: Brush = Brush.linearGradient(
-        colors = listOf(
-            Color.White.copy(alpha = 0.40f),
-            Color.White.copy(alpha = 0.10f),
-        ),
-    )
-}
 /**
  * The floating bar: a glass pill with the four primary destinations and a
  * separate glass circle for Search, docked above the system gesture area.
