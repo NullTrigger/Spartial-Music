@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,7 +56,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodes.R
-import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
 
 /**
@@ -200,7 +200,7 @@ private fun Tab(
         Spacer(Modifier.height(3.dp))
         Text(
             text = stringResource(item.labelRes),
-            style = NodesType.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.2.sp),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.2.sp),
             color = if (selected) NodesWhite else NodesWhite.copy(alpha = 0.60f),
             maxLines = 1,
         )

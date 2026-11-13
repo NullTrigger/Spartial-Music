@@ -73,9 +73,6 @@ fun NodesApp() {
     // The full player owns the screen; every other destination keeps playback
     // one tap away in the mini player.
     val showMiniPlayer = route != null && route != Routes.PLAYER
-    // The bar is persistent: every screen except the full-screen player (and
-    // the pre-auth login flow) keeps it docked, nested screens included.
-    val showBar = route != null && route != Routes.PLAYER && route != Routes.LOGIN
     val message = playerState.message
 
     LaunchedEffect(message) {

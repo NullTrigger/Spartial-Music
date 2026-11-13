@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -206,7 +207,7 @@ fun HomeBannerCarousel(
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Text(
                     text = stringResource(R.string.now_playing_label),
-                    style = NodesType.labelSmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = NodesWhite.copy(alpha = 0.60f),
                 )
                 Spacer(Modifier.height(6.dp))
@@ -219,7 +220,7 @@ fun HomeBannerCarousel(
                 )
                 Text(
                     text = banners[active].artist,
-                    style = NodesType.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = NodesWhite.copy(alpha = 0.70f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -260,7 +261,7 @@ fun HomeBannerCarousel(
                     ) {
                         Text(
                             text = stringResource(R.string.action_next),
-                            style = NodesType.bodyMedium,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = NodesWhite,
                         )
                         Icon(

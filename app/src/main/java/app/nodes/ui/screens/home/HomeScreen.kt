@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,7 +58,6 @@ import app.nodes.ui.components.ErrorState
 import app.nodes.ui.components.EmptyState
 import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesRadius
 import app.nodes.ui.theme.NodesSpacing
 import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
@@ -264,7 +264,7 @@ private fun HomeHeader(
         ) {
             Text(
                 text = profileInitial(account),
-                style = NodesType.titleMedium,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = NodesBlack,
             )
@@ -290,7 +290,7 @@ private fun ContinuePlayingRow(
                 modifier = Modifier
                     .fillParentMaxWidth(0.86f)
                     .height(76.dp)
-                    .clip(RoundedCornerShape(NodesRadius.card))
+                    .clip(RoundedCornerShape(18.dp))
                     .background(NodesWhite.copy(alpha = 0.05f))
                     .clickable(role = androidx.compose.ui.semantics.Role.Button) { onPlay(track) }
                     .padding(6.dp),

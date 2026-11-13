@@ -112,7 +112,6 @@ fun NewSongsPager(
         }
 
         val pagerState = rememberPagerState(pageCount = { songs.size })
-        val scope = rememberCoroutineScope()
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth(),
