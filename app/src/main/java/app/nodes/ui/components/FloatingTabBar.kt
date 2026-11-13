@@ -36,10 +36,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -51,9 +49,6 @@ import androidx.compose.ui.unit.sp
 import app.nodes.R
 import app.nodes.ui.theme.NodesWhite
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 
 /**
  * One destination of the floating bar.
@@ -107,42 +102,6 @@ object GlassNav {
         ),
     )
 }
-
-/**
- * The glass surface for the floating bar and mini player: soft shadow, a real
- * backdrop blur through [hazeEffect] when [hazeState] is present (Haze falls
- * back to its solid dark scrim below API 31), then the sheen and the gradient
- * border on top.
- *
- * Performance: on API 31+ the blur is a RenderEffect the GPU composites; Haze
- * samples the backdrop down before blurring, so the cost is one extra layer
- * compositing per frame while the content behind the bar moves, and nothing
- * when it does not. There is no per-pixel work on the UI thread to jank the
- * scroll; the fallback branch below API 31 is a plain tint and costs nothing.
- */
-internal fun Modifier.glassNavBackdrop(hazeState: HazeState?, shape: Shape): Modifier =
-    this
-        .shadow(elevation = 12.dp, shape = shape, clip = false)
-        .clip(shape)
-        .then(
-            if (hazeState != null) {
-                hazeEffect(
-                    state = hazeState,
-                    style = HazeStyle(
-                        backgroundColor = GlassNav.blurredStyle.backgroundColor,
-                        tints = GlassNav.blurredStyle.tints,
-                        blurRadius = GlassNav.blurredStyle.blurRadius,
-                        noiseFactor = GlassNav.blurredStyle.noiseFactor,
-                        fallbackTint = HazeTint(Color.Black.copy(alpha = 0.75f)),
-                    ),
-                )
-            } else {
-                background(Color.Black.copy(alpha = 0.75f))
-            },
-        )
-        .background(GlassNav.sheen)
-        .border(width = 1.dp, brush = GlassNav.border, shape = shape)
-
 /**
  * The floating bar: a glass pill with the four primary destinations and a
  * separate glass circle for Search, docked above the system gesture area.
@@ -162,7 +121,7 @@ fun FloatingTabBar(
     val pillItems = items.dropLast(1)
     val searchItem = items.lastOrNull() ?: return
     if (pillItems.isEmpty()) return
-    val glass = glassNavBackdrop(hazeState, RoundedCornerShape(32.dp))
+    val glass = glassNavBackdrop(Modifier, hazeState, RoundedCornerShape(32.dp))
 
     Row(
         modifier = modifier

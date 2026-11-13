@@ -38,6 +38,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -110,7 +111,7 @@ fun NewSongsPager(
                 Modifier
                     .padding(horizontal = NodesSpacing.gutter)
                     .fillMaxWidth()
-                    .height(CARD_HEIGHT)
+                    .height(CARD_MAX_HEIGHT)
                     .clip(NodesRadius.artwork)
                     .background(if (loading) NodesWhite.copy(alpha = 0.03f) else Color.Transparent),
             )
@@ -180,15 +181,17 @@ private val CARD_MAX_HEIGHT = 230.dp
 @Composable
 private fun ArtworkStage(track: Track) {
     val context = LocalContext.current
-    BoxWithConstraints(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            // 16:9 bounded by the design's maximum height.
-            .height(
-                minOf(maxWidth * 9f / 16f, CARD_MAX_HEIGHT),
-            ),
-    ) {
+    // 16:9 of the card width, bounded by the design's maximum height; the
+    // ratio is computed inside the constraint scope, which is where maxWidth
+    // lives.
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val stageHeight = minOf(maxWidth * 9f / 16f, CARD_MAX_HEIGHT)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .height(stageHeight),
+        ) {
         // The dimmed, blurred backdrop: the same artwork scaled to cover.
         if (!track.artworkUri.isNullOrBlank()) {
             SubcomposeAsyncImage(
@@ -221,5 +224,6 @@ private fun ArtworkStage(track: Track) {
             contentScale = ContentScale.Fit,
             targetPx = 900,
         )
+        }
     }
 }
