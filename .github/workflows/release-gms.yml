@@ -9,7 +9,8 @@
 # KEYSTORE_* secrets, need the YOUTUBE_*/JAMENDO_* keys for
 # `local.properties`, run on the same `v*` tags, and attach their APK plus
 # its sha256 to the same GitHub Release.
-name: Release GMS APK
+
+name: Build Spartial Music GMS APK
 
 on:
   push:
@@ -18,11 +19,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
-    name: Build and publish the GMS APK
+    name: Build GMS APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -38,19 +39,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # ubuntu-latest already ships the Android SDK. Installing packages with
-      # the bundled sdkmanager avoids android-actions/setup-android, which
-      # runs a legacy `sdkmanager tools` call that fails on current images
-      # ("Failed to find package 'tools'").
       - name: Install Android SDK packages
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER=$(command -v sdkmanager); fi
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(command -v sdkmanager)
+          fi
+
           yes | "$SDKMANAGER" --licenses > /dev/null || true
+
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
-            "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
+            "platforms;android-37.0" \
+            "build-tools;37.0.0" \
+            "platform-tools"
 
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
@@ -61,15 +64,22 @@ jobs:
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
+          set -euo pipefail
+
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::KEYSTORE_BASE64 is not set. A release build needs a signing key."
+            echo "::error::KEYSTORE_BASE64 is not set."
             exit 1
           fi
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nodes-release.jks"
-          # Fail early with a clear message if the secret is not a real keystore.
-          keytool -list -keystore "$RUNNER_TEMP/nodes-release.jks" \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" > /dev/null
+
+          echo "$KEYSTORE_BASE64" | base64 --decode \
+            > "$RUNNER_TEMP/nodes-release.jks"
+
+          keytool -list \
+            -keystore "$RUNNER_TEMP/nodes-release.jks" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            > /dev/null
 
       - name: Write signing config
         env:
@@ -96,64 +106,56 @@ jobs:
             echo "JAMENDO_CLIENT_ID=$JAMENDO_CLIENT_ID"
           } > local.properties
 
-      - name: Assemble the GMS release
+      - name: Assemble GMS release
         run: ./gradlew :app:assembleGmsRelease --stacktrace
 
-      - name: Collect artifacts
+      - name: Collect APK
         id: artifacts
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
           mkdir -p dist
-          APK=$(find "app/build/outputs/apk/gms/release" -name '*.apk' | head -n 1)
+
+          APK=$(find app/build/outputs/apk/gms/release \
+            -name '*.apk' | head -n 1)
+
           if [ -z "$APK" ]; then
-            echo "::error::No release APK was produced for the gms flavour."
+            echo "::error::No GMS release APK found."
             exit 1
           fi
-          cp "$APK" "dist/nodes-gms-$VERSION.apk"
-          (cd "app/build/outputs/apk/gms/release" && sha256sum *.apk) \
-            > "dist/nodes-gms-$VERSION.apk.sha256" || true
-          ls -l dist
+
+          cp "$APK" dist/Spartial-Music-GMS.apk
+
+          cd dist
+          sha256sum Spartial-Music-GMS.apk \
+            > Spartial-Music-GMS.apk.sha256
+
+          ls -lh
 
       - name: Signing check
         run: |
+          set -euo pipefail
+
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
+
           for APK in dist/*.apk; do
-            BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
-            echo "Checking $APK with $BUILD_TOOLS"
-            "$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | grep -i "Signer #1 certificate DN"
+            echo "Checking $APK"
+
+            if ! "$BUILD_TOOLS/apksigner" verify \
+              --verbose --print-certs "$APK"; then
+              echo "::error::APK signature verification failed."
+              exit 1
+            fi
+
+            echo "APK signature verified successfully."
           done
-
-      - name: Create GitHub Release
-        # If this and release.yml race while creating the release on a fresh
-        # tag, re-run the failed workflow: the release already exists and
-        # simply takes the next APK upload.
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Spartial Music ${{ steps.artifacts.outputs.version }}
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          body: |
-            Signed release build of Spartial Music ${{ steps.artifacts.outputs.version }}.
-
-            `nodes-gms-` ships Cast support and is for devices with Google
-            Play services; `nodes-foss-`, built by the "Release FOSS APK"
-            workflow, is the Free-Software build without any Google binary.
-
-            Install with `adb install nodes-gms-${{ steps.artifacts.outputs.version }}.apk`
-            or open the APK on your device. Verify the checksum from the
-            `.sha256` file before installing.
-
-            YouTube browsing needs your own Data API key; see YOUTUBE.md.
-            Spartial Music is not affiliated with YouTube, Google LLC or any streaming
-            service.
-          files: |
-            dist/nodes-gms-${{ steps.artifacts.outputs.version }}.apk
-            dist/nodes-gms-${{ steps.artifacts.outputs.version }}.apk.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Spartial-Music-gms-release-apk
-          path: dist/*
+          name: Spartial-Music-GMS-APK
+          path: |
+            dist/Spartial-Music-GMS.apk
+            dist/Spartial-Music-GMS.apk.sha256
           if-no-files-found: error
+          retention-days: 30
