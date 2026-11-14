@@ -26,7 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -46,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import app.nodes.R
 import app.nodes.core.model.Track
 import app.nodes.ui.components.glassNavBackdrop
-import app.nodes.ui.theme.NodesGrey
 import app.nodes.ui.theme.NodesType
 import app.nodes.ui.theme.NodesWhite
 import dev.chrisbanes.haze.HazeState
@@ -67,7 +65,6 @@ fun MiniPlayer(
     isBuffering: Boolean,
     onClick: () -> Unit,
     onToggle: () -> Unit,
-    onPrevious: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
     progress: Float = 0f,
@@ -128,56 +125,46 @@ fun MiniPlayer(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
+                .padding(start = 8.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Artwork(
                 artworkUri = track.artworkUri,
                 title = track.title,
-                modifier = Modifier.size(46.dp),
-                shape = RoundedCornerShape(13.dp),
+                modifier = Modifier.size(44.dp),
+                shape = RoundedCornerShape(10.dp),
                 targetPx = 256,
             )
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     text = track.title,
-                    style = NodesType.rowTitle,
+                    style = NodesType.rowTitle.copy(fontSize = 15.sp),
                     color = NodesWhite,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = track.artist,
-                    style = NodesType.rowMeta,
-                    color = NodesGrey,
+                    style = NodesType.rowMeta.copy(fontSize = 13.sp, color = NodesWhite.copy(alpha = 0.60f)),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            CircleIconButton(
-                icon = Icons.Rounded.SkipPrevious,
-                contentDescription = stringResource(R.string.action_previous),
-                onClick = onPrevious,
-                size = 40.dp,
-                iconSize = 20.dp,
-                tint = NodesGrey,
-            )
-            Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+            // Play/pause and next, plain white filled glyphs at ~28dp - no
+            // previous, no circle behind the play.
+            Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                 if (isBuffering) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(22.dp),
                         strokeWidth = 2.dp,
                         color = NodesWhite,
                     )
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(NodesWhite)
-                            .clickable(role = Role.Button, onClick = onToggle)
-                            .semantics { role = Role.Button },
+                            .size(40.dp)
+                            .clickable(role = Role.Button, onClick = onToggle),
                         contentAlignment = Alignment.Center,
                     ) {
                         androidx.compose.material3.Icon(
@@ -185,20 +172,25 @@ fun MiniPlayer(
                             contentDescription = stringResource(
                                 if (isPlaying) R.string.action_pause else R.string.action_play,
                             ),
-                            tint = app.nodes.ui.theme.NodesBlack,
-                            modifier = Modifier.size(20.dp),
+                            tint = NodesWhite,
+                            modifier = Modifier.size(28.dp),
                         )
                     }
                 }
             }
-            CircleIconButton(
-                icon = Icons.Rounded.SkipNext,
-                contentDescription = stringResource(R.string.action_next),
-                onClick = onNext,
-                size = 40.dp,
-                iconSize = 20.dp,
-                tint = NodesWhite,
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable(role = Role.Button, onClick = onNext),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Rounded.SkipNext,
+                    contentDescription = stringResource(R.string.action_next),
+                    tint = NodesWhite,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
         }
     }
 }

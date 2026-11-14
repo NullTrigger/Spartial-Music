@@ -30,6 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.nodes.core.crash.AppSnapshot
+import app.nodes.ui.components.BarCollapseBus
 import app.nodes.ui.components.FloatingTabBar
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.MiniPlayer
@@ -66,6 +67,8 @@ fun NodesApp() {
     val navController = rememberNavController()
     val playerViewModel: PlayerViewModel = hiltViewModel()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
+    // Collapsed state: scrolling screens report through the bus.
+    val collapsed by BarCollapseBus.collapsed.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
     // The bar is persistent: every screen except the full-screen player (and
@@ -305,26 +308,12 @@ fun NodesApp() {
         }
 
         if (showMiniPlayer) {
-            Column(
+            Box(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding(),
             ) {
-                playerState.current?.let { track ->
-                    MiniPlayer(
-                        track = track,
-                        isPlaying = playerState.isPlaying,
-                        isBuffering = playerState.isBuffering,
-                        onClick = { navController.navigate(Routes.PLAYER) },
-                        onToggle = playerViewModel::togglePlayPause,
-                        onPrevious = playerViewModel::previous,
-                        onNext = playerViewModel::next,
-                        progress = playerState.progress,
-                        hazeState = hazeState,
-                        modifier = Modifier.padding(bottom = 2.dp),
-                    )
-                }
                 if (showBar) {
                     FloatingTabBar(
                         currentRoute = route,
@@ -343,7 +332,40 @@ fun NodesApp() {
                             }
                         },
                         hazeState = hazeState,
+                        collapsed = collapsed,
+                        // The mini capsule lives inside the bar in both
+                        // states: stacked below the pill when expanded, in
+                        // the row between the circles when collapsed.
+                        miniPlayer = {
+                            playerState.current?.let { track ->
+                                MiniPlayer(
+                                    track = track,
+                                    isPlaying = playerState.isPlaying,
+                                    isBuffering = playerState.isBuffering,
+                                    onClick = { navController.navigate(Routes.PLAYER) },
+                                    onToggle = playerViewModel::togglePlayPause,
+                                    onNext = playerViewModel::next,
+                                    progress = playerState.progress,
+                                    hazeState = hazeState,
+                                )
+                            }
+                        },
                     )
+                } else {
+                    // Full-screen destinations keep the mini player alone.
+                    playerState.current?.let { track ->
+                        MiniPlayer(
+                            track = track,
+                            isPlaying = playerState.isPlaying,
+                            isBuffering = playerState.isBuffering,
+                            onClick = { navController.navigate(Routes.PLAYER) },
+                            onToggle = playerViewModel::togglePlayPause,
+                            onNext = playerViewModel::next,
+                            progress = playerState.progress,
+                            hazeState = hazeState,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
                 }
             }
         }

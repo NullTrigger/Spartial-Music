@@ -59,11 +59,9 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -85,6 +83,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
@@ -114,22 +113,19 @@ import app.nodes.core.model.SourceId
 import app.nodes.core.model.Track
 import app.nodes.core.util.formatDuration
 import app.nodes.playback.PlayerUiState
-import app.nodes.playback.RepeatMode
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.CastRouteButton
 import app.nodes.ui.components.CircleIconButton
 import app.nodes.ui.components.EmptyState
-import app.nodes.ui.components.GlassBadge
 import app.nodes.ui.components.KeepScreenOn
 import app.nodes.ui.components.LoadingRows
-import app.nodes.ui.components.PlayerBackdrop
-import app.nodes.ui.components.SongRow
+import app.nodes.ui.components.PlayerEdgeBackdrop
+import dev.chrisbanes.haze.HazeState
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
 import app.nodes.ui.components.trackSupportingLine
 import app.nodes.ui.theme.NodesBlack
 import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesGreyDim
 import app.nodes.ui.theme.NodesSpacing
 import app.nodes.ui.theme.NodesSurface
 import app.nodes.ui.theme.NodesType
@@ -218,6 +214,10 @@ fun NowPlayingScreen(
     }
 
     val tint = rememberArtworkTint(track.artworkUri, track.title)
+    // The fade colour is the artwork's own bottom-edge colour, not a tint.
+    val edgeColour = rememberArtworkEdgeColour(track.artworkUri, track.title)
+    // The screen's own backdrop capture: the glass controls read it.
+    val hazeState = remember { HazeState() }
     val sourceName = playerSourceName(track.sourceId)
     val queueTitle = track.album?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.player_playing_from_queue)
@@ -278,11 +278,11 @@ fun NowPlayingScreen(
             .fillMaxSize()
             .then(if (mode == PlayerMode.CONTROLS) dismissDragModifier else Modifier),
     ) {
-        PlayerBackdrop(
+        PlayerEdgeBackdrop(
             artworkUri = track.artworkUri,
-            title = track.title,
-            tint = tint,
+            edgeColour = edgeColour,
             showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
+            hazeState = hazeState,
         ) {
             Column(
                 Modifier
@@ -355,13 +355,13 @@ fun NowPlayingScreen(
                     sourceName = sourceName,
                     liked = liked,
                     tint = tint,
+                    hazeState = hazeState,
                     onToggleLike = { viewModel.toggleLike(track) },
                     onPlayPause = playerViewModel::togglePlayPause,
                     onPrevious = playerViewModel::previous,
                     onNext = playerViewModel::next,
                     onSeek = playerViewModel::seekTo,
                     onShuffle = playerViewModel::toggleShuffle,
-                    onRepeat = { playerViewModel.cycleRepeat() },
                     onOpenLyrics = { mode = PlayerMode.LYRICS },
                     onOpenQueue = { mode = PlayerMode.QUEUE },
                     onOpenControls = { mode = PlayerMode.CONTROLS },
@@ -430,9 +430,6 @@ private fun PlayerTopBar(
             background = Color.Black.copy(alpha = 0.26f),
         )
         Spacer(Modifier.weight(1f))
-        if (mode == PlayerMode.CONTROLS) {
-            GlassBadge(text = sourceName.uppercase())
-        }
     }
 }
 
@@ -467,16 +464,16 @@ private fun TrackTitleBlock(track: Track, modifier: Modifier = Modifier) {
     ) {
         Text(
             text = track.title,
-            style = MaterialTheme.typography.headlineMedium,
+            style = NodesType.sheetTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
             color = NodesWhite,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(4.dp))
         Text(
             text = track.artist,
-            style = MaterialTheme.typography.bodyMedium,
-            color = NodesWhite.copy(alpha = 0.76f),
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
+            color = NodesWhite.copy(alpha = 0.80f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -850,13 +847,13 @@ private fun PlayerDock(
     sourceName: String,
     liked: Boolean,
     tint: Color,
+    hazeState: HazeState?,
     onToggleLike: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
     onShuffle: () -> Unit,
-    onRepeat: () -> Unit,
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenControls: () -> Unit,
@@ -884,6 +881,7 @@ private fun PlayerDock(
                 onMore = onMore,
                 onOpenLyrics = onOpenLyrics,
                 onOpenQueue = onOpenQueue,
+                hazeState = hazeState,
             )
         } else {
             ModeSelectorRow(
@@ -892,17 +890,18 @@ private fun PlayerDock(
                 onOpenControls = onOpenControls,
                 onOpenLyrics = onOpenLyrics,
                 onOpenQueue = onOpenQueue,
+                hazeState = hazeState,
             )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(24.dp))
         PlayerProgress(
             state = state,
             sourceName = sourceName,
             tint = tint,
             onSeek = onSeek,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(24.dp))
         PlayerTransport(
             state = state,
             tint = tint,
@@ -910,7 +909,6 @@ private fun PlayerDock(
             onPrevious = onPrevious,
             onNext = onNext,
             onShuffle = onShuffle,
-            onRepeat = onRepeat,
         )
     }
 }
@@ -923,7 +921,12 @@ private fun ControlsActionRow(
     onMore: () -> Unit,
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
+    hazeState: HazeState?,
 ) {
+    val lyricsTouch = rememberLiquidTouch()
+    val queueTouch = rememberLiquidTouch()
+    val capsuleTouch = rememberLiquidTouch()
+    val haptics = LocalHapticFeedback.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -931,43 +934,73 @@ private fun ControlsActionRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GlassCircleButton(
-            icon = Icons.Rounded.Lyrics,
-            contentDescription = stringResource(R.string.player_lyrics),
-            onClick = onOpenLyrics,
-        )
-        Row(
+        // Row 1: a 44dp glass circle (lyrics, quote-bubble glyph), the glass
+        // capsule, and the queue glass circle - all Liquid Glass.
+        Box(
             modifier = Modifier
-                .width(188.dp)
-                .height(52.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.10f))
-                .glass(shape = CircleShape, strong = true),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
+                .liquidGlassTouch(lyricsTouch)
+                .size(44.dp)
+                .liquidGlass(hazeState, CircleShape, lyricsTouch)
+                .liquidGlassPress(lyricsTouch, haptics)
+                .clickable(role = Role.Button, onClick = onOpenLyrics),
+            contentAlignment = Alignment.Center,
         ) {
-            DockAction(
-                icon = if (liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                contentDescription = stringResource(R.string.player_like),
+            Icon(
+                imageVector = Icons.Rounded.FormatQuote,
+                contentDescription = stringResource(R.string.player_lyrics),
                 tint = NodesWhite,
-                onClick = onToggleLike,
-            )
-            DockAction(
-                icon = Icons.Rounded.MusicNote,
-                contentDescription = stringResource(R.string.player_add_to_queue),
-                onClick = onAddToQueue,
-            )
-            DockAction(
-                icon = Icons.Rounded.MoreHoriz,
-                contentDescription = stringResource(R.string.player_more),
-                onClick = onMore,
+                modifier = Modifier.size(20.dp),
             )
         }
-        GlassCircleButton(
-            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-            contentDescription = stringResource(R.string.player_queue),
-            onClick = onOpenQueue,
-        )
+        Box(
+            modifier = Modifier
+                .liquidGlassTouch(capsuleTouch)
+                .width(180.dp)
+                .height(44.dp)
+                .liquidGlass(hazeState, CircleShape, capsuleTouch)
+                .liquidGlassPress(capsuleTouch, haptics),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DockAction(
+                    icon = if (liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                    contentDescription = stringResource(R.string.player_like),
+                    tint = NodesWhite,
+                    onClick = onToggleLike,
+                )
+                DockAction(
+                    icon = Icons.Rounded.MusicNote,
+                    contentDescription = stringResource(R.string.player_add_to_queue),
+                    tint = NodesWhite,
+                    onClick = onAddToQueue,
+                )
+                DockAction(
+                    icon = Icons.Rounded.MoreHoriz,
+                    contentDescription = stringResource(R.string.player_more),
+                    tint = NodesWhite,
+                    onClick = onMore,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .liquidGlassTouch(queueTouch)
+                .size(44.dp)
+                .liquidGlass(hazeState, CircleShape, queueTouch)
+                .liquidGlassPress(queueTouch, haptics)
+                .clickable(role = Role.Button, onClick = onOpenQueue),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                contentDescription = stringResource(R.string.player_queue),
+                tint = NodesWhite,
+                modifier = Modifier.size(22.dp),
+            )
+        }
     }
 }
 
@@ -1086,12 +1119,21 @@ private fun PlayerProgress(
     var scrubFraction by remember { mutableFloatStateOf(0f) }
     val shown = if (scrubbing) scrubFraction else fraction
     val seekable = state.durationMs > 0L
+    // iOS-style: the bar thickens while the finger is on it.
+    val barHeight by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (scrubbing) 8.dp else 4.dp,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "seekBar",
+    )
 
     val seekLabel = stringResource(R.string.player_seek_bar)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(22.dp)
+            .height(24.dp)
             .semantics {
                 contentDescription = seekLabel
                 progressBarRangeInfo = ProgressBarRangeInfo(shown, 0f..1f)
@@ -1124,10 +1166,10 @@ private fun PlayerProgress(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(4.dp)
+                .height(barHeight)
                 .align(Alignment.CenterStart)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Color.White.copy(alpha = 0.22f)),
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color.White.copy(alpha = 0.20f)),
         ) {
             Box(
                 Modifier
@@ -1179,29 +1221,17 @@ private fun PlayerTransport(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onShuffle: () -> Unit,
-    onRepeat: () -> Unit,
 ) {
     val context = LocalContext.current
     val accent = tint.toPlayerAccent()
-    // The reference transport has five controls: cast, previous, play, next and
-    // one combined shuffle/repeat button. That button cycles
-    // off -> shuffle -> repeat track -> off, so both modes stay reachable
-    // without widening the row.
-    val modeActive = state.shuffleOn || state.repeatMode != RepeatMode.OFF
-    val modeIcon = when {
-        state.repeatMode == RepeatMode.ONE -> Icons.Rounded.RepeatOne
-        else -> Icons.Rounded.Shuffle
-    }
-    val onCycleMode: () -> Unit = {
-        when {
-            !state.shuffleOn && state.repeatMode == RepeatMode.OFF -> onShuffle()
-            state.shuffleOn && state.repeatMode == RepeatMode.OFF -> {
-                onShuffle()
-                onRepeat()
-            }
-            else -> onRepeat()
-        }
-    }
+    val haptics = LocalHapticFeedback.current
+    val playTouch = rememberLiquidTouch()
+    // Play/pause presses scale to ~0.9 on a spring and crossfade the glyph.
+    val playScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (playTouch.isPressed) 0.9f else 1f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
+        label = "playScale",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1236,12 +1266,12 @@ private fun PlayerTransport(
             size = 52.dp,
             iconSize = 34.dp,
         )
-        // A bare icon, as in the reference: the transport reads as glyphs on
-        // the wash, not as a row of buttons. The whole 68dp square is the tap
-        // target so the hit area does not shrink with the chrome.
+        // Play/pause: the largest control at ~56dp, press scales to ~0.9 on a
+        // spring, glyph crossfades with play state. 56dp is the touch target.
         Box(
             modifier = Modifier
-                .size(68.dp)
+                .size(56.dp)
+                .scale(playScale)
                 .clickable(role = Role.Button, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
         ) {
@@ -1255,7 +1285,7 @@ private fun PlayerTransport(
                     if (state.isPlaying) R.string.action_pause else R.string.action_play,
                 ),
                 tint = accent,
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(40.dp),
             )
         }
         CircleIconButton(
@@ -1266,18 +1296,16 @@ private fun PlayerTransport(
             size = 52.dp,
             iconSize = 34.dp,
         )
-        // Bare glyph like its neighbours; the accent tint carries the active
-        // state now that there is no pill behind it.
+        // Shuffle with a clear active state: accent when on, dimmed when off.
         CircleIconButton(
-            icon = modeIcon,
-            contentDescription = stringResource(
-                if (state.repeatMode == RepeatMode.ONE) R.string.player_repeat else R.string.player_shuffle,
-            ),
-            onClick = onCycleMode,
-            tint = if (modeActive) accent else accent.copy(alpha = 0.62f),
-            filled = false,
-            size = 52.dp,
-            iconSize = 30.dp,
+            icon = Icons.Rounded.Shuffle,
+            contentDescription = stringResource(R.string.player_shuffle),
+            onClick = onShuffle,
+            tint = if (state.shuffleOn) accent else accent.copy(alpha = 0.55f),
+            filled = state.shuffleOn,
+            background = accent.copy(alpha = 0.14f),
+            size = 48.dp,
+            iconSize = 26.dp,
         )
     }
 }

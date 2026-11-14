@@ -28,6 +28,12 @@ val NodesAccentDeep = Color(0xFFB6B8BE)
 val NodesDanger = Color(0xFFFF6B6B)
 
 /**
+ * The navigation accent: active-tab icon and label inside the bubble, and the
+ * collapsed bar's left circle. Value pending the maintainer's confirmation.
+ */
+val navAccent = Color(0xFF3DA9FF)
+
+/**
  * Warm and cool accents used by generated placeholder artwork, genre tiles and
  * the deterministic fallback tint when a provider has no cover image.
  */
