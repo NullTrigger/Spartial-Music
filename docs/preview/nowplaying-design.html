@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spartial Music — Now Playing design</title>
+<style>
+  /* Design tokens mirror the app: Manrope, near-black surfaces, navAccent. */
+  :root {
+    --black: #07080a;
+    --white: #f6f6f7;
+    --grey: #9fa1a8;
+    --grey-dim: #6a6c74;
+    --accent: #3da9ff;          /* navAccent */
+    --glass-white: rgba(255,255,255,.08);
+    --glass-stroke: rgba(255,255,255,.16);
+    --radius-pill: 999px;
+  }
+
+  @font-face {
+    font-family: 'Manrope';
+    src: local('Manrope'), local('Manrope-Regular');
+    font-weight: 400 800;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+
+  body {
+    background: #0b0c0e;
+    color: var(--white);
+    font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 40px;
+    padding: 40px 16px 64px;
+  }
+  h1 { font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--grey); }
+  .caption { font-size: 12.5px; color: var(--grey-dim); max-width: 390px; text-align: center; line-height: 1.6; }
+  .caption b { color: var(--grey); font-weight: 600; }
+
+  /* ---------------- phone ---------------- */
+  .phone {
+    position: relative;
+    width: 390px; height: 844px;
+    border-radius: 54px;
+    background: var(--black);
+    overflow: hidden;
+    box-shadow: 0 40px 90px rgba(0,0,0,.65), 0 0 0 10px #16181c, 0 0 0 11px #2a2d33;
+    isolation: isolate;
+  }
+
+  /* ---------------- artwork + edge fade ---------------- */
+  .art {
+    position: absolute; inset: 0 0 auto 0;
+    height: 62%;
+    /* Generated stand-in for artwork: no copyrighted cover is copied. A soft
+       duotone warped by fractal noise reads as an out-of-focus photograph, so
+       the fade below can be judged honestly - a discrete radial highlight
+       would read as a smudge pasted on top. */
+    background:
+      linear-gradient(168deg, #b6e6fa 0%, #6fb9e4 26%, #3d86c4 52%, #265f95 74%, #1b4570 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0035 0.0055' numOctaves='4' seed='7' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='120' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Crect width='520' height='520' fill='%23bfe8fb' filter='url(%23w)' opacity='.85'/%3E%3C/svg%3E");
+    background-size: cover, 190% 190%;
+    background-position: center, 30% 22%;
+    background-blend-mode: normal, soft-light;
+  }
+  .art::after {
+    content: ''; position: absolute; inset: 0;
+    /* A wide, low-contrast tilt rather than a hotspot: the light falls from
+       the upper left across the whole frame. */
+    background: linear-gradient(118deg,
+      rgba(255,255,255,.30) 0%,
+      rgba(255,255,255,.10) 28%,
+      rgba(255,255,255,0) 52%,
+      rgba(9,32,58,.22) 78%,
+      rgba(6,26,48,.38) 100%);
+  }
+  /* sampled bottom-edge colour -> background below the art (no hue shift) */
+  .edge-fade {
+    position: absolute; left: 0; right: 0;
+    /* Ends exactly where the artwork ends, so the fade lands on the artwork's
+       own bottom edge instead of over a seam. */
+    top: 46%; height: 16%;
+    background: linear-gradient(to bottom,
+      rgba(27,69,112,0) 0%,
+      rgba(27,69,112,.30) 44%,
+      rgba(27,69,112,.70) 76%,
+      #1b4570 100%);
+  }
+  .bg-below {
+    position: absolute; left: 0; right: 0;
+    /* Starts where the artwork stops; the fade above ends on the same colour,
+       so the two meet with no visible line. */
+    top: 62%; bottom: 0;
+    background: linear-gradient(to bottom, #1b4570 0%, #143b5e 100%);
+  }
+  /* faint grain so the wash is not flat */
+  .grain {
+    position: absolute; inset: 0; opacity: .05; mix-blend-mode: overlay; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---------------- status bar ---------------- */
+  .status {
+    position: absolute; top: 0; left: 0; right: 0; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 30px 0; font-size: 15px; font-weight: 700; letter-spacing: .01em;
+    z-index: 6;
+  }
+  .status .right { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .bars i { width: 3px; background: var(--white); border-radius: 1px; display: block; }
+  .battery { width: 24px; height: 12px; border: 1.5px solid rgba(255,255,255,.65); border-radius: 3.5px; position: relative; }
+  .battery::after { content: ''; position: absolute; inset: 1.5px; width: 62%; background: var(--white); border-radius: 1.5px; }
+
+  /* ---------------- content ---------------- */
+  .content { position: absolute; inset: 0; display: flex; flex-direction: column; z-index: 5; }
+
+  .head { display: flex; align-items: center; justify-content: space-between; padding: 58px 22px 0; }
+  .chevron {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,.07);
+    backdrop-filter: blur(18px) saturate(1.45); -webkit-backdrop-filter: blur(18px) saturate(1.45);
+    border: 1px solid var(--glass-stroke);
+  }
+  .chevron svg { width: 20px; height: 20px; stroke: var(--white); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  .spacer { flex: 1; }
+
+  /* title block — centred, sitting on the fade */
+  .title-block { text-align: center; padding: 0 28px; }
+  .title-block h2 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; }
+  .title-block p { margin-top: 4px; font-size: 18px; font-weight: 400; color: rgba(255,255,255,.8); }
+
+  /* row 1 — glass controls */
+  .row1 { display: flex; align-items: center; justify-content: space-between; padding: 22px 22px 0; }
+  .circle {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--glass-white);
+    backdrop-filter: blur(24px) saturate(1.45); -webkit-backdrop-filter: blur(24px) saturate(1.45);
+    border: 1px solid var(--glass-stroke);
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  }
+  .circle svg { width: 21px; height: 21px; stroke: var(--white); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .capsule {
+    width: 180px; height: 44px; border-radius: var(--radius-pill);
+    display: flex; align-items: center; justify-content: space-evenly;
+    background: var(--glass-white);
+    backdrop-filter: blur(24px) saturate(1.45); -webkit-backdrop-filter: blur(24px) saturate(1.45);
+    border: 1px solid var(--glass-stroke);
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  }
+  .capsule svg { width: 21px; height: 21px; stroke: var(--white); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .capsule .star { fill: none; }
+  .capsule .star.on { fill: var(--white); }
+
+  /* progress */
+  .progress-wrap { padding: 26px 30px 0; }
+  .bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,.20); position: relative; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; width: 28%; border-radius: 999px; background: rgba(255,255,255,.96); }
+  .times { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 12px; color: rgba(255,255,255,.6); }
+  .times .src { font-size: 11px; letter-spacing: .09em; color: rgba(255,255,255,.5); font-weight: 600; }
+
+  /* transport */
+  .transport { display: flex; align-items: center; justify-content: space-between; padding: 22px 34px 0; }
+  .transport .glyph { width: 34px; height: 34px; display: grid; place-items: center; }
+  .transport svg { width: 30px; height: 30px; fill: var(--white); }
+  .transport .play { width: 56px; height: 56px; }
+  .transport .play svg { width: 46px; height: 46px; }
+  .transport .dim svg { fill: rgba(255,255,255,.55); }
+  .transport .on svg { fill: var(--accent); }
+
+  .bottom-pad { height: 26px; }
+  .hint { text-align: center; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.32); padding-bottom: 14px; }
+
+  /* ---------------- callouts ---------------- */
+  .notes { width: 390px; display: flex; flex-direction: column; gap: 10px; }
+  .note { background: #121418; border: 1px solid #1d2027; border-radius: 14px; padding: 12px 14px; font-size: 12.5px; line-height: 1.65; color: var(--grey); }
+  .note b { color: var(--white); font-weight: 700; }
+  .note code { background: #1b1e25; color: #9fd6ff; padding: 1px 5px; border-radius: 5px; font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<h1>Spartial Music — Now Playing</h1>
+<div class="caption">
+  Full-bleed artwork, an <b>edge-colour fade</b> (the bottom 10% of the artwork sampled and reused, no hue shift),
+  centred title/artist, and <b>Liquid Glass</b> controls on real <code>backdrop-filter</code> blur.
+</div>
+
+<div class="phone">
+  <div class="art"></div>
+  <div class="edge-fade"></div>
+  <div class="bg-below"></div>
+  <div class="grain"></div>
+
+  <div class="status">
+    <span>9:41</span>
+    <span class="right">
+      <span class="bars"><i style="height:5px"></i><i style="height:8px"></i><i style="height:11px"></i></span>
+      <span style="font-size:12px">LTE</span>
+      <span class="battery"></span>
+    </span>
+  </div>
+
+  <div class="content">
+    <div class="head">
+      <div class="chevron">
+        <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="spacer"></div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="title-block">
+      <h2>Toxic</h2>
+      <p>Britney Spears</p>
+    </div>
+
+    <div class="row1">
+      <!-- quote bubble: lyrics -->
+      <div class="circle">
+        <svg viewBox="0 0 24 24"><path d="M7 17v-4a4 4 0 0 1 4-4"/><path d="M4 12h6v6H6a2 2 0 0 1-2-2z"/><path d="M17 17v-4a4 4 0 0 1 4-4"/><path d="M14 12h6v6h-4a2 2 0 0 1-2-2z"/></svg>
+      </div>
+
+      <!-- glass capsule: star, music note, ellipsis -->
+      <div class="capsule">
+        <svg class="star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 17l-5.3 2.7 1.1-5.9L3.5 9.7l5.9-.8z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="16" r="2.6"/></svg>
+        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="#fff" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="#fff" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="#fff" stroke="none"/></svg>
+      </div>
+
+      <!-- queue -->
+      <div class="circle">
+        <svg viewBox="0 0 24 24"><path d="M4 7h11"/><path d="M4 12h11"/><path d="M4 17h7"/><path d="M17 12v7"/><circle cx="19" cy="18" r="1.6"/><path d="M17 12h3"/></svg>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="bar"><div class="fill"></div></div>
+      <div class="times">
+        <span>0:50</span>
+        <span class="src">YOUTUBE MUSIC</span>
+        <span>3:20</span>
+      </div>
+    </div>
+
+    <div class="transport">
+      <div class="glyph dim">
+        <svg viewBox="0 0 24 24"><path d="M4.2 7.4h9.6a1.4 1.4 0 0 1 1.4 1.4v4.4a1.4 1.4 0 0 1-1.4 1.4H4.2a1.4 1.4 0 0 1-1.4-1.4V8.8a1.4 1.4 0 0 1 1.4-1.4z"/><path d="M2.4 19.9l4.5-6.8 4.5 6.8z"/><path d="M12.9 13.4a3.3 3.3 0 0 1 3.3 3.3h1.8a5.1 5.1 0 0 0-5.1-5.1z"/><path d="M12.9 9.9a6.7 6.7 0 0 1 6.7 6.7h1.8a8.5 8.5 0 0 0-8.5-8.5z"/></svg>
+      </div>
+      <div class="glyph">
+        <svg viewBox="0 0 24 24"><path d="M4.4 5.6v12.8L11.2 12z"/><path d="M12 5.6v12.8L18.8 12z"/></svg>
+      </div>
+      <div class="glyph play">
+        <svg viewBox="0 0 24 24"><path d="M6 3.5l14 8.5-14 8.5z"/></svg>
+      </div>
+      <div class="glyph">
+        <svg viewBox="0 0 24 24"><path d="M5.2 5.6L12 12l-6.8 6.4z"/><path d="M12.8 5.6L19.6 12l-6.8 6.4z"/></svg>
+      </div>
+      <div class="glyph on">
+        <svg viewBox="0 0 24 24"><path d="M16.4 3.4h4.4v4.4h-1.9V6.3l-5.4 5.4 1.4 1.4 1.3-1.3v3.9h-4.4v-1.9h2.7l-1.3 1.3-1.4-1.4L6 19.9v1.7H4V19.7h1.7L11 14.4l-4-4H5.3v2.5H3.4V8.5h4.4v1.9H5.9L11 11.6l5.4-5.4h-1.9V4.4h1.9z"/></svg>
+      </div>
+    </div>
+
+    <div class="bottom-pad"></div>
+    <div class="hint">Swipe down to close</div>
+  </div>
+</div>
+
+<div class="notes">
+  <div class="note"><b>Edge-colour fade.</b> The bottom ~10% strip of the artwork is sampled and reused as the background below the art, so there is no teal/green mismatch — just that colour, deepened ~15% under the text. The fade is eased and covers only the artwork's bottom quarter.</div>
+  <div class="note"><b>Liquid Glass.</b> Row&nbsp;1's circles and capsule use a real backdrop blur (<code>backdrop-filter: blur(24px) saturate(1.45)</code>) with a white ~8% tint, a 1dp gradient rim and a soft shadow. On API&nbsp;31+ the Compose app does this with Haze plus a saturation <code>ColorMatrix</code>; below 31 it falls back to a ~75% dark tint.</div>
+  <div class="note"><b>Touch response.</b> Real surfaces scale to ~1.06 on a 0.7-damping spring, brighten, and follow the finger with a radial highlight; navigation elements fire a light haptic. Under the system reduce-motion setting the lens and stretch are skipped.</div>
+  <div class="note"><b>Type sizes.</b> Title 22sp Heavy, artist 18sp Regular at 80%, source label 11sp letter-spaced at 50%, times 12sp at 60% — all Manrope.</div>
+</div>
+
+</body>
+</html>

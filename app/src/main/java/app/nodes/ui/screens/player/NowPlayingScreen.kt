@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -53,6 +54,8 @@ import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lyrics
@@ -92,6 +95,7 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -116,6 +120,7 @@ import app.nodes.core.model.SourceId
 import app.nodes.core.model.Track
 import app.nodes.core.util.formatDuration
 import app.nodes.playback.PlayerUiState
+import app.nodes.playback.RepeatMode
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.CastRouteButton
 import app.nodes.ui.components.CircleIconButton
@@ -138,9 +143,8 @@ import app.nodes.ui.theme.SpartialSpacing
 import app.nodes.ui.theme.SpartialSurface
 import app.nodes.ui.theme.SpartialType
 import app.nodes.ui.theme.SpartialWhite
-import app.nodes.ui.theme.rememberArtworkEdgeColour
-import app.nodes.ui.theme.rememberArtworkTint
-import app.nodes.ui.theme.toPlayerAccent
+import app.nodes.ui.theme.navAccent
+import app.nodes.ui.theme.rememberDynamicEdgeColour
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
@@ -153,13 +157,14 @@ private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
 /**
  * Full Now Playing, built around the three views in the reference design:
  *
- *  - **Controls** — the cover fills the upper screen and dissolves into a
- *    saturated colour wash derived from its tint, with the title, actions,
- *    progress and transport sitting over that gradient.
+ *  - **Controls** — the cover fills the upper screen, scaled to the width, and
+ *    dissolves into a colour wash derived from its own edge colour: the bottom
+ *    strip of the visible artwork is averaged and used as the gradient, so
+ *    there is no tint to disagree with the cover. The title, actions, progress
+ *    and transport sit over that gradient.
  *  - **Lyrics** — the current line is sharp and white; upcoming lines are
  *    progressively blurred and dimmed so the eye stays on the line being sung.
- *    The backdrop is the same clean gradient, never a stretched copy of the
- *    cover.
+ *    The backdrop is the same gradient, without the cover.
  *  - **Queue** — “Playing from”, the next rows and their artwork menus.
  *
  * All three share one bottom dock, so the transport never moves. The screen has
@@ -167,10 +172,9 @@ private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
  * YouTube player stays composed above every mode; leaving Now Playing pauses it
  * and drops the handle (YOUTUBE.md).
  *
- * The surface behind everything is a smooth gradient built from the artwork's
- * dominant colour, sampled locally by [rememberArtworkTint]; see
- * [PlayerBackdrop]. API 26 has no RenderEffect, and the design no longer needs
- * one: the wash is pure geometry, identical on every device.
+ * The surface behind everything is a gradient built from the artwork's own
+ * edge colour, sampled off the main thread by [rememberDynamicEdgeColour]; see
+ * [PlayerEdgeBackdrop]. The wash is pure geometry, identical on every device.
  */
 @Composable
 fun NowPlayingScreen(
@@ -222,11 +226,24 @@ fun NowPlayingScreen(
         return
     }
 
-    val tint = rememberArtworkTint(track.artworkUri, track.title)
-    // The fade colour is the artwork's own bottom-edge colour, not a tint.
-    val edgeColour = rememberArtworkEdgeColour(track.artworkUri, track.title)
     // The screen's own backdrop capture: the glass controls read it.
     val hazeState = remember { HazeState() }
+    // The artwork stage is what the sampler measures the visible region
+    // against, so both use the same height.
+    val stageHeight = playerStageHeight()
+    val density = LocalDensity.current
+    val stageWidthPx = with(density) {
+        LocalConfiguration.current.screenWidthDp.dp.toPx().toInt()
+    }
+    val stageHeightPx = with(density) { stageHeight.toPx().toInt() }
+    // The fade colour follows the artwork and changes with the song - never
+    // with a pause or a seek.
+    val edgeColour = rememberDynamicEdgeColour(
+        trackId = track.id,
+        artworkUri = track.artworkUri,
+        stageWidthPx = stageWidthPx,
+        stageHeightPx = stageHeightPx,
+    )
     val sourceName = playerSourceName(track.sourceId)
     val queueTitle = track.album?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.player_playing_from_queue)
@@ -289,6 +306,7 @@ fun NowPlayingScreen(
     ) {
         PlayerEdgeBackdrop(
             artworkUri = track.artworkUri,
+            title = track.title,
             edgeColour = edgeColour,
             showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
             hazeState = hazeState,
@@ -363,7 +381,6 @@ fun NowPlayingScreen(
                     track = track,
                     sourceName = sourceName,
                     liked = liked,
-                    tint = tint,
                     hazeState = hazeState,
                     onToggleLike = { viewModel.toggleLike(track) },
                     onPlayPause = playerViewModel::togglePlayPause,
@@ -371,6 +388,7 @@ fun NowPlayingScreen(
                     onNext = playerViewModel::next,
                     onSeek = playerViewModel::seekTo,
                     onShuffle = playerViewModel::toggleShuffle,
+                    onRepeat = { playerViewModel.cycleRepeat() },
                     onOpenLyrics = { mode = PlayerMode.LYRICS },
                     onOpenQueue = { mode = PlayerMode.QUEUE },
                     onOpenControls = { mode = PlayerMode.CONTROLS },
@@ -855,7 +873,6 @@ private fun PlayerDock(
     track: Track,
     sourceName: String,
     liked: Boolean,
-    tint: Color,
     hazeState: HazeState?,
     onToggleLike: () -> Unit,
     onPlayPause: () -> Unit,
@@ -863,6 +880,7 @@ private fun PlayerDock(
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
     onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenControls: () -> Unit,
@@ -906,13 +924,11 @@ private fun PlayerDock(
         PlayerProgress(
             state = state,
             sourceName = sourceName,
-            tint = tint,
             onSeek = onSeek,
         )
         Spacer(Modifier.height(24.dp))
         PlayerTransport(
             state = state,
-            tint = tint,
             onPlayPause = onPlayPause,
             onPrevious = onPrevious,
             onNext = onNext,
@@ -935,6 +951,8 @@ private fun ControlsActionRow(
     val queueTouch = rememberLiquidTouch()
     val capsuleTouch = rememberLiquidTouch()
     val haptics = LocalHapticFeedback.current
+    val lyricsLabel = stringResource(R.string.player_lyrics)
+    val queueLabel = stringResource(R.string.player_queue)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -950,12 +968,13 @@ private fun ControlsActionRow(
                 .size(44.dp)
                 .liquidGlass(hazeState, CircleShape, lyricsTouch)
                 .liquidGlassPress(lyricsTouch, haptics)
-                .clickable(role = Role.Button, onClick = onOpenLyrics),
+                .clickable(role = Role.Button, onClick = onOpenLyrics)
+                .semantics { this.contentDescription = lyricsLabel },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Rounded.FormatQuote,
-                contentDescription = stringResource(R.string.player_lyrics),
+                contentDescription = null,
                 tint = SpartialWhite,
                 modifier = Modifier.size(20.dp),
             )
@@ -999,12 +1018,13 @@ private fun ControlsActionRow(
                 .size(44.dp)
                 .liquidGlass(hazeState, CircleShape, queueTouch)
                 .liquidGlassPress(queueTouch, haptics)
-                .clickable(role = Role.Button, onClick = onOpenQueue),
+                .clickable(role = Role.Button, onClick = onOpenQueue)
+                .semantics { this.contentDescription = queueLabel },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.PlaylistPlay,
-                contentDescription = stringResource(R.string.player_queue),
+                contentDescription = null,
                 tint = SpartialWhite,
                 modifier = Modifier.size(22.dp),
             )
@@ -1099,12 +1119,16 @@ private fun DockAction(
         modifier = Modifier
             .size(44.dp)
             .clip(CircleShape)
-            .clickable(role = Role.Button, onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            // The label lives on the button, not on the icon: a clickable
+            // with no description of its own is announced as an unlabelled
+            // button, and the icon's own label is a separate focus target.
+            .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = tint,
             modifier = Modifier.size(20.dp),
         )
@@ -1115,11 +1139,12 @@ private fun DockAction(
 private fun PlayerProgress(
     state: PlayerUiState,
     sourceName: String,
-    tint: Color,
     onSeek: (Long) -> Unit,
 ) {
     val fraction = state.progress.coerceIn(0f, 1f)
-    val accent = tint.toPlayerAccent()
+    // The accent is fixed, not taken from the artwork: the bar must read the
+    // same on every song.
+    val accent = navAccent
     // A flat bar with no knob, as in the reference: the filled part is the
     // only marker. Scrubbing tracks the finger and seeks when it lifts, so the
     // music does not restart on every pixel.
@@ -1224,14 +1249,14 @@ private fun PlayerProgress(
 @Composable
 private fun PlayerTransport(
     state: PlayerUiState,
-    tint: Color,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
 ) {
     val context = LocalContext.current
-    val accent = tint.toPlayerAccent()
+    val accent = navAccent
     val haptics = LocalHapticFeedback.current
     val playTouch = rememberLiquidTouch()
     // Play/pause presses scale to ~0.9 on a spring and crossfade the glyph.
@@ -1305,17 +1330,44 @@ private fun PlayerTransport(
             size = 52.dp,
             iconSize = 34.dp,
         )
-        // Shuffle with a clear active state: accent when on, dimmed when off.
-        CircleIconButton(
-            icon = Icons.Rounded.Shuffle,
-            contentDescription = stringResource(R.string.player_shuffle),
-            onClick = onShuffle,
-            tint = if (state.shuffleOn) accent else accent.copy(alpha = 0.55f),
-            filled = state.shuffleOn,
-            background = accent.copy(alpha = 0.14f),
-            size = 48.dp,
-            iconSize = 26.dp,
-        )
+        // The last slot holds both shuffle and repeat: the icon shows whichever
+        // is active, a tap toggles shuffle and a long press cycles the repeat
+        // mode, so neither function was lost.
+        val repeatOn = state.repeatMode != RepeatMode.OFF
+        val modeIcon = when {
+            state.repeatMode == RepeatMode.ONE -> Icons.Rounded.RepeatOne
+            repeatOn -> Icons.Rounded.Repeat
+            else -> Icons.Rounded.Shuffle
+        }
+        val modeLabel = when {
+            state.repeatMode == RepeatMode.ONE -> stringResource(R.string.player_repeat_one)
+            repeatOn -> stringResource(R.string.player_repeat_all)
+            state.shuffleOn -> stringResource(R.string.player_shuffle)
+            else -> stringResource(R.string.player_shuffle)
+        }
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .combinedClickable(
+                    role = Role.Button,
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onRepeat()
+                    },
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onShuffle()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = modeIcon,
+                contentDescription = modeLabel,
+                tint = if (repeatOn || state.shuffleOn) accent else accent.copy(alpha = 0.55f),
+                modifier = Modifier.size(28.dp),
+            )
+        }
     }
 }
 

@@ -26,8 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import app.nodes.ui.theme.EDGE_FADE_MS
 import app.nodes.ui.theme.SpartialBlack
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -214,40 +216,42 @@ fun PlayerBackdrop(
 }
 
 /**
- * The player backdrop built on the artwork's own bottom-edge colour: the
- * artwork fills the screen width (aspect preserved, letterbox filled with the
- * edge colour), an eased fade dissolves only its bottom quarter into that
- * colour, and the area below is a gradient from the edge colour to the same
- * colour darkened. No hue shift anywhere, and never dark text: the colour is
- * deepened at sampling time until white text clears 4.5:1.
+ * The player backdrop built on the artwork's own edge colour.
+ *
+ * The cover is drawn scaled to the stage width with its aspect preserved, so
+ * nothing is cropped away by a centre-crop and nothing zooms; the area above
+ * and below it is the edge colour. An eased fade covers only the bottom quarter
+ * of the artwork and ends exactly on that colour, and the gradient below
+ * continues from the same value into a slightly darker, more saturated shade -
+ * so the art appears to melt into the screen rather than sitting on a tinted
+ * rectangle.
+ *
+ * Lyrics and Queue use the same gradient with the artwork hidden: they are the
+ * same surface, one mode with the poster and one without.
  */
 @Composable
 fun PlayerEdgeBackdrop(
     artworkUri: String?,
+    title: String,
     edgeColour: Color,
     showArtwork: Boolean,
     hazeState: HazeState,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val stageHeight = playerStageHeight()
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     0f to edgeColour,
-                    1f to edgeColour.copy(
-                        red = edgeColour.red * 0.85f,
-                        green = edgeColour.green * 0.85f,
-                        blue = edgeColour.blue * 0.85f,
-                    ),
+                    1f to edgeColour.deepenedAndSaturated(),
                 ),
             ),
     ) {
         if (showArtwork && !artworkUri.isNullOrBlank()) {
-            val stageHeight = (LocalConfiguration.current.screenHeightDp * 0.62f)
-                .dp
-                .coerceIn(420.dp, 560.dp)
+            val stageHeightPx = with(LocalDensity.current) { stageHeight.toPx().toInt() }
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -256,18 +260,19 @@ fun PlayerEdgeBackdrop(
                     // The artwork + fade is what the glass controls read.
                     .hazeSource(hazeState),
             ) {
-                // Fit to width: the aspect ratio survives, nothing zooms; the
-                // letterbox above and below is the edge colour already.
+                // FillWidth: the aspect ratio survives, nothing zooms.
                 Artwork(
                     artworkUri = artworkUri,
-                    title = "",
+                    title = title,
                     modifier = Modifier.fillMaxSize(),
                     shape = RectangleShape,
                     contentScale = ContentScale.FillWidth,
                     targetPx = 1280,
+                    // The cover crossfades in step with the gradient.
+                    crossfadeMillis = EDGE_FADE_MS,
                 )
-                // Eased (smoothstep-like) fade over the bottom ~25% only; the
-                // rest of the artwork is never tinted.
+                // Eased fade over the bottom ~25% only; the rest of the
+                // artwork is never tinted.
                 Box(
                     Modifier
                         .fillMaxWidth()
@@ -276,9 +281,9 @@ fun PlayerEdgeBackdrop(
                         .background(
                             Brush.verticalGradient(
                                 0f to Color.Transparent,
-                                0.75f to Color.Transparent,
-                                0.85f to edgeColour.copy(alpha = 0.25f),
-                                0.93f to edgeColour.copy(alpha = 0.65f),
+                                0.74f to Color.Transparent,
+                                0.86f to edgeColour.copy(alpha = 0.22f),
+                                0.94f to edgeColour.copy(alpha = 0.62f),
                                 1f to edgeColour,
                             ),
                         ),
@@ -287,6 +292,25 @@ fun PlayerEdgeBackdrop(
         }
         content()
     }
+}
+
+/** The height of the artwork stage: the top ~62% of the screen. */
+@Composable
+fun playerStageHeight(): androidx.compose.ui.unit.Dp =
+    (LocalConfiguration.current.screenHeightDp * 0.62f)
+        .dp
+        .coerceIn(420.dp, 560.dp)
+
+/**
+ * The gradient's lower stop: the same hue, a little darker and a little more
+ * saturated, so the bottom of the screen has depth without the colour drifting.
+ */
+fun Color.deepenedAndSaturated(darken: Float = 0.84f, saturationBoost: Float = 1.16f): Color {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(toArgb(), hsv)
+    hsv[1] = (hsv[1] * saturationBoost).coerceIn(0f, 1f)
+    hsv[2] = (hsv[2] * darken).coerceIn(0f, 1f)
+    return Color(android.graphics.Color.HSVToColor(hsv))
 }
 
 /**
