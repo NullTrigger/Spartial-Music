@@ -70,7 +70,7 @@ fun CastRouteButton(
             // translucent" right inside the constructor (crash report
             // 2026-11-03), so the button is always built inside the solid
             // Theme.Spartial.Cast context (gms/res/values/themes.xml).
-            val castContext = ContextThemeWrapper(context, R.style.Theme_Nodes_Cast)
+            val castContext = ContextThemeWrapper(context, R.style.Theme_Spartial_Cast)
             runCatching {
                 GuardedMediaRouteButton(castContext, onChooserFailure).also { button ->
                     runCatching {
