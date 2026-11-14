@@ -51,6 +51,8 @@ fun Artwork(
     shape: Shape = RoundedCornerShape(18.dp),
     contentScale: ContentScale = ContentScale.Crop,
     targetPx: Int = 512,
+    /** How long the image fades in, in ms. 0 fades instantly. */
+    crossfadeMillis: Int = 0,
 ) {
     val clipped = modifier.clip(shape)
     if (artworkUri.isNullOrBlank()) {
@@ -64,6 +66,7 @@ fun Artwork(
         contentScale = contentScale,
         modifier = clipped,
         crossfade = true,
+        crossfadeMillis = crossfadeMillis,
     )
 }
 
@@ -79,6 +82,7 @@ private fun RemoteArtwork(
     contentScale: ContentScale,
     modifier: Modifier,
     crossfade: Boolean,
+    crossfadeMillis: Int = 0,
     showInitial: Boolean = true,
 ) {
     val context = LocalContext.current
@@ -86,7 +90,7 @@ private fun RemoteArtwork(
     val primary = candidates.firstOrNull() ?: return
 
     SubcomposeAsyncImage(
-        model = imageRequest(context, primary, targetPx, crossfade),
+        model = imageRequest(context, primary, targetPx, crossfade, crossfadeMillis),
         contentDescription = null,
         contentScale = contentScale,
         modifier = modifier,
@@ -113,14 +117,25 @@ private fun RemoteArtwork(
     )
 }
 
-private fun imageRequest(context: Context, url: String, targetPx: Int, crossfade: Boolean): ImageRequest =
-    ImageRequest.Builder(context)
+private fun imageRequest(
+    context: Context,
+    url: String,
+    targetPx: Int,
+    crossfade: Boolean,
+    crossfadeMillis: Int = 0,
+): ImageRequest {
+    val builder = ImageRequest.Builder(context)
         // Resolving the request at the size the surface needs (instead of the
         // 60-120px the provider advertises) is what removes the blur.
         .size(targetPx)
         .data(url)
-        .crossfade(crossfade)
-        .build()
+    if (crossfade) {
+        // A specific duration lets the artwork fade in step with the gradient
+        // behind it; zero keeps Coil's own default.
+        if (crossfadeMillis > 0) builder.crossfade(crossfadeMillis) else builder.crossfade(true)
+    }
+    return builder.build()
+}
 
 /** Stable gradient + initial for a track without artwork. */
 @Composable

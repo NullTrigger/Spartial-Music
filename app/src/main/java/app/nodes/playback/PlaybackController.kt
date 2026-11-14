@@ -640,9 +640,11 @@ class PlaybackController @Inject constructor(
 
     /** Cycles Repeat off -> this track -> off. */
     fun cycleRepeat(): RepeatMode {
+        // off -> all -> one -> off: all three states the transport shows.
         val next = when (_state.value.repeatMode) {
-            RepeatMode.OFF -> RepeatMode.ONE
-            else -> RepeatMode.OFF
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
         }
         _state.update {
             it.copy(
