@@ -25,6 +25,105 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
 private val tintCache = ConcurrentHashMap<String, Color>()
+private val edgeCache = ConcurrentHashMap<String, Color>()
+
+/**
+ * The average colour of the artwork's bottom ~10% strip - the edge colour the
+ * player fades into. No hue shift: whatever the artwork's bottom edge is, the
+ * background below it becomes, darkened just enough for the text contract.
+ */
+@Composable
+fun rememberArtworkEdgeColour(artworkUri: String?, seed: String): Color {
+    val fallback = remember(seed) { seedColor(seed) }
+    var colour by remember(artworkUri, seed) {
+        mutableStateOf(artworkUri?.let(edgeCache::get) ?: fallback)
+    }
+    val context = LocalContext.current
+    LaunchedEffect(artworkUri, seed) {
+        val uri = artworkUri?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        edgeCache[uri]?.let { cached ->
+            colour = cached
+            return@LaunchedEffect
+        }
+        val extracted = runCatching {
+            withContext(Dispatchers.IO) {
+                val request = ImageRequest.Builder(context)
+                    .data(uri)
+                    .size(96)
+                    .allowHardware(false)
+                    .build()
+                val drawable = context.imageLoader.execute(request).drawable
+                    ?: return@withContext null
+                val bitmap = (drawable as? BitmapDrawable)?.bitmap
+                    ?: drawable.toBitmap(width = 64, height = 64)
+                bottomEdgeColour(bitmap)
+            }
+        }.getOrNull()
+        if (extracted != null) {
+            edgeCache[uri] = extracted
+            colour = extracted
+        }
+    }
+    return colour
+}
+
+/**
+ * Averages the bottom tenth of the artwork's rows, then deepens the result
+ * until white text on it clears 4.5:1 - the fade must never push the player
+ * onto dark text.
+ */
+private fun bottomEdgeColour(bitmap: Bitmap): Color? {
+    if (bitmap.width <= 0 || bitmap.height <= 0) return null
+    val sample = if (bitmap.width > 64 || bitmap.height > 64) {
+        Bitmap.createScaledBitmap(bitmap, 64, 64, true)
+    } else {
+        bitmap
+    }
+    val startRow = (sample.height * 9) / 10
+    var red = 0L
+    var green = 0L
+    var blue = 0L
+    var count = 0L
+    for (y in startRow until sample.height) {
+        for (x in 0 until sample.width) {
+            val pixel = sample.getPixel(x, y)
+            if ((pixel ushr 24) and 0xFF < 40) continue
+            red += (pixel shr 16) and 0xFF
+            green += (pixel shr 8) and 0xFF
+            blue += pixel and 0xFF
+            count++
+        }
+    }
+    if (sample !== bitmap) sample.recycle()
+    if (count == 0L) return null
+    var colour = Color(
+        (red / count).toInt(),
+        (green / count).toInt(),
+        (blue / count).toInt(),
+    )
+    // Deepen while too bright for white text at 4.5:1.
+    var guard = 0
+    while (relativeLuminance(colour) > 0.179f && guard < 8) {
+        colour = Color(
+            (colour.red * 0.85f),
+            (colour.green * 0.85f),
+            (colour.blue * 0.85f),
+        )
+        guard++
+    }
+    return colour
+}
+
+/** WCAG relative luminance on a 0..1 scale. */
+private fun relativeLuminance(colour: Color): Float {
+    fun channel(value: Float): Float {
+        val v = value.coerceIn(0f, 1f)
+        return if (v <= 0.03928f) v / 12.92f else Math.pow((v + 0.055) / 1.055, 2.4).toFloat()
+    }
+    return (0.2126f * channel(colour.red)) +
+        (0.7152f * channel(colour.green)) +
+        (0.0722f * channel(colour.blue))
+}
 
 /**
  * A stable tint for content without artwork. The title seeds one of the

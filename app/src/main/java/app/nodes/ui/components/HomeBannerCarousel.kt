@@ -27,18 +27,13 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,7 +62,6 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * The home banner: a full-bleed carousel of song posters that owns the top of
@@ -119,7 +113,6 @@ fun HomeBannerCarousel(
             pageCount = { if (count > 1) Int.MAX_VALUE else count },
         )
     }
-    val scope = rememberCoroutineScope()
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val dragging by pagerState.interactionSource.collectIsDraggedAsState()
     val context = LocalContext.current
@@ -209,12 +202,6 @@ fun HomeBannerCarousel(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = stringResource(R.string.now_playing_label),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NodesWhite.copy(alpha = 0.60f),
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
                     text = banners[active].title,
                     style = NodesType.sheetTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
                     color = NodesWhite,
@@ -230,53 +217,25 @@ fun HomeBannerCarousel(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(14.dp))
-                // Play is a centred pill at about half the screen width; Next
-                // advances the carousel, not the song, and sits at the right
-                // margin, vertically centred on Play.
-                Box(Modifier.fillMaxWidth()) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .fillMaxWidth(0.5f)
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(NodesWhite.copy(alpha = 0.18f))
-                            .clickable(role = Role.Button) {
-                                onPlay(banners[active], banners)
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.action_play),
-                            style = NodesType.pill.copy(fontSize = 15.sp),
-                            color = NodesWhite,
-                        )
-                    }
-                    TextButton(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        onClick = {
-                            scope.launch {
-                                runCatching {
-                                    pagerState.animateScrollToPage(
-                                        page = pagerState.currentPage + 1,
-                                        animationSpec = tween(SLIDE_MS, easing = FastOutSlowInEasing),
-                                    )
-                                }
-                            }
+                // Play: centred pill at about half the screen width. The
+                // carousel itself advances (auto-advance, or a swipe either
+                // way) - there is no separate Next control.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(NodesWhite.copy(alpha = 0.18f))
+                        .clickable(role = Role.Button) {
+                            onPlay(banners[active], banners)
                         },
-                    ) {
-                        Text(
-                            text = stringResource(R.string.action_next),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NodesWhite,
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                            contentDescription = null,
-                            tint = NodesWhite,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.action_play),
+                        style = NodesType.pill.copy(fontSize = 15.sp),
+                        color = NodesWhite,
+                    )
                 }
                 Spacer(Modifier.height(14.dp))
                 // Page dots: the active one elongates into a pill.

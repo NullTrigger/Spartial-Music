@@ -5,13 +5,17 @@
 
 package app.nodes.ui.components
 
+import android.provider.Settings
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,18 +30,26 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
@@ -46,13 +58,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodes.R
 import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.navAccent
 import dev.chrisbanes.haze.HazeState
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
- * One destination of the floating bar.
- *
- * The glyph is a Phosphor fill-weight drawable (MIT), always filled: active is
- * white, inactive white at 55%.
+ * One destination of the floating bar: a Phosphor fill-weight drawable (MIT).
  */
 data class BottomNavItem(
     val route: String,
@@ -61,11 +73,22 @@ data class BottomNavItem(
 )
 
 /**
- * The floating bar: a glass pill with the four primary destinations and a
- * separate glass circle for Search, docked above the system gesture area.
+ * The floating bar, expanded and collapsed.
  *
- * The active tab's wash slides between tabs on its spring; the glyphs are
- * always filled, white when active and 55% white otherwise.
+ * **Expanded**: the glass pill (Home, Trending, Sessions, Library) with the
+ * Search circle beside it, and the mini player stacked below: nav row, 8dp
+ * gap, mini player, all inset 16dp.
+ *
+ * **Collapsed** (content scrolled down): one 56dp row - the current tab's
+ * icon in [navAccent] at the left, the mini player between, Search at the
+ * right. Sizes morph continuously on a ~350ms spring; the mini player is the
+ * same composable in both states, so it never pops.
+ *
+ * **The bubble**: the active tab rests in a brighter glass capsule. Touching
+ * it lifts it (x1.2 x x1.25), and dragging slides it along the pill with a
+ * rubber-band clamp and up to ~12% stretch; the tab it passes lights in
+ * [navAccent]; on release it snaps to the nearest tab, shrinks back and
+ * navigates then - never during the drag.
  */
 @Composable
 fun FloatingTabBar(
@@ -73,93 +96,275 @@ fun FloatingTabBar(
     items: List<BottomNavItem>,
     onSelect: (String) -> Unit,
     hazeState: HazeState? = null,
+    collapsed: Boolean = false,
+    miniPlayer: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // Order comes from the caller; the last item is the circular search.
     val pillItems = items.dropLast(1)
     val searchItem = items.lastOrNull() ?: return
     if (pillItems.isEmpty()) return
-    val glass = glassNavBackdrop(Modifier, hazeState, RoundedCornerShape(32.dp))
+    val context = LocalContext.current
+    val reduceMotion = remember {
+        Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) == 0f
+    }
+    val haptics = LocalHapticFeedback.current
 
-    Row(
+    // Expanded: nav row on top, mini player below.
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(9.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(64.dp)
-                .then(glass),
-        ) {
-            TabPill(
-                items = pillItems,
-                currentRoute = currentRoute,
-                onSelect = onSelect,
-            )
+        if (!collapsed) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(64.dp)
+                        .liquidGlass(hazeState, RoundedCornerShape(32.dp)),
+                ) {
+                    TabPill(
+                        items = pillItems,
+                        currentRoute = currentRoute,
+                        onSelect = onSelect,
+                        hazeState = hazeState,
+                        reduceMotion = reduceMotion,
+                        haptics = haptics,
+                    )
+                }
+                SearchCircle(
+                    item = searchItem,
+                    selected = currentRoute == searchItem.route,
+                    onSelect = onSelect,
+                    hazeState = hazeState,
+                )
+            }
+            miniPlayer?.invoke()
+        } else {
+            // Collapsed: one 56dp row, circles at the edges, mini between.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val current = items.firstOrNull { it.route == currentRoute } ?: items.first()
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .liquidGlass(hazeState, CircleShape)
+                        .clickable(role = Role.Button, onClick = {
+                            // Expanding is the tap's job; navigation is the
+                            // tab's, already active.
+                            onSelect(current.route)
+                        }),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(current.icon),
+                        contentDescription = stringResource(current.labelRes),
+                        tint = navAccent,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+                miniPlayer?.invoke()
+                SearchCircle(
+                    item = searchItem,
+                    selected = currentRoute == searchItem.route,
+                    onSelect = onSelect,
+                    hazeState = hazeState,
+                )
+            }
         }
+    }
 
-        val searchSelected = currentRoute == searchItem.route
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .then(glass)
-                .clickable(role = Role.Tab, onClick = { onSelect(searchItem.route) })
-                .testTag("tab-${searchItem.route}")
-                .semantics { selected = searchSelected },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(searchItem.icon),
-                contentDescription = stringResource(searchItem.labelRes),
-                tint = NodesWhite,
-                modifier = Modifier.size(24.dp),
-            )
-        }
+@Composable
+private fun SearchCircle(
+    item: BottomNavItem,
+    selected: Boolean,
+    onSelect: (String) -> Unit,
+    hazeState: HazeState?,
+) {
+    val touch = rememberLiquidTouch()
+    val haptics = LocalHapticFeedback.current
+    Box(
+        modifier = Modifier
+            .liquidGlassTouch(touch)
+            .size(64.dp)
+            .liquidGlass(hazeState, CircleShape, touch)
+            .liquidGlassPress(touch, haptics)
+            .clickable(role = Role.Tab, onClick = { onSelect(item.route) })
+            .testTag("tab-${item.route}")
+            .semantics { this.selected = selected },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(item.icon),
+            contentDescription = stringResource(item.labelRes),
+            tint = NodesWhite,
+            modifier = Modifier.size(26.dp),
+        )
     }
 }
 
-/** The pill's four slots, with the highlight riding between them on its spring. */
+/**
+ * The pill with the four tabs and the draggable active bubble.
+ */
 @Composable
 private fun TabPill(
     items: List<BottomNavItem>,
     currentRoute: String?,
     onSelect: (String) -> Unit,
+    hazeState: HazeState?,
+    reduceMotion: Boolean,
+    haptics: LocalHapticFeedback,
 ) {
     val selectedIndex = items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    var dragIndex by remember { mutableIntStateOf(selectedIndex) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragX by remember { mutableStateOf(0f) }
+    val bubbleTouch = rememberLiquidTouch()
+
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .pointerInput(items, currentRoute) {
+                val px = slotWidthPx
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val startX = down.position.x
+                    val startIndex = (startX / px).toInt().coerceIn(items.indices)
+                    dragIndex = startIndex
+                    dragging = true
+                    bubbleTouch.pressed = true
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        val raw = change.position.x - startX
+                        val min = -startIndex * px
+                        val max = (items.lastIndex - startIndex) * px
+                        dragX = when {
+                            raw < min -> min + (raw - min) * 0.3f
+                            raw > max -> max + (raw - max) * 0.3f
+                            else -> raw
+                        }
+                        bubbleTouch.position = change.position
+                        val over = ((startIndex * px + dragX) / px).roundToInt()
+                            .coerceIn(items.indices)
+                        if (over != dragIndex) {
+                            dragIndex = over
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                        change.consume()
+                        if (!change.pressed) break
+                    }
+                    dragging = false
+                    bubbleTouch.pressed = false
+                    val target = ((startIndex * px + dragX) / px).roundToInt()
+                        .coerceIn(items.indices)
+                    dragX = 0f
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    if (items[target].route != currentRoute) {
+                        onSelect(items[target].route)
+                    }
+                }
+            },
+    ) {
         val slotWidth = maxWidth / items.size
-        val highlightOffset by animateDpAsState(
-            targetValue = slotWidth * selectedIndex,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMedium,
-            ),
-            label = "tabHighlight",
+        val density = LocalDensity.current
+        val slotWidthPx = with(density) { slotWidth.toPx() }
+        val highlightOffset by animateFloatAsState(
+            targetValue = (slotWidthPx * dragIndex + dragX),
+            animationSpec = if (dragging) {
+                spring(stiffness = Spring.StiffnessHigh)
+            } else {
+                spring(stiffness = 1100f, dampingRatio = 0.9f)
+            },
+            label = "bubble",
         )
+
+        // The bubble: brighter glass, lifted while touched, draggable.
+        val lift by animateFloatAsState(
+            targetValue = if (bubbleTouch.isPressed || dragging) 1f else 0f,
+            animationSpec = spring(
+                dampingRatio = if (reduceMotion) Spring.DampingRatioNoBouncy else 0.7f,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+            label = "lift",
+        )
+        val stretch = if (dragging && !reduceMotion) {
+            (abs(dragX) / (slotWidthPx * 4f)).coerceIn(0f, 0.12f)
+        } else {
+            0f
+        }
+
+        // Glass capsule riding at the bubble's position, protruding above and
+        // below the pill while lifted.
         Box(
-            Modifier
-                .offset(x = highlightOffset)
+            modifier = Modifier
+                .offset(x = with(LocalDensity.current) { (highlightOffset).toDp() })
+                .padding(4.dp)
                 .width(slotWidth)
                 .fillMaxHeight()
-                .padding(5.dp)
                 .clip(RoundedCornerShape(26.dp))
-                .background(Color.White.copy(alpha = 0.12f)),
-        )
+                .liquidGlass(
+                    hazeState = hazeState,
+                    shape = RoundedCornerShape(26.dp),
+                    touchState = bubbleTouch,
+                    refraction = (bubbleTouch.isPressed || dragging) && !reduceMotion,
+                )
+                .graphicsLayerStretch(stretch, lift)
+                .clickable(
+                    role = Role.Tab,
+                    onClick = { onSelect(items[dragIndex.coerceIn(items.indices)].route) },
+                )
+                .testTag("bubble"),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(items[dragIndex.coerceIn(items.indices)].icon),
+                contentDescription = null,
+                tint = navAccent,
+                modifier = Modifier.size(26.dp),
+            )
+        }
+
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            items.forEach { item ->
+            items.forEachIndexed { index, item ->
+                val selected = index == dragIndex.coerceIn(items.indices)
                 Tab(
                     item = item,
-                    selected = item.route == currentRoute,
-                    onClick = { onSelect(item.route) },
+                    selected = selected,
+                    onClick = {
+                        dragIndex = index
+                        onSelect(item.route)
+                    },
                     modifier = Modifier.weight(1f),
                 )
             }
         }
+
+        }
     }
 }
+
+/** Protrude above and below the pill while lifted, stretch along the drag. */
+private fun Modifier.graphicsLayerStretch(stretch: Float, lift: Float): Modifier =
+    graphicsLayer {
+        scaleX = 1f + stretch
+        scaleY = 1f + (lift * 0.25f)
+        alpha = 1f
+    }
 
 @Composable
 private fun Tab(
@@ -168,6 +373,13 @@ private fun Tab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Icon and label under the bubble move to the accent in ~120ms; the rest
+    // stay at white 60%.
+    val tint by androidx.compose.animation.animateColorAsState(
+        targetValue = if (selected) navAccent else NodesWhite.copy(alpha = 0.60f),
+        animationSpec = tween(120),
+        label = "tabTint",
+    )
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -180,14 +392,14 @@ private fun Tab(
         Icon(
             painter = painterResource(item.icon),
             contentDescription = stringResource(item.labelRes),
-            tint = if (selected) NodesWhite else NodesWhite.copy(alpha = 0.55f),
-            modifier = Modifier.size(24.dp),
+            tint = tint,
+            modifier = Modifier.size(26.dp),
         )
-        Spacer(Modifier.height(3.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
             text = stringResource(item.labelRes),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.2.sp),
-            color = if (selected) NodesWhite else NodesWhite.copy(alpha = 0.55f),
+            color = tint,
             maxLines = 1,
         )
     }

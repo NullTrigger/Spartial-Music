@@ -79,7 +79,6 @@ class ComponentsRenderTest {
                     isBuffering = false,
                     onClick = {},
                     onToggle = { toggles++ },
-                    onPrevious = {},
                     onNext = {},
                 )
             }

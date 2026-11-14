@@ -25,7 +25,10 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import app.nodes.ui.theme.NodesBlack
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import app.nodes.ui.theme.toBackdrop
 import app.nodes.ui.theme.toPlayerDeep
 import app.nodes.ui.theme.toPlayerWash
@@ -203,6 +206,82 @@ fun PlayerBackdrop(
                         ),
                     ),
             )
+        }
+        content()
+    }
+}
+
+/**
+ * The player backdrop built on the artwork's own bottom-edge colour: the
+ * artwork fills the screen width (aspect preserved, letterbox filled with the
+ * edge colour), an eased fade dissolves only its bottom quarter into that
+ * colour, and the area below is a gradient from the edge colour to the same
+ * colour darkened. No hue shift anywhere, and never dark text: the colour is
+ * deepened at sampling time until white text clears 4.5:1.
+ */
+@Composable
+fun PlayerEdgeBackdrop(
+    artworkUri: String?,
+    edgeColour: Color,
+    showArtwork: Boolean,
+    hazeState: HazeState,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    0f to edgeColour,
+                    1f to edgeColour.copy(
+                        red = edgeColour.red * 0.85f,
+                        green = edgeColour.green * 0.85f,
+                        blue = edgeColour.blue * 0.85f,
+                    ),
+                ),
+            ),
+    ) {
+        if (showArtwork && !artworkUri.isNullOrBlank()) {
+            val stageHeight = (LocalConfiguration.current.screenHeightDp * 0.62f)
+                .dp
+                .coerceIn(420.dp, 560.dp)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(stageHeight)
+                    .align(Alignment.TopCenter)
+                    // The artwork + fade is what the glass controls read.
+                    .hazeSource(hazeState),
+            ) {
+                // Fit to width: the aspect ratio survives, nothing zooms; the
+                // letterbox above and below is the edge colour already.
+                Artwork(
+                    artworkUri = artworkUri,
+                    title = "",
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RectangleShape,
+                    contentScale = ContentScale.FillWidth,
+                    targetPx = 1280,
+                )
+                // Eased (smoothstep-like) fade over the bottom ~25% only; the
+                // rest of the artwork is never tinted.
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                0.75f to Color.Transparent,
+                                0.85f to edgeColour.copy(alpha = 0.25f),
+                                0.93f to edgeColour.copy(alpha = 0.65f),
+                                1f to edgeColour,
+                            ),
+                        ),
+                )
+            }
         }
         content()
     }

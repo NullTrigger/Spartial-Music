@@ -51,6 +51,7 @@ import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.ArtworkCard
 import app.nodes.ui.components.HomeBannerCarousel
 import app.nodes.ui.components.LoadingRows
+import app.nodes.ui.components.BarCollapseBus
 import app.nodes.ui.components.NewSongsPager
 import app.nodes.ui.components.ScrollTopBus
 import app.nodes.ui.components.SectionHeader
@@ -96,14 +97,25 @@ fun HomeScreen(
             .background(NodesBlack),
     ) {
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-        // The bar's "tap the active tab" contract: return to the top, never
-        // reload. Other screens that hoist a list can subscribe the same way.
+        // The bar's contracts: tap-to-top, and collapse when the content
+        // scrolls down (past ~24dp), expand again on the way back up.
         androidx.compose.runtime.LaunchedEffect(Unit) {
             ScrollTopBus.events.collect { target ->
                 if (target == "home") {
+                    BarCollapseBus.set(false)
                     runCatching { listState.scrollToItem(0) }
                 }
             }
+        }
+        androidx.compose.runtime.LaunchedEffect(listState) {
+            var lastOffset = 0
+            androidx.compose.runtime.snapshotFlow { listState.firstVisibleItemScrollOffset }
+                .collect { offset ->
+                    val delta = offset - lastOffset
+                    lastOffset = offset
+                    if (delta > 24) BarCollapseBus.set(true)
+                    else if (delta < -24) BarCollapseBus.set(false)
+                }
         }
         LazyColumn(
             state = listState,
