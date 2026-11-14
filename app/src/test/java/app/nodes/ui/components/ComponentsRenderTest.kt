@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -15,7 +15,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.nodes.core.model.Track
-import app.nodes.ui.theme.NodesTheme
+import app.nodes.ui.theme.SpartialTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -48,17 +48,17 @@ class ComponentsRenderTest {
     fun floatingTabBar_showsFiveTabs_andReportsSelection() {
         var selected: String? = null
         compose.setContent {
-            NodesTheme {
+            SpartialTheme {
                 FloatingTabBar(
                     currentRoute = "home",
-                    items = NodesNavItems,
+                    items = SpartialNavItems,
                     onSelect = { selected = it },
                     hazeState = null,
                 )
             }
         }
 
-        NodesNavItems.forEach { item ->
+        SpartialNavItems.forEach { item ->
             compose.onNodeWithTag("tab-${item.route}").assertExists()
         }
         compose.onNodeWithTag("tab-home").assertIsSelected()
@@ -72,7 +72,7 @@ class ComponentsRenderTest {
     fun miniPlayer_showsTrack_andTogglesPlayback() {
         var toggles = 0
         compose.setContent {
-            NodesTheme {
+            SpartialTheme {
                 MiniPlayer(
                     track = track,
                     isPlaying = true,
@@ -95,7 +95,7 @@ class ComponentsRenderTest {
         var rowClicks = 0
         var likeClicks = 0
         compose.setContent {
-            NodesTheme {
+            SpartialTheme {
                 SongRow(
                     track = track,
                     onClick = { rowClicks++ },

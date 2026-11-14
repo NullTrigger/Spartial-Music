@@ -130,7 +130,7 @@ app/src/main/java/app/nodes
 ├── playback          PlaybackService (Media3), PlaybackController, PlayerUiState
 ├── ui
 │   ├── components    FloatingTabBar, MiniPlayer, SongRow, Cards, HomeHero, …
-│   ├── navigation    Routes, NodesApp
+│   ├── navigation    Routes, SpartialApp
 │   ├── screens       home, trending, suggestions, library, search, songs,
 │   │                 player, playlist, collection, settings, stats, sessions
 │   └── theme         Color, Tokens, Type, Theme, ArtworkTint

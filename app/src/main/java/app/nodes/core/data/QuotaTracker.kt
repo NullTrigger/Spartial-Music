@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -15,7 +15,7 @@ import javax.inject.Singleton
  *
  * Quota resets at midnight Pacific Time, so the local counter keys on the
  * Pacific date rather than the device date. This never talks to Google: it only
- * stops Nodes from burning units it knows are gone, and lets the UI explain
+ * stops Spartial Music from burning units it knows are gone, and lets the UI explain
  * what happened instead of showing a raw 403.
  */
 @Singleton

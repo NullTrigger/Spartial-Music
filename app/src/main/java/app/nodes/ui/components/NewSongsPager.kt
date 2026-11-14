@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -44,11 +44,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodes.R
 import app.nodes.core.model.Track
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesRadius
-import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialRadius
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 
@@ -73,16 +73,16 @@ fun NewSongsPager(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = NodesSpacing.gutter),
+                .padding(horizontal = SpartialSpacing.gutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = stringResource(R.string.home_new_songs_title),
-                style = NodesType.sectionTitle.copy(
+                style = SpartialType.sectionTitle.copy(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                 ),
-                color = NodesWhite,
+                color = SpartialWhite,
             )
             Spacer(Modifier.width(6.dp))
             // The chevron rides right after the heading text, not at the far
@@ -96,7 +96,7 @@ fun NewSongsPager(
                 } else {
                     null
                 },
-                tint = if (enabled) NodesWhite else NodesWhite.copy(alpha = 0.25f),
+                tint = if (enabled) SpartialWhite else SpartialWhite.copy(alpha = 0.25f),
                 modifier = Modifier
                     .clip(CircleShape)
                     .clickable(enabled = enabled, role = Role.Button, onClick = onSeeAll)
@@ -109,11 +109,11 @@ fun NewSongsPager(
             // Loading: one dark stage the size of a card, no fake rows.
             Box(
                 Modifier
-                    .padding(horizontal = NodesSpacing.gutter)
+                    .padding(horizontal = SpartialSpacing.gutter)
                     .fillMaxWidth()
                     .height(CARD_MAX_HEIGHT)
-                    .clip(NodesRadius.artwork)
-                    .background(if (loading) NodesWhite.copy(alpha = 0.03f) else Color.Transparent),
+                    .clip(SpartialRadius.artwork)
+                    .background(if (loading) SpartialWhite.copy(alpha = 0.03f) else Color.Transparent),
             )
             return@Column
         }
@@ -122,15 +122,15 @@ fun NewSongsPager(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+            contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
             pageSpacing = 12.dp,
         ) { page ->
             val track = songs[page]
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(NodesRadius.artwork)
-                    .background(NodesBlack)
+                    .clip(SpartialRadius.artwork)
+                    .background(SpartialBlack)
                     .clickable(role = Role.Button) { onPlay(track, songs) },
             ) {
                 ArtworkStage(track = track)
@@ -143,15 +143,15 @@ fun NewSongsPager(
                     Column(Modifier.weight(1f)) {
                         Text(
                             text = track.title,
-                            style = NodesType.rowTitle.copy(fontSize = 16.sp),
-                            color = NodesWhite,
+                            style = SpartialType.rowTitle.copy(fontSize = 16.sp),
+                            color = SpartialWhite,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = track.artist,
-                            style = NodesType.rowMeta,
-                            color = NodesWhite.copy(alpha = 0.70f),
+                            style = SpartialType.rowMeta,
+                            color = SpartialWhite.copy(alpha = 0.70f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -160,7 +160,7 @@ fun NewSongsPager(
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = stringResource(R.string.action_play),
-                        tint = NodesWhite.copy(alpha = 0.85f),
+                        tint = SpartialWhite.copy(alpha = 0.85f),
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -210,7 +210,7 @@ private fun ArtworkStage(track: Track) {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(NodesBlack.copy(alpha = 0.55f)),
+                    .background(SpartialBlack.copy(alpha = 0.55f)),
             )
         }
         // The artwork itself: fit, never cropped, centred.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -72,9 +72,9 @@ import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.runtimeLabel
 import app.nodes.ui.screens.player.PlayerViewModel
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialWhite
 import app.nodes.ui.theme.rememberArtworkTint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -206,7 +206,7 @@ fun PlaylistDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
-            contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
         ) {
             item(key = "top") {
                 DetailTopBar(
@@ -270,7 +270,7 @@ fun PlaylistDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = NodesSpacing.gutter),
+                        .padding(horizontal = SpartialSpacing.gutter),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     // Keep the identity over the lower part of the cover so
@@ -279,13 +279,13 @@ fun PlaylistDetailScreen(
                     Text(
                         text = stringResource(R.string.playlist_kicker).uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = NodesWhite.copy(alpha = 0.76f),
+                        color = SpartialWhite.copy(alpha = 0.76f),
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = title,
                         style = MaterialTheme.typography.headlineLarge,
-                        color = NodesWhite,
+                        color = SpartialWhite,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -313,7 +313,7 @@ fun PlaylistDetailScreen(
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = NodesGrey,
+                        color = SpartialGrey,
                         textAlign = TextAlign.Center,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
@@ -327,7 +327,7 @@ fun PlaylistDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = NodesSpacing.gutter),
+                            .padding(horizontal = SpartialSpacing.gutter),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -349,7 +349,7 @@ fun PlaylistDetailScreen(
                                 if (allLiked) R.string.action_unstar else R.string.action_star,
                             ),
                             onClick = { viewModel.setAllLiked(!allLiked) },
-                            tint = if (allLiked) NodesWhite else NodesGrey,
+                            tint = if (allLiked) SpartialWhite else SpartialGrey,
                             filled = true,
                         )
                         CircleIconButton(
@@ -369,8 +369,8 @@ fun PlaylistDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(
-                                start = NodesSpacing.gutter,
-                                end = NodesSpacing.gutter,
+                                start = SpartialSpacing.gutter,
+                                end = SpartialSpacing.gutter,
                                 top = 22.dp,
                                 bottom = 6.dp,
                             ),
@@ -379,13 +379,13 @@ fun PlaylistDetailScreen(
                         Text(
                             text = stringResource(R.string.playlist_tracks).uppercase(),
                             style = MaterialTheme.typography.labelSmall,
-                            color = NodesGrey,
+                            color = SpartialGrey,
                         )
                         Spacer(Modifier.weight(1f))
                         Text(
                             text = stringResource(R.string.playlist_track_count, tracks.size),
                             style = MaterialTheme.typography.bodySmall,
-                            color = NodesGrey,
+                            color = SpartialGrey,
                         )
                     }
                 }
@@ -459,7 +459,7 @@ private fun PlaylistMenuItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (enabled) NodesGrey else NodesGrey.copy(alpha = 0.4f),
+                tint = if (enabled) SpartialGrey else SpartialGrey.copy(alpha = 0.4f),
                 modifier = Modifier.size(18.dp),
             )
         },

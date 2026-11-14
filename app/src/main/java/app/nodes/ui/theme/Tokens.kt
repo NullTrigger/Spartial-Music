@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Shared spacing scale. Every screen composes from these values. */
-object NodesSpacing {
+object SpartialSpacing {
     val xxs: Dp = 4.dp
     val xs: Dp = 8.dp
     val sm: Dp = 12.dp
@@ -30,7 +30,7 @@ object NodesSpacing {
 }
 
 /** Corner radii for cards, sheets, artwork and pills. */
-object NodesRadius {
+object SpartialRadius {
     val xs: Dp = 8.dp
     val sm: Dp = 12.dp
     val md: Dp = 16.dp
@@ -46,7 +46,7 @@ object NodesRadius {
 }
 
 /** Elevation is expressed as soft shadows rather than Material surface tint. */
-object NodesElevation {
+object SpartialElevation {
     val none: Dp = 0.dp
     val low: Dp = 2.dp
     val medium: Dp = 8.dp
@@ -55,7 +55,7 @@ object NodesElevation {
 }
 
 /** Motion durations shared by the bars, dots and expanding headers. */
-object NodesMotion {
+object SpartialMotion {
     const val quick = 160
     const val standard = 280
     const val slow = 520

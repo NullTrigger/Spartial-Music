@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -17,48 +17,48 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.WindowCompat
 
-private val NodesDarkScheme: ColorScheme = darkColorScheme(
-    primary = NodesAccent,
-    onPrimary = NodesBlack,
-    primaryContainer = NodesSurfaceHigh,
-    onPrimaryContainer = NodesWhite,
-    secondary = NodesWhite,
-    onSecondary = NodesBlack,
-    secondaryContainer = NodesSurfaceHigh,
-    onSecondaryContainer = NodesWhite,
-    tertiary = NodesGrey,
-    onTertiary = NodesBlack,
-    background = NodesBlack,
-    onBackground = NodesWhite,
-    surface = NodesSurface,
-    onSurface = NodesWhite,
-    surfaceVariant = NodesSurfaceHigh,
-    onSurfaceVariant = NodesGrey,
-    surfaceContainer = NodesSurface,
-    surfaceContainerHigh = NodesSurfaceHigh,
-    surfaceContainerHighest = NodesSurfaceHighest,
-    surfaceContainerLow = NodesBlackElevated,
-    surfaceContainerLowest = NodesBlack,
-    outline = NodesGreyDim,
-    outlineVariant = NodesSurfaceHighest,
-    error = NodesDanger,
-    onError = NodesBlack,
+private val SpartialDarkScheme: ColorScheme = darkColorScheme(
+    primary = SpartialAccent,
+    onPrimary = SpartialBlack,
+    primaryContainer = SpartialSurfaceHigh,
+    onPrimaryContainer = SpartialWhite,
+    secondary = SpartialWhite,
+    onSecondary = SpartialBlack,
+    secondaryContainer = SpartialSurfaceHigh,
+    onSecondaryContainer = SpartialWhite,
+    tertiary = SpartialGrey,
+    onTertiary = SpartialBlack,
+    background = SpartialBlack,
+    onBackground = SpartialWhite,
+    surface = SpartialSurface,
+    onSurface = SpartialWhite,
+    surfaceVariant = SpartialSurfaceHigh,
+    onSurfaceVariant = SpartialGrey,
+    surfaceContainer = SpartialSurface,
+    surfaceContainerHigh = SpartialSurfaceHigh,
+    surfaceContainerHighest = SpartialSurfaceHighest,
+    surfaceContainerLow = SpartialBlackElevated,
+    surfaceContainerLowest = SpartialBlack,
+    outline = SpartialGreyDim,
+    outlineVariant = SpartialSurfaceHighest,
+    error = SpartialDanger,
+    onError = SpartialBlack,
 )
 
 /**
- * Nodes is dark by default. Light theme is intentionally not shipped: the new
+ * Spartial Music is dark by default. Light theme is intentionally not shipped: the new
  * surfaces are artwork-tinted gradients designed against the near-black base.
  * Dynamic colour can still be opted into in Settings on Android 12+.
  */
 @Composable
-fun NodesTheme(
+fun SpartialTheme(
     darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
     val useDynamic = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val colorScheme = if (useDynamic) dynamicDarkColorScheme(context) else NodesDarkScheme
+    val colorScheme = if (useDynamic) dynamicDarkColorScheme(context) else SpartialDarkScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -78,7 +78,7 @@ fun NodesTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = NodesTypography,
+        typography = SpartialTypography,
         content = content,
     )
 }

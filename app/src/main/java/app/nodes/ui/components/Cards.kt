@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -43,10 +43,10 @@ import androidx.compose.ui.unit.sp
 import app.nodes.R
 import app.nodes.core.model.Track
 import app.nodes.ui.theme.GenreGradients
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * A square artwork card with the title and artist underneath, as used by the
@@ -87,13 +87,13 @@ fun ArtworkCard(
                         .align(Alignment.BottomEnd)
                         .padding(10.dp)
                         .clip(CircleShape)
-                        .background(NodesBlack.copy(alpha = 0.58f))
+                        .background(SpartialBlack.copy(alpha = 0.58f))
                         .padding(7.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = null,
-                        tint = NodesWhite,
+                        tint = SpartialWhite,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -103,15 +103,15 @@ fun ArtworkCard(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = track.title,
-                style = NodesType.rowTitle,
-                color = NodesWhite,
+                style = SpartialType.rowTitle,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = subtitle ?: track.artist,
-                style = NodesType.rowMeta,
-                color = NodesGrey,
+                style = SpartialType.rowMeta,
+                color = SpartialGrey,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -151,16 +151,16 @@ fun ContinuePlayingCard(
         Column(Modifier.weight(1f)) {
             Text(
                 text = track.title,
-                style = NodesType.rowTitle,
-                color = NodesWhite,
+                style = SpartialType.rowTitle,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
             Text(
                 text = track.artist,
-                style = NodesType.rowMeta,
-                color = NodesGrey,
+                style = SpartialType.rowMeta,
+                color = SpartialGrey,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -168,7 +168,7 @@ fun ContinuePlayingCard(
             Text(
                 text = stringResource(R.string.continue_playing),
                 style = MaterialTheme.typography.labelSmall,
-                color = NodesGrey.copy(alpha = 0.7f),
+                color = SpartialGrey.copy(alpha = 0.7f),
             )
         }
     }
@@ -251,7 +251,7 @@ fun GenreTile(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = NodesWhite,
+                color = SpartialWhite,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -259,7 +259,7 @@ fun GenreTile(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = NodesWhite.copy(alpha = 0.64f),
+                    color = SpartialWhite.copy(alpha = 0.64f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -295,8 +295,8 @@ fun ArtistAvatar(
         Spacer(Modifier.height(8.dp))
         Text(
             text = artist,
-            style = NodesType.rowMeta,
-            color = NodesWhite,
+            style = SpartialType.rowMeta,
+            color = SpartialWhite,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

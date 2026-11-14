@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -15,7 +15,7 @@ import app.nodes.core.model.Track
  * Placeholder content shown when no provider is configured yet.
  *
  * Everything here is invented for this repository: no real artist, album or
- * cover art. The tracks have no audio URL on purpose - Nodes will not fake
+ * cover art. The tracks have no audio URL on purpose - Spartial Music will not fake
  * playback - so the Play button explains how to enable a real source.
  */
 object DemoCatalog {

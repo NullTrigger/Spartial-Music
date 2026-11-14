@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodes.core.util.thumbnailCandidates
 import app.nodes.ui.theme.ArtAccents
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialWhite
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 
@@ -136,7 +136,7 @@ fun GeneratedArt(
     Box(
         modifier = modifier.background(
             Brush.linearGradient(
-                colors = listOf(accent, secondary, NodesBlack.copy(alpha = 0.92f)),
+                colors = listOf(accent, secondary, SpartialBlack.copy(alpha = 0.92f)),
                 start = androidx.compose.ui.geometry.Offset(0f, 0f),
                 end = androidx.compose.ui.geometry.Offset(
                     if (angle >= 2f) 1200f else 200f,
@@ -149,7 +149,7 @@ fun GeneratedArt(
         if (showInitial) {
             Text(
                 text = title.firstOrNull()?.uppercase() ?: "N",
-                color = NodesWhite.copy(alpha = 0.34f),
+                color = SpartialWhite.copy(alpha = 0.34f),
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -192,7 +192,7 @@ fun ArtworkBackdrop(
                     Brush.verticalGradient(
                         listOf(
                             Color.Black.copy(alpha = 0.45f),
-                            NodesBlack.copy(alpha = 0.86f),
+                            SpartialBlack.copy(alpha = 0.86f),
                         ),
                     ),
                 ),

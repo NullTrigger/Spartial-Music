@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -26,7 +26,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
-import app.nodes.ui.theme.NodesBlack
+import app.nodes.ui.theme.SpartialBlack
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import app.nodes.ui.theme.toBackdrop
@@ -48,15 +48,15 @@ fun TintedBackdrop(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(NodesBlack)
+            .background(SpartialBlack)
             .drawWithContent {
-                drawRect(NodesBlack)
+                drawRect(SpartialBlack)
                 drawRect(
                     brush = Brush.verticalGradient(
                         0f to wash.copy(alpha = 0.92f),
                         0.34f to wash.copy(alpha = 0.74f),
                         0.62f to tint.copy(alpha = 0.28f),
-                        1f to NodesBlack,
+                        1f to SpartialBlack,
                     ),
                     size = size,
                 )
@@ -299,7 +299,7 @@ fun BlurredArtworkBackdrop(
     tint: Color,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier.fillMaxSize().background(NodesBlack)) {
+    Box(modifier.fillMaxSize().background(SpartialBlack)) {
         Artwork(
             artworkUri = artworkUri,
             title = title,
@@ -321,8 +321,8 @@ fun BlurredArtworkBackdrop(
                     Brush.verticalGradient(
                         0f to Color.Black.copy(alpha = 0.44f),
                         0.45f to tint.toBackdrop().copy(alpha = 0.62f),
-                        0.78f to NodesBlack.copy(alpha = 0.94f),
-                        1f to NodesBlack,
+                        0.78f to SpartialBlack.copy(alpha = 0.94f),
+                        1f to SpartialBlack,
                     ),
                 ),
         )

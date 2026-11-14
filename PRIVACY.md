@@ -28,9 +28,9 @@ Last updated: 2026-11-12.
 Android's own backup may include the app database if you have device backup
 enabled; that is your OS-level choice, and cached responses are excluded.
 
-## Network requests Nodes makes
+## Network requests Spartial Music makes
 
-Nodes only talks to a provider when you browse or play something:
+Spartial Music only talks to a provider when you browse or play something:
 
 1. **YouTube Data API v3** (`googleapis.com`) — search, charts, playlists.
    Requests include your API key (yours, from `local.properties`) and, if you
@@ -45,7 +45,7 @@ Nodes only talks to a provider when you browse or play something:
 4. **Artwork CDNs** — cover images are fetched by Coil from the URL the provider
    returned.
 5. **Lyrics providers** — when a track starts and no local `.lrc` file exists,
-   Nodes asks these services in the order chosen in Settings: BetterLyrics
+   Spartial Music asks these services in the order chosen in Settings: BetterLyrics
    (`lyrics-api.boidu.dev`), the LyricsPlus community mirrors,
    Paxsenix (`lyrics.paxsenix.org` plus Apple's public catalogue host
    `amp-api.music.apple.com` for its search), LRCLIB, SimpMusic, NetEase,
@@ -81,7 +81,7 @@ music site itself uses. The cookie is stored encrypted, is sent only to
 logged, backed up or shared with any other host. This mode is outside the YouTube
 API Services Terms — see YOUTUBE.md.
 
-Nodes sends no identifiers of its own, no device fingerprint, no advertising ID,
+Spartial Music sends no identifiers of its own, no device fingerprint, no advertising ID,
 and no usage events. Uninstalling the app removes all local data.
 
 ## Permissions and why
@@ -109,7 +109,7 @@ remote sources still work.
 
 ## Children
 
-Nodes is not directed at children and collects no personal data.
+Spartial Music is not directed at children and collects no personal data.
 
 ## Changes
 

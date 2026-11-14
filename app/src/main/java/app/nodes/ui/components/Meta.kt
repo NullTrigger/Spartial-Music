@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -20,8 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.nodes.R
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesGreyDim
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
 
 /** "48 min", "1 hr 42 min"; empty when the durations are unknown. */
 @Composable
@@ -57,13 +57,13 @@ fun MetaRow(
                     Modifier
                         .size(3.dp)
                         .clip(CircleShape)
-                        .background(NodesGreyDim),
+                        .background(SpartialGreyDim),
                 )
             }
             Text(
                 text = part,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
             )
         }
     }

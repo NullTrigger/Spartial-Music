@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -30,9 +30,9 @@ import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.trackSupportingLine
 import app.nodes.ui.screens.player.PlayerViewModel
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSpacing
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
 
 /**
  * The provider's current chart. Rows carry the same save, menu and artist
@@ -53,11 +53,11 @@ fun TrendingScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
         ) {
             item(key = "header") {
                 PageHeader(
@@ -98,10 +98,10 @@ fun TrendingScreen(
                         text = stringResource(R.string.tracks_count, state.tracks.size)
                             .uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = NodesGrey,
+                        color = SpartialGrey,
                         modifier = Modifier.padding(
-                            start = NodesSpacing.gutter,
-                            end = NodesSpacing.gutter,
+                            start = SpartialSpacing.gutter,
+                            end = SpartialSpacing.gutter,
                             top = 14.dp,
                             bottom = 6.dp,
                         ),

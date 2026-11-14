@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -25,8 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.nodes.R
 import app.nodes.core.model.SourceErrorType
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialWhite
 
 /** Shared, human-readable explanation for provider failures. */
 @Composable
@@ -57,7 +57,7 @@ fun MessageBanner(
         Text(
             text = message,
             style = MaterialTheme.typography.bodySmall,
-            color = NodesWhite,
+            color = SpartialWhite,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(8.dp))
@@ -65,7 +65,7 @@ fun MessageBanner(
             Icon(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = stringResource(R.string.action_close),
-                tint = NodesGrey,
+                tint = SpartialGrey,
                 modifier = Modifier.size(16.dp),
             )
         }

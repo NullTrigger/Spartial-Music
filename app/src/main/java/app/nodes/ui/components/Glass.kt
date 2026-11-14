@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -24,13 +24,13 @@ import app.nodes.ui.theme.GlassBorder
 import app.nodes.ui.theme.GlassBorderStrong
 import app.nodes.ui.theme.GlassFillBottom
 import app.nodes.ui.theme.GlassFillTop
-import app.nodes.ui.theme.NodesBlack
+import app.nodes.ui.theme.SpartialBlack
 
 /**
  * Frosted glass.
  *
  * Real backdrop blur needs RenderEffect (API 31+). Rather than shipping a
- * library that pretends otherwise, Nodes layers three things that read as glass
+ * library that pretends otherwise, Spartial Music layers three things that read as glass
  * on every API level:
  *
  *  1. a blurred, darkened copy of the artwork behind the surface (see
@@ -53,7 +53,7 @@ fun Modifier.glass(
     .clip(shape)
     .then(
         if (scrim > 0f) {
-            Modifier.background(NodesBlack.copy(alpha = scrim.coerceIn(0f, 1f)))
+            Modifier.background(SpartialBlack.copy(alpha = scrim.coerceIn(0f, 1f)))
         } else {
             Modifier
         },
@@ -77,7 +77,7 @@ fun Modifier.glassPill(
  * The black scrim that lets the hero image fade into the page. Applied on top
  * of the image, inside its clip.
  */
-fun Modifier.bottomFade(scrim: Color = NodesBlack): Modifier = this.background(
+fun Modifier.bottomFade(scrim: Color = SpartialBlack): Modifier = this.background(
     Brush.verticalGradient(
         0f to Color.Transparent,
         0.42f to Color.Transparent,

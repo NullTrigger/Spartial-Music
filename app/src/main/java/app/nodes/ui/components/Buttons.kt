@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -32,11 +32,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesGreyDim
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 enum class PillStyle {
     /** White fill, black label: the primary action. */
@@ -61,17 +61,17 @@ fun PillButton(
     icon: ImageVector? = null,
     style: PillStyle = PillStyle.Solid,
     enabled: Boolean = true,
-    tint: Color = NodesWhite,
+    tint: Color = SpartialWhite,
     contentDescription: String? = null,
 ) {
     val background = when (style) {
-        PillStyle.Solid -> if (enabled) NodesWhite else NodesWhite.copy(alpha = 0.18f)
+        PillStyle.Solid -> if (enabled) SpartialWhite else SpartialWhite.copy(alpha = 0.18f)
         PillStyle.Glass -> Color.White.copy(alpha = 0.09f)
         PillStyle.Tint -> tint.copy(alpha = 0.26f)
     }
     val foreground = when (style) {
-        PillStyle.Solid -> if (enabled) NodesBlack else NodesGreyDim
-        else -> if (enabled) NodesWhite else NodesGreyDim
+        PillStyle.Solid -> if (enabled) SpartialBlack else SpartialGreyDim
+        else -> if (enabled) SpartialWhite else SpartialGreyDim
     }
     val shape = CircleShape
     Row(
@@ -107,7 +107,7 @@ fun PillButton(
         }
         Text(
             text = text,
-            style = NodesType.pill,
+            style = SpartialType.pill,
             color = foreground,
             maxLines = 1,
         )
@@ -129,7 +129,7 @@ fun CircleIconButton(
     filled: Boolean = false,
     size: Dp = 44.dp,
     iconSize: Dp = 22.dp,
-    tint: Color = NodesWhite,
+    tint: Color = SpartialWhite,
     background: Color = Color.White.copy(alpha = 0.1f),
 ) {
     Box(
@@ -147,7 +147,7 @@ fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (enabled) tint else NodesGreyDim,
+            tint = if (enabled) tint else SpartialGreyDim,
             modifier = Modifier.size(iconSize),
         )
     }
@@ -161,7 +161,7 @@ fun CircleIconButton(
 fun GlassBadge(
     text: String,
     modifier: Modifier = Modifier,
-    tint: Color = NodesGrey,
+    tint: Color = SpartialGrey,
 ) {
     Box(
         modifier = modifier

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Collapsed/expanded state for the floating bar, shared between the scrolling
- * screens (which observe their own lists) and the bar in NodesApp.
+ * screens (which observe their own lists) and the bar in SpartialApp.
  */
 object BarCollapseBus {
 

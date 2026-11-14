@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -49,10 +49,10 @@ import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.glass
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesAccent
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialAccent
+import app.nodes.ui.theme.SpartialWhite
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -76,7 +76,7 @@ fun DiagnosticsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         PageHeader(
             title = stringResource(R.string.diagnostics_title),
@@ -156,7 +156,7 @@ fun DiagnosticsScreen(
                 Text(
                     text = openedName,
                     style = MaterialTheme.typography.labelMedium,
-                    color = NodesWhite,
+                    color = SpartialWhite,
                 )
             },
             text = {
@@ -172,7 +172,7 @@ fun DiagnosticsScreen(
                             fontSize = 11.sp,
                             lineHeight = 16.sp,
                         ),
-                        color = NodesWhite,
+                        color = SpartialWhite,
                     )
                 }
             },
@@ -217,18 +217,18 @@ private fun ToggleRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = NodesWhite,
+                color = SpartialWhite,
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
             )
         }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = NodesAccent),
+            colors = SwitchDefaults.colors(checkedTrackColor = SpartialAccent),
         )
     }
 }
@@ -252,12 +252,12 @@ private fun ReportRow(
             Text(
                 text = formatStamp(report.savedAt),
                 style = MaterialTheme.typography.titleSmall,
-                color = NodesWhite,
+                color = SpartialWhite,
             )
             Text(
                 text = report.summary,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -266,7 +266,7 @@ private fun ReportRow(
             Text(
                 text = stringResource(R.string.diagnostics_delete),
                 style = MaterialTheme.typography.labelMedium,
-                color = NodesGrey,
+                color = SpartialGrey,
             )
         }
     }
@@ -280,7 +280,7 @@ private fun DebugCrashRow(onCreate: () -> Unit) {
         Text(
             text = stringResource(R.string.diagnostics_test_crash_hint),
             style = MaterialTheme.typography.bodySmall,
-            color = NodesGrey,
+            color = SpartialGrey,
         )
         TextButton(
             onClick = {
@@ -294,7 +294,7 @@ private fun DebugCrashRow(onCreate: () -> Unit) {
         ) {
             Text(
                 text = stringResource(R.string.diagnostics_test_crash),
-                color = NodesAccent,
+                color = SpartialAccent,
             )
         }
     }

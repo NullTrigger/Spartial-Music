@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -170,7 +170,7 @@ class SettingsViewModel @Inject constructor(
 
     /**
      * Pushes every locally liked YouTube Music track to the account's liked
-     * songs ("Sync to YT"). Unofficial and one-directional: Nodes never pulls
+     * songs ("Sync to YT"). Unofficial and one-directional: Spartial Music never pulls
      * anything back, and re-running it is safe - liking what is already liked
      * changes nothing. It only affects likes the app stores locally from this
      * source's own results.

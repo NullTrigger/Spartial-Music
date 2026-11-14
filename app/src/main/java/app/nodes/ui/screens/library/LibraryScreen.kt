@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -67,11 +67,11 @@ import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
 import app.nodes.ui.components.trackSupportingLine
 import app.nodes.ui.screens.player.PlayerViewModel
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 private enum class LibraryTab(val labelRes: Int) {
     PLAYLISTS(R.string.library_playlists_section),
@@ -113,7 +113,7 @@ fun LibraryScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         PageHeader(
             title = stringResource(R.string.library_title),
@@ -130,8 +130,8 @@ fun LibraryScreen(
             onSearch = {},
             placeholder = stringResource(R.string.library_search),
             modifier = Modifier.padding(
-                start = NodesSpacing.gutter,
-                end = NodesSpacing.gutter,
+                start = SpartialSpacing.gutter,
+                end = SpartialSpacing.gutter,
                 top = 12.dp,
             ),
         )
@@ -140,12 +140,12 @@ fun LibraryScreen(
             options = LibraryTab.entries.map { stringResource(it.labelRes) },
             selectedIndex = tabIndex,
             onSelect = { tabIndex = it },
-            modifier = Modifier.padding(horizontal = NodesSpacing.gutter, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = SpartialSpacing.gutter, vertical = 10.dp),
         )
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
         ) {
             if (state.loading) {
                 item(key = "loading") { LoadingRows() }
@@ -158,7 +158,7 @@ fun LibraryScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = NodesSpacing.gutter, vertical = 4.dp),
+                                .padding(horizontal = SpartialSpacing.gutter, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             PillButton(
@@ -186,7 +186,7 @@ fun LibraryScreen(
                         }
                         item(key = "pins") {
                             LazyRow(
-                                contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+                                contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 items(
@@ -213,7 +213,7 @@ fun LibraryScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(
-                                        horizontal = NodesSpacing.gutter,
+                                        horizontal = SpartialSpacing.gutter,
                                         vertical = 6.dp,
                                     ),
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -336,7 +336,7 @@ fun LibraryScreen(
             onDismissRequest = { showCreate = false },
             containerColor = Color(0xFF15171B),
             title = {
-                Text(stringResource(R.string.library_new_playlist), color = NodesWhite)
+                Text(stringResource(R.string.library_new_playlist), color = SpartialWhite)
             },
             text = {
                 TextField(
@@ -347,9 +347,9 @@ fun LibraryScreen(
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
-                        focusedTextColor = NodesWhite,
-                        unfocusedTextColor = NodesWhite,
-                        cursorColor = NodesWhite,
+                        focusedTextColor = SpartialWhite,
+                        unfocusedTextColor = SpartialWhite,
+                        cursorColor = SpartialWhite,
                     ),
                 )
             },
@@ -431,15 +431,15 @@ private fun PlaylistTile(
         Spacer(Modifier.height(8.dp))
         Text(
             text = playlist.title,
-            style = NodesType.rowTitle,
-            color = NodesWhite,
+            style = SpartialType.rowTitle,
+            color = SpartialWhite,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = stringResource(R.string.playlist_track_count, playlist.trackCount),
-            style = NodesType.rowMeta,
-            color = NodesGrey,
+            style = SpartialType.rowMeta,
+            color = SpartialGrey,
             maxLines = 1,
         )
     }
@@ -454,7 +454,7 @@ private fun LibraryArtistRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = NodesSpacing.gutter, vertical = 8.dp),
+            .padding(horizontal = SpartialSpacing.gutter, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Artwork(
@@ -468,22 +468,22 @@ private fun LibraryArtistRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = artist.name,
-                style = NodesType.rowTitle,
-                color = NodesWhite,
+                style = SpartialType.rowTitle,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = stringResource(R.string.artist_songs_count, artist.trackCount),
-                style = NodesType.rowMeta,
-                color = NodesGrey,
+                style = SpartialType.rowMeta,
+                color = SpartialGrey,
                 maxLines = 1,
             )
         }
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
-            tint = NodesGrey,
+            tint = SpartialGrey,
             modifier = Modifier.size(22.dp),
         )
     }

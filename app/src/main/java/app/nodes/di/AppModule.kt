@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -11,7 +11,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import app.nodes.core.data.db.LibraryDao
-import app.nodes.core.data.db.NodesDatabase
+import app.nodes.core.data.db.SpartialDatabase
 import app.nodes.core.data.db.RemoteCacheDao
 import app.nodes.core.data.db.TrackDao
 import dagger.Module
@@ -43,17 +43,17 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): NodesDatabase =
-        Room.databaseBuilder(context, NodesDatabase::class.java, NodesDatabase.NAME)
+    fun provideDatabase(@ApplicationContext context: Context): SpartialDatabase =
+        Room.databaseBuilder(context, SpartialDatabase::class.java, SpartialDatabase.NAME)
             .fallbackToDestructiveMigration(true)
             .build()
 
     @Provides
-    fun provideTrackDao(database: NodesDatabase): TrackDao = database.trackDao()
+    fun provideTrackDao(database: SpartialDatabase): TrackDao = database.trackDao()
 
     @Provides
-    fun provideLibraryDao(database: NodesDatabase): LibraryDao = database.libraryDao()
+    fun provideLibraryDao(database: SpartialDatabase): LibraryDao = database.libraryDao()
 
     @Provides
-    fun provideRemoteCacheDao(database: NodesDatabase): RemoteCacheDao = database.remoteCacheDao()
+    fun provideRemoteCacheDao(database: SpartialDatabase): RemoteCacheDao = database.remoteCacheDao()
 }

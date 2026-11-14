@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -33,8 +33,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import app.nodes.R
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * The glass search field shared by Search and the Songs list. The clear target
@@ -60,7 +60,7 @@ fun SearchField(
         Icon(
             imageVector = Icons.Rounded.Search,
             contentDescription = null,
-            tint = NodesGrey,
+            tint = SpartialGrey,
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(10.dp))
@@ -69,15 +69,15 @@ fun SearchField(
                 Text(
                     text = placeholder,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = NodesGrey,
+                    color = SpartialGrey,
                 )
             }
             BasicTextField(
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(color = NodesWhite),
-                cursorBrush = SolidColor(NodesWhite),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = SpartialWhite),
+                cursorBrush = SolidColor(SpartialWhite),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onSearch() }),
                 modifier = Modifier.fillMaxWidth(),
@@ -95,7 +95,7 @@ fun SearchField(
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = stringResource(R.string.action_close),
-                    tint = NodesGrey,
+                    tint = SpartialGrey,
                     modifier = Modifier.size(18.dp),
                 )
             }

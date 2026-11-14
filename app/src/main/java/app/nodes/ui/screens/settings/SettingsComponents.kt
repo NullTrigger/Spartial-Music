@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -45,16 +45,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.theme.GlassBorder
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesGreyDim
-import app.nodes.ui.theme.NodesSurface
-import app.nodes.ui.theme.NodesAccent
-import app.nodes.ui.theme.NodesAccentDeep
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
+import app.nodes.ui.theme.SpartialSurface
+import app.nodes.ui.theme.SpartialAccent
+import app.nodes.ui.theme.SpartialAccentDeep
+import app.nodes.ui.theme.SpartialWhite
 
 /**
- * One settings screen: the standard Nodes header, then a lazy list of groups.
+ * One settings screen: the standard Spartial Music header, then a lazy list of groups.
  *
  * Every settings screen is built from [SettingsGroup] cards so a new topic is a
  * new group rather than a longer scroll, and the back arrow never has to be
@@ -70,7 +70,7 @@ fun SettingsScaffold(
     Column(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         PageHeader(title = title, subtitle = subtitle, back = onBack)
         LazyColumn(
@@ -96,14 +96,14 @@ fun SettingsGroup(
         Text(
             text = title.uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = NodesGreyDim,
+            color = SpartialGreyDim,
             modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
         )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(shape)
-                .background(NodesSurface)
+                .background(SpartialSurface)
                 .border(1.dp, GlassBorder, shape),
             content = content,
         )
@@ -123,7 +123,7 @@ fun SettingsDivider() {
 }
 
 @Composable
-private fun SettingsIcon(icon: ImageVector, tint: Color = NodesGrey) {
+private fun SettingsIcon(icon: ImageVector, tint: Color = SpartialGrey) {
     Box(
         modifier = Modifier
             .size(32.dp)
@@ -151,7 +151,7 @@ private fun RowText(
         Text(
             text = title,
             style = MaterialTheme.typography.bodyMedium,
-            color = NodesWhite,
+            color = SpartialWhite,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
@@ -159,7 +159,7 @@ private fun RowText(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
@@ -228,14 +228,14 @@ fun SettingsValueRow(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
                 modifier = Modifier.padding(start = 12.dp),
             )
         }
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
-            tint = NodesGreyDim,
+            tint = SpartialGreyDim,
             modifier = Modifier
                 .padding(start = 6.dp)
                 .size(18.dp),
@@ -271,7 +271,7 @@ fun SettingsInfoRow(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
                 modifier = Modifier.padding(start = 12.dp),
             )
         }
@@ -312,7 +312,7 @@ fun SettingsNote(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
-        color = NodesGrey,
+        color = SpartialGrey,
         modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
     )
 }
@@ -334,12 +334,12 @@ fun SettingsAccountCard(
             .background(
                 Brush.linearGradient(
                     colors = listOf(
-                        NodesAccent.copy(alpha = 0.16f),
-                        NodesSurface.copy(alpha = 0.9f),
+                        SpartialAccent.copy(alpha = 0.16f),
+                        SpartialSurface.copy(alpha = 0.9f),
                     ),
                 ),
             )
-            .border(1.dp, NodesAccent.copy(alpha = 0.22f), shape)
+            .border(1.dp, SpartialAccent.copy(alpha = 0.22f), shape)
             .clickable(enabled = onClick != null) { onClick?.invoke() }
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -350,7 +350,7 @@ fun SettingsAccountCard(
                 .clip(CircleShape)
                 .background(
                     Brush.linearGradient(
-                        colors = listOf(NodesAccent, NodesAccentDeep),
+                        colors = listOf(SpartialAccent, SpartialAccentDeep),
                     ),
                 ),
             contentAlignment = Alignment.Center,
@@ -358,7 +358,7 @@ fun SettingsAccountCard(
             Text(
                 text = initial,
                 style = MaterialTheme.typography.titleMedium,
-                color = NodesBlack,
+                color = SpartialBlack,
             )
         }
         Column(
@@ -369,14 +369,14 @@ fun SettingsAccountCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = NodesWhite,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
                 modifier = Modifier.padding(top = 3.dp),
             )
         }
@@ -384,7 +384,7 @@ fun SettingsAccountCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = null,
-                tint = NodesGreyDim,
+                tint = SpartialGreyDim,
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .size(18.dp),
@@ -427,14 +427,14 @@ fun SettingsCheckRow(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = NodesWhite,
+            color = SpartialWhite,
             modifier = Modifier.weight(1f),
         )
         if (selected) {
             Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = null,
-                tint = NodesAccent,
+                tint = SpartialAccent,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -443,9 +443,9 @@ fun SettingsCheckRow(
 
 @Composable
 private fun settingsSwitchColors() = SwitchDefaults.colors(
-    checkedThumbColor = NodesBlack,
-    checkedTrackColor = NodesAccent,
-    uncheckedThumbColor = NodesGrey,
+    checkedThumbColor = SpartialBlack,
+    checkedTrackColor = SpartialAccent,
+    uncheckedThumbColor = SpartialGrey,
     uncheckedTrackColor = Color.White.copy(alpha = 0.08f),
 )
 
