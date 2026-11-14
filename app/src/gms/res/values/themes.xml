@@ -1,6 +1,6 @@
 <resources>
     <!--
-      Copyright (C) 2026 The Nodes Authors.
+      Copyright (C) 2026 The Spartial Music Authors.
       Licensed under GPL-3.0-or-later. See LICENSE.
 
       The cast route button is an AppCompat view: its cast dialog colours come
@@ -11,10 +11,10 @@
       MediaRouterThemeHelper then throws "background can not be translucent"
       while constructing the button (crash report 2026-11-03, OPPO CPH2179).
       The button is therefore always created inside this solid-colour
-      AppCompat context. Theme.Nodes.Cast is only referenced from the gms
+      AppCompat context. Theme.Spartial.Cast is only referenced from the gms
       CastRouteButton.
     -->
-    <style name="Theme.Nodes.Cast" parent="Theme.AppCompat.NoActionBar">
+    <style name="Theme.Spartial.Cast" parent="Theme.AppCompat.NoActionBar">
         <item name="colorPrimary">@color/nodes_background</item>
         <item name="colorPrimaryDark">@color/nodes_background</item>
         <item name="colorAccent">@color/nodes_teal</item>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -33,12 +33,12 @@ import app.nodes.core.data.AppSettings
 import app.nodes.core.crash.CrashReport
 import app.nodes.core.crash.CrashStore
 import app.nodes.core.data.SettingsRepository
-import app.nodes.ui.navigation.NodesApp
+import app.nodes.ui.navigation.SpartialApp
 import app.nodes.ui.screens.crash.CrashActivity
 import app.nodes.ui.screens.crash.CrashDialog
 import app.nodes.ui.screens.onboarding.OnboardingScreen
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesTheme
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -75,12 +75,12 @@ class MainActivity : FragmentActivity() {
             }
 
             val current = appSettings
-            NodesTheme(dynamicColor = current?.dynamicColor == true) {
+            SpartialTheme(dynamicColor = current?.dynamicColor == true) {
                 when {
                     current == null -> Box(
                         Modifier
                             .fillMaxSize()
-                            .background(NodesBlack),
+                            .background(SpartialBlack),
                     )
 
                     !current.onboardingCompleted -> OnboardingScreen(
@@ -89,7 +89,7 @@ class MainActivity : FragmentActivity() {
                         },
                     )
 
-                    else -> NodesApp()
+                    else -> SpartialApp()
                 }
             }
 

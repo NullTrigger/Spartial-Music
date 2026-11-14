@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -25,7 +25,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.mediarouter.app.MediaRouteButton
 import app.nodes.R
 import app.nodes.core.crash.AppLogger
-import app.nodes.ui.theme.NodesGrey
+import app.nodes.ui.theme.SpartialGrey
 
 /**
  * The Cast button for the gms build: a [MediaRouteButton] wired up by media3
@@ -54,7 +54,7 @@ fun CastRouteButton(
             Icon(
                 imageVector = Icons.Rounded.Cast,
                 contentDescription = stringResource(R.string.player_cast),
-                tint = NodesGrey,
+                tint = SpartialGrey,
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -69,7 +69,7 @@ fun CastRouteButton(
             // mediarouter's contrast check throw "background can not be
             // translucent" right inside the constructor (crash report
             // 2026-11-03), so the button is always built inside the solid
-            // Theme.Nodes.Cast context (gms/res/values/themes.xml).
+            // Theme.Spartial.Cast context (gms/res/values/themes.xml).
             val castContext = ContextThemeWrapper(context, R.style.Theme_Nodes_Cast)
             runCatching {
                 GuardedMediaRouteButton(castContext, onChooserFailure).also { button ->

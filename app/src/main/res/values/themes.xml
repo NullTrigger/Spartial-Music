@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Copyright (C) 2026 The Nodes Authors.
+  Copyright (C) 2026 The Spartial Music Authors.
   Licensed under GPL-3.0-or-later. See LICENSE.
 -->
 <resources>
-    <style name="Theme.Nodes" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.Spartial" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/nodes_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
@@ -12,9 +12,9 @@
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
 
-    <style name="Theme.Nodes.Starting" parent="Theme.SplashScreen">
+    <style name="Theme.Spartial.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/nodes_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_spartial_mark</item>
-        <item name="postSplashScreenTheme">@style/Theme.Nodes</item>
+        <item name="postSplashScreenTheme">@style/Theme.Spartial</item>
     </style>
 </resources>

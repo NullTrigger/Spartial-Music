@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -43,10 +43,10 @@ import app.nodes.core.crash.CrashReport
 import app.nodes.core.crash.CrashShare
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.glass
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesTheme
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialTheme
+import app.nodes.ui.theme.SpartialWhite
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -68,7 +68,7 @@ class CrashActivity : ComponentActivity() {
         CrashReport.markSeen(this)
 
         setContent {
-            NodesTheme {
+            SpartialTheme {
                 CrashScreen(
                     report = report,
                     onClose = { finish() },
@@ -126,7 +126,7 @@ fun CrashScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         PageHeader(
             title = stringResource(R.string.crash_title),
@@ -138,7 +138,7 @@ fun CrashScreen(
                 if (report == null) R.string.crash_none else R.string.crash_description,
             ),
             style = MaterialTheme.typography.bodyMedium,
-            color = NodesGrey,
+            color = SpartialGrey,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
 
@@ -166,7 +166,7 @@ fun CrashScreen(
                             fontSize = 11.sp,
                             lineHeight = 16.sp,
                         ),
-                        color = NodesWhite,
+                        color = SpartialWhite,
                     )
                 }
             }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -124,12 +124,12 @@ import dev.chrisbanes.haze.HazeState
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
 import app.nodes.ui.components.trackSupportingLine
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesSurface
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialSurface
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 import app.nodes.ui.theme.rememberArtworkTint
 import app.nodes.ui.theme.toPlayerAccent
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -196,9 +196,9 @@ fun NowPlayingScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .background(NodesBlack)
+                .background(SpartialBlack)
                 .statusBarsPadding()
-                .padding(NodesSpacing.gutter),
+                .padding(SpartialSpacing.gutter),
         ) {
             CircleIconButton(
                 icon = Icons.Rounded.KeyboardArrowDown,
@@ -300,7 +300,7 @@ fun NowPlayingScreen(
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = NodesSpacing.gutter, vertical = 6.dp),
+                            .padding(horizontal = SpartialSpacing.gutter, vertical = 6.dp),
                     ) {
                         YouTubeEmbeddedCard(
                             videoId = videoId,
@@ -310,7 +310,7 @@ fun NowPlayingScreen(
                         Text(
                             text = stringResource(R.string.player_youtube_notice),
                             style = MaterialTheme.typography.labelSmall,
-                            color = NodesGrey,
+                            color = SpartialGrey,
                         )
                     }
                 }
@@ -464,8 +464,8 @@ private fun TrackTitleBlock(track: Track, modifier: Modifier = Modifier) {
     ) {
         Text(
             text = track.title,
-            style = NodesType.sheetTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
-            color = NodesWhite,
+            style = SpartialType.sheetTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
+            color = SpartialWhite,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -473,7 +473,7 @@ private fun TrackTitleBlock(track: Track, modifier: Modifier = Modifier) {
         Text(
             text = track.artist,
             style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
-            color = NodesWhite.copy(alpha = 0.80f),
+            color = SpartialWhite.copy(alpha = 0.80f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -566,8 +566,8 @@ private fun LyricsMode(
             ) {
                 Text(
                     text = stringResource(R.string.player_lyrics_resync),
-                    style = NodesType.pill,
-                    color = NodesWhite,
+                    style = SpartialType.pill,
+                    color = SpartialWhite,
                     modifier = Modifier
                         .clickable { onFollowChanged(true) }
                         .padding(horizontal = 18.dp, vertical = 10.dp),
@@ -599,11 +599,11 @@ private fun LyricLineView(line: LyricLine, active: Boolean, distance: Int) {
     Text(
         text = line.text.ifBlank { "♪" },
         style = if (active) {
-            NodesType.lyricActive.copy(fontWeight = FontWeight.Bold)
+            SpartialType.lyricActive.copy(fontWeight = FontWeight.Bold)
         } else {
-            NodesType.lyricIdle
+            SpartialType.lyricIdle
         },
-        color = NodesWhite.copy(alpha = alpha),
+        color = SpartialWhite.copy(alpha = alpha),
         modifier = Modifier
             .fillMaxWidth()
             .lyricBlur(blurDp),
@@ -655,7 +655,7 @@ private fun QueueMode(
             Text(
                 text = stringResource(R.string.player_playing_next_label),
                 style = MaterialTheme.typography.titleMedium,
-                color = NodesWhite.copy(alpha = 0.92f),
+                color = SpartialWhite.copy(alpha = 0.92f),
                 modifier = Modifier.padding(
                     start = 24.dp,
                     end = 24.dp,
@@ -732,12 +732,12 @@ private fun QueueHeader(
             Text(
                 text = stringResource(R.string.player_playing_from_label),
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesWhite.copy(alpha = 0.64f),
+                color = SpartialWhite.copy(alpha = 0.64f),
             )
             Text(
                 text = queueTitle,
-                style = NodesType.sectionTitle,
-                color = NodesWhite,
+                style = SpartialType.sectionTitle,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -752,7 +752,7 @@ private fun QueueHeader(
             Icon(
                 imageVector = Icons.Rounded.AllInclusive,
                 contentDescription = stringResource(R.string.player_infinite),
-                tint = if (infiniteQueue) NodesWhite else NodesWhite.copy(alpha = 0.52f),
+                tint = if (infiniteQueue) SpartialWhite else SpartialWhite.copy(alpha = 0.52f),
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -766,7 +766,7 @@ private fun QueueHeader(
             Icon(
                 imageVector = Icons.Rounded.GraphicEq,
                 contentDescription = stringResource(R.string.player_now_playing),
-                tint = NodesWhite.copy(alpha = 0.72f),
+                tint = SpartialWhite.copy(alpha = 0.72f),
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -788,7 +788,7 @@ private fun QueueRow(
             .clip(RoundedCornerShape(18.dp))
             .then(
                 if (active) {
-                    Modifier.background(NodesWhite.copy(alpha = 0.08f))
+                    Modifier.background(SpartialWhite.copy(alpha = 0.08f))
                 } else {
                     Modifier
                 },
@@ -808,15 +808,15 @@ private fun QueueRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = track.title,
-                style = NodesType.rowTitle,
-                color = NodesWhite,
+                style = SpartialType.rowTitle,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = trackSupportingLine(track),
-                style = NodesType.rowMeta,
-                color = NodesWhite.copy(alpha = 0.56f),
+                style = SpartialType.rowMeta,
+                color = SpartialWhite.copy(alpha = 0.56f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -825,7 +825,7 @@ private fun QueueRow(
             Icon(
                 imageVector = Icons.Rounded.GraphicEq,
                 contentDescription = null,
-                tint = NodesWhite,
+                tint = SpartialWhite,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(2.dp))
@@ -871,7 +871,7 @@ private fun PlayerDock(
             // rather than as a row glued to its bottom edge. The system
             // navigation inset is part of that band; this is the app's share
             // of it, and it lands the whole gap at roughly the same 5%.
-            .padding(bottom = NodesSpacing.lg),
+            .padding(bottom = SpartialSpacing.lg),
     ) {
         if (mode == PlayerMode.CONTROLS) {
             ControlsActionRow(
@@ -948,7 +948,7 @@ private fun ControlsActionRow(
             Icon(
                 imageVector = Icons.Rounded.FormatQuote,
                 contentDescription = stringResource(R.string.player_lyrics),
-                tint = NodesWhite,
+                tint = SpartialWhite,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -968,19 +968,19 @@ private fun ControlsActionRow(
                 DockAction(
                     icon = if (liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                     contentDescription = stringResource(R.string.player_like),
-                    tint = NodesWhite,
+                    tint = SpartialWhite,
                     onClick = onToggleLike,
                 )
                 DockAction(
                     icon = Icons.Rounded.MusicNote,
                     contentDescription = stringResource(R.string.player_add_to_queue),
-                    tint = NodesWhite,
+                    tint = SpartialWhite,
                     onClick = onAddToQueue,
                 )
                 DockAction(
                     icon = Icons.Rounded.MoreHoriz,
                     contentDescription = stringResource(R.string.player_more),
-                    tint = NodesWhite,
+                    tint = SpartialWhite,
                     onClick = onMore,
                 )
             }
@@ -997,7 +997,7 @@ private fun ControlsActionRow(
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.PlaylistPlay,
                 contentDescription = stringResource(R.string.player_queue),
-                tint = NodesWhite,
+                tint = SpartialWhite,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -1040,8 +1040,8 @@ private fun ModeSelectorRow(
         ) {
             Text(
                 text = "${track.title} • ${track.artist}",
-                style = NodesType.pill,
-                color = NodesWhite,
+                style = SpartialType.pill,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1085,7 +1085,7 @@ private fun DockAction(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
-    tint: Color = NodesWhite,
+    tint: Color = SpartialWhite,
 ) {
     Box(
         modifier = Modifier
@@ -1186,21 +1186,21 @@ private fun PlayerProgress(
         Text(
             text = formatDuration(state.positionMs.coerceAtLeast(0L)),
             style = MaterialTheme.typography.labelMedium,
-            color = NodesWhite.copy(alpha = 0.72f),
+            color = SpartialWhite.copy(alpha = 0.72f),
         )
         Spacer(Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Rounded.GraphicEq,
                 contentDescription = null,
-                tint = NodesWhite.copy(alpha = 0.64f),
+                tint = SpartialWhite.copy(alpha = 0.64f),
                 modifier = Modifier.size(13.dp),
             )
             Spacer(Modifier.width(4.dp))
             Text(
                 text = sourceName.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = NodesWhite.copy(alpha = 0.60f),
+                color = SpartialWhite.copy(alpha = 0.60f),
                 maxLines = 1,
             )
         }
@@ -1208,7 +1208,7 @@ private fun PlayerProgress(
         Text(
             text = formatDuration(state.durationMs.coerceAtLeast(0L)),
             style = MaterialTheme.typography.labelMedium,
-            color = NodesWhite.copy(alpha = 0.72f),
+            color = SpartialWhite.copy(alpha = 0.72f),
         )
     }
 }
@@ -1324,7 +1324,7 @@ private fun TrackOptionsSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = NodesSurface,
+        containerColor = SpartialSurface,
     ) {
         val context = LocalContext.current
         val clipboard = LocalClipboardManager.current
@@ -1334,7 +1334,7 @@ private fun TrackOptionsSheet(
         Text(
             text = track.title,
             style = MaterialTheme.typography.titleMedium,
-            color = NodesWhite,
+            color = SpartialWhite,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -1402,14 +1402,14 @@ private fun SheetAction(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = NodesWhite,
+            tint = SpartialWhite,
             modifier = Modifier.size(22.dp),
         )
         Spacer(Modifier.width(16.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = NodesWhite,
+            color = SpartialWhite,
         )
     }
 }

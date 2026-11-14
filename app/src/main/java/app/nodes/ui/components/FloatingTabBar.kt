@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -57,7 +57,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodes.R
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialWhite
 import app.nodes.ui.theme.navAccent
 import dev.chrisbanes.haze.HazeState
 import kotlin.math.abs
@@ -210,7 +210,7 @@ private fun SearchCircle(
         Icon(
             painter = painterResource(item.icon),
             contentDescription = stringResource(item.labelRes),
-            tint = NodesWhite,
+            tint = SpartialWhite,
             modifier = Modifier.size(26.dp),
         )
     }
@@ -376,7 +376,7 @@ private fun Tab(
     // Icon and label under the bubble move to the accent in ~120ms; the rest
     // stay at white 60%.
     val tint by androidx.compose.animation.animateColorAsState(
-        targetValue = if (selected) navAccent else NodesWhite.copy(alpha = 0.60f),
+        targetValue = if (selected) navAccent else SpartialWhite.copy(alpha = 0.60f),
         animationSpec = tween(120),
         label = "tabTint",
     )
@@ -410,7 +410,7 @@ private fun Tab(
  * Search last (it renders as the separate circle). Glyphs are Phosphor
  * fill-weight drawables.
  */
-val NodesNavItems = listOf(
+val SpartialNavItems = listOf(
     BottomNavItem("home", R.string.nav_home, R.drawable.ic_nav_home),
     BottomNavItem("trending", R.string.nav_trending, R.drawable.ic_nav_trending),
     BottomNavItem("sessions", R.string.nav_sessions, R.drawable.ic_nav_sessions),

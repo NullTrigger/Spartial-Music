@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -17,7 +17,7 @@ import java.util.Locale
  * The uncaught-exception handler, modelled on Glossy's `CrashHandler`.
  *
  * One deliberate difference: Glossy launches its crash page from the dying
- * process. Nodes writes the report first and shows it on the next launch,
+ * process. Spartial Music writes the report first and shows it on the next launch,
  * because a crash on the main thread leaves no working looper to draw an
  * activity - the saved copy is the only reliable one.
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -34,7 +34,7 @@ import app.nodes.ui.components.BarCollapseBus
 import app.nodes.ui.components.FloatingTabBar
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.MiniPlayer
-import app.nodes.ui.components.NodesNavItems
+import app.nodes.ui.components.SpartialNavItems
 import app.nodes.ui.components.ScrollTopBus
 import dev.chrisbanes.haze.hazeSource
 import app.nodes.ui.screens.collection.CollectionScreen
@@ -59,11 +59,11 @@ import app.nodes.ui.screens.songs.SongsScreen
 import app.nodes.ui.screens.stats.StatsScreen
 import app.nodes.ui.screens.suggestions.SuggestionsScreen
 import app.nodes.ui.screens.trending.TrendingScreen
-import app.nodes.ui.theme.NodesBlack
+import app.nodes.ui.theme.SpartialBlack
 import kotlinx.coroutines.delay
 
 @Composable
-fun NodesApp() {
+fun SpartialApp() {
     val navController = rememberNavController()
     val playerViewModel: PlayerViewModel = hiltViewModel()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
@@ -97,7 +97,7 @@ fun NodesApp() {
     Box(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         NavHost(
             navController = navController,
@@ -317,7 +317,7 @@ fun NodesApp() {
                 if (showBar) {
                     FloatingTabBar(
                         currentRoute = route,
-                        items = NodesNavItems,
+                        items = SpartialNavItems,
                         onSelect = { target ->
                             if (target != route) {
                                 navController.navigate(target) {

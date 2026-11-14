@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -53,11 +53,11 @@ import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.GeneratedArt
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.glass
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesGreyDim
-import app.nodes.ui.theme.NodesAccent
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
+import app.nodes.ui.theme.SpartialAccent
+import app.nodes.ui.theme.SpartialWhite
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -154,7 +154,7 @@ class StatsViewModel @Inject constructor(
 }
 
 /**
- * Listening stats, a Replay-style readout in the Nodes glass language.
+ * Listening stats, a Replay-style readout in the Spartial Music glass language.
  *
  * The headline card carries the big estimated minutes count, a horizontal rail
  * ranks artists on generated covers with oversized rank numbers, and a bare
@@ -172,7 +172,7 @@ fun StatsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         PageHeader(
             title = stringResource(R.string.stats_title),
@@ -222,7 +222,7 @@ fun StatsScreen(
                     Text(
                         text = stringResource(R.string.stats_note),
                         style = MaterialTheme.typography.labelSmall,
-                        color = NodesGreyDim,
+                        color = SpartialGreyDim,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 22.dp, vertical = 14.dp),
@@ -258,7 +258,7 @@ private fun PeriodChips(
                 Text(
                     text = stringResource(period.labelRes),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (isChosen) NodesWhite else NodesGrey,
+                    color = if (isChosen) SpartialWhite else SpartialGrey,
                 )
             }
         }
@@ -281,7 +281,7 @@ private fun HeadlineCard(state: StatsUiState) {
         Text(
             text = stringResource(state.period.labelRes).uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = NodesAccent,
+            color = SpartialAccent,
         )
         val headline = if (minutes > 0) {
             val formatted = NumberFormat.getIntegerInstance().format(minutes)
@@ -302,12 +302,12 @@ private fun HeadlineCard(state: StatsUiState) {
                 letterSpacing = (-0.8).sp,
                 fontWeight = FontWeight.Bold,
             ),
-            color = NodesWhite,
+            color = SpartialWhite,
         )
         Text(
             text = pluralStringResource(R.plurals.stats_plays, state.stats.plays, state.stats.plays),
             style = MaterialTheme.typography.bodySmall,
-            color = NodesGrey,
+            color = SpartialGrey,
         )
     }
 }
@@ -317,7 +317,7 @@ private fun SectionHeader(text: String) {
     Text(
         text = text.uppercase(),
         style = MaterialTheme.typography.labelSmall,
-        color = NodesGreyDim,
+        color = SpartialGreyDim,
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 22.dp, end = 22.dp, top = 14.dp, bottom = 12.dp),
@@ -363,7 +363,7 @@ private fun ArtistCard(rank: Int, stat: ArtistStat) {
                         .matchParentSize()
                         .background(
                             Brush.horizontalGradient(
-                                listOf(NodesBlack.copy(alpha = 0.55f), Color.Transparent),
+                                listOf(SpartialBlack.copy(alpha = 0.55f), Color.Transparent),
                             ),
                         ),
                 )
@@ -374,7 +374,7 @@ private fun ArtistCard(rank: Int, stat: ArtistStat) {
                         lineHeight = 46.sp,
                         fontWeight = FontWeight.Black,
                     ),
-                    color = if (rank <= 3) NodesAccent else NodesWhite.copy(alpha = 0.92f),
+                    color = if (rank <= 3) SpartialAccent else SpartialWhite.copy(alpha = 0.92f),
                     modifier = Modifier.padding(start = 12.dp, top = 6.dp),
                 )
             }
@@ -386,14 +386,14 @@ private fun ArtistCard(rank: Int, stat: ArtistStat) {
                 Text(
                     text = stat.artist,
                     style = MaterialTheme.typography.titleSmall,
-                    color = NodesWhite,
+                    color = SpartialWhite,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = pluralStringResource(R.plurals.stats_plays, stat.plays, stat.plays),
                     style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
+                    color = SpartialGrey,
                     maxLines = 1,
                 )
             }
@@ -424,7 +424,7 @@ private fun TrackStatRow(
             Text(
                 text = (index + 1).toString().padStart(2, '0'),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = if (index + 1 <= 3) NodesAccent else NodesGreyDim,
+                color = if (index + 1 <= 3) SpartialAccent else SpartialGreyDim,
             )
         }
         Spacer(Modifier.width(10.dp))
@@ -440,14 +440,14 @@ private fun TrackStatRow(
             Text(
                 text = stat.track.title,
                 style = MaterialTheme.typography.titleSmall,
-                color = NodesWhite,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = stat.track.artist,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -456,7 +456,7 @@ private fun TrackStatRow(
         Text(
             text = pluralStringResource(R.plurals.stats_plays, stat.plays, stat.plays),
             style = MaterialTheme.typography.labelMedium,
-            color = NodesAccent,
+            color = SpartialAccent,
         )
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -45,8 +45,8 @@ import androidx.compose.ui.unit.dp
 import app.nodes.R
 import app.nodes.core.model.Track
 import app.nodes.ui.components.glassNavBackdrop
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
 
@@ -118,7 +118,7 @@ fun MiniPlayer(
                     Modifier
                         .fillMaxWidth(progress.coerceIn(0f, 1f))
                         .height(2.dp)
-                        .background(NodesWhite.copy(alpha = 0.8f)),
+                        .background(SpartialWhite.copy(alpha = 0.8f)),
                 )
             }
         }
@@ -139,14 +139,14 @@ fun MiniPlayer(
             Column(Modifier.weight(1f)) {
                 Text(
                     text = track.title,
-                    style = NodesType.rowTitle.copy(fontSize = 15.sp),
-                    color = NodesWhite,
+                    style = SpartialType.rowTitle.copy(fontSize = 15.sp),
+                    color = SpartialWhite,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = track.artist,
-                    style = NodesType.rowMeta.copy(fontSize = 13.sp, color = NodesWhite.copy(alpha = 0.60f)),
+                    style = SpartialType.rowMeta.copy(fontSize = 13.sp, color = SpartialWhite.copy(alpha = 0.60f)),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -158,7 +158,7 @@ fun MiniPlayer(
                     CircularProgressIndicator(
                         modifier = Modifier.size(22.dp),
                         strokeWidth = 2.dp,
-                        color = NodesWhite,
+                        color = SpartialWhite,
                     )
                 } else {
                     Box(
@@ -172,7 +172,7 @@ fun MiniPlayer(
                             contentDescription = stringResource(
                                 if (isPlaying) R.string.action_pause else R.string.action_play,
                             ),
-                            tint = NodesWhite,
+                            tint = SpartialWhite,
                             modifier = Modifier.size(28.dp),
                         )
                     }
@@ -187,7 +187,7 @@ fun MiniPlayer(
                 androidx.compose.material3.Icon(
                     imageVector = Icons.Rounded.SkipNext,
                     contentDescription = stringResource(R.string.action_next),
-                    tint = NodesWhite,
+                    tint = SpartialWhite,
                     modifier = Modifier.size(28.dp),
                 )
             }

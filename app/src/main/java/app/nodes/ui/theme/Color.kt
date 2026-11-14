@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -9,23 +9,23 @@ import androidx.compose.ui.graphics.Color
 
 // The redesigned surface stack: near-black, with just enough separation
 // between layers to keep cards and controls readable without borders.
-val NodesBlack = Color(0xFF07080A)
-val NodesBlackElevated = Color(0xFF0C0D10)
-val NodesSurface = Color(0xFF131418)
-val NodesSurfaceHigh = Color(0xFF1B1D22)
-val NodesSurfaceHighest = Color(0xFF282A30)
+val SpartialBlack = Color(0xFF07080A)
+val SpartialBlackElevated = Color(0xFF0C0D10)
+val SpartialSurface = Color(0xFF131418)
+val SpartialSurfaceHigh = Color(0xFF1B1D22)
+val SpartialSurfaceHighest = Color(0xFF282A30)
 
 // Type colours.
-val NodesWhite = Color(0xFFF6F6F7)
-val NodesWhiteMuted = Color(0xE6FFFFFF)
-val NodesGrey = Color(0xFF9FA1A8)
-val NodesGreyDim = Color(0xFF6A6C74)
+val SpartialWhite = Color(0xFFF6F6F7)
+val SpartialWhiteMuted = Color(0xE6FFFFFF)
+val SpartialGrey = Color(0xFF9FA1A8)
+val SpartialGreyDim = Color(0xFF6A6C74)
 
 // The neutral accent used by controls, chips and focus rings. Artwork tints
 // supply the colour on player and collection screens; chrome stays monochrome.
-val NodesAccent = Color(0xFFF1F2F4)
-val NodesAccentDeep = Color(0xFFB6B8BE)
-val NodesDanger = Color(0xFFFF6B6B)
+val SpartialAccent = Color(0xFFF1F2F4)
+val SpartialAccentDeep = Color(0xFFB6B8BE)
+val SpartialDanger = Color(0xFFFF6B6B)
 
 /**
  * The navigation accent: active-tab icon and label inside the bubble, and the

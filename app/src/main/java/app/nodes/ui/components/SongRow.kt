@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -42,10 +42,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.nodes.R
 import app.nodes.core.model.Track
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesGreyDim
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * The list row used by Search, Library, Queue and detail screens.
@@ -69,7 +69,7 @@ fun SongRow(
     showStar: Boolean = true,
     active: Boolean = false,
     activePlaying: Boolean = false,
-    activeTint: Color = NodesWhite,
+    activeTint: Color = SpartialWhite,
     supportingText: String? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
     menu: (@Composable () -> Unit)? = null,
@@ -104,7 +104,7 @@ fun SongRow(
                     Text(
                         text = position.toString(),
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (active) activeTint else NodesGreyDim,
+                        color = if (active) activeTint else SpartialGreyDim,
                     )
                 }
             }
@@ -121,15 +121,15 @@ fun SongRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = track.title,
-                style = NodesType.rowTitle,
-                color = if (active) activeTint else NodesWhite,
+                style = SpartialType.rowTitle,
+                color = if (active) activeTint else SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = supportingText ?: track.artist,
-                style = NodesType.rowMeta,
-                color = NodesGrey,
+                style = SpartialType.rowMeta,
+                color = SpartialGrey,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -156,7 +156,7 @@ fun SongRow(
                     ),
                     enabled = onToggleLike != null,
                     onClick = { onToggleLike?.invoke() },
-                    tint = if (isLiked) NodesWhite else NodesGrey,
+                    tint = if (isLiked) SpartialWhite else SpartialGrey,
                 )
             }
             if (menu != null) {
@@ -172,7 +172,7 @@ private fun RowAction(
     contentDescription: String,
     enabled: Boolean,
     onClick: () -> Unit,
-    tint: Color = NodesGrey,
+    tint: Color = SpartialGrey,
 ) {
     Box(
         modifier = Modifier
@@ -185,7 +185,7 @@ private fun RowAction(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (enabled) tint else NodesGreyDim.copy(alpha = 0.45f),
+            tint = if (enabled) tint else SpartialGreyDim.copy(alpha = 0.45f),
             modifier = Modifier.size(18.dp),
         )
     }

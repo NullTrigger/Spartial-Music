@@ -27,7 +27,7 @@ keys** across **20 settings sub-screens**: root → Appearance / Player & audio 
 Content / Privacy / Backup / Integrations / About, each a grouped list of `Material3SettingsGroup`
 cards with a title, optional subtitle and a trailing switch or value.
 
-Nodes has 7 flat sections and 9 stored preferences, three of which no screen has ever shown.
+Spartial Music has 7 flat sections and 9 stored preferences, three of which no screen has ever shown.
 
 Two lessons worth copying: **group by topic and drill down** (a root screen that stays short no
 matter how many options exist), and **show the current value in the row** (`Off`, `1.0×`,
@@ -97,7 +97,7 @@ Appearance:
   Real feature, real risk, not a settings row.
 - **Loudness normalisation** — needs an audio processor and per-track gain data we do not have.
 
-## 4. Out of scope for Nodes (do not port from Glossy)
+## 4. Out of scope for Spartial Music (do not port from Glossy)
 
 Downloads and offline caching, sponsor-block, canvas/thumbnail caching of YouTube media, player
 cipher and proxy configuration, Cast, Discord / Last.fm / Listen Together. These either download
@@ -112,7 +112,7 @@ Root screen, top to bottom:
    starts higher; tapping it expands a query row over the same data.
 2. **Status card** — avatar, `Anonymous` / signed-in account, source badge. It answers "what am I
    signed in to and what is serving my audio" before any switch does.
-3. **Five groups**, each a 22 dp card on `NodesSurface` with a hairline border:
+3. **Five groups**, each a 22 dp card on `SpartialSurface` with a hairline border:
    Playback · Appearance · Content · Privacy & data · About.
 4. **Row anatomy** — optional 32 dp icon tile, title (14 sp), optional subtitle (11 sp, grey),
    then a switch, a value, or a chevron. 54 dp minimum height. Dividers are inset hairlines.

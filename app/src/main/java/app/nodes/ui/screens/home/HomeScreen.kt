@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -58,10 +58,10 @@ import app.nodes.ui.components.SectionHeader
 import app.nodes.ui.components.ErrorState
 import app.nodes.ui.components.EmptyState
 import app.nodes.ui.screens.player.PlayerViewModel
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * Home is one vertical scroll:
@@ -94,7 +94,7 @@ fun HomeScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
         // The bar's contracts: tap-to-top, and collapse when the content
@@ -120,7 +120,7 @@ fun HomeScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
         ) {
             item(key = "banner") {
                 HomeBannerCarousel(
@@ -157,14 +157,14 @@ fun HomeScreen(
                 item(key = "continue-header") {
                     Text(
                         text = stringResource(R.string.continue_playing),
-                        style = NodesType.sectionTitle.copy(
+                        style = SpartialType.sectionTitle.copy(
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                         ),
-                        color = NodesWhite,
+                        color = SpartialWhite,
                         modifier = Modifier.padding(
-                            start = NodesSpacing.gutter,
-                            end = NodesSpacing.gutter,
+                            start = SpartialSpacing.gutter,
+                            end = SpartialSpacing.gutter,
                             top = 26.dp,
                             bottom = 12.dp,
                         ),
@@ -249,19 +249,19 @@ private fun HomeHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = NodesSpacing.gutter, end = 16.dp, top = 8.dp),
+            .padding(start = SpartialSpacing.gutter, end = 16.dp, top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = stringResource(R.string.home_title),
-            style = NodesType.heroTitle.copy(fontSize = 28.sp),
-            color = NodesWhite,
+            style = SpartialType.heroTitle.copy(fontSize = 28.sp),
+            color = SpartialWhite,
             modifier = Modifier.weight(1f),
         )
         Icon(
             imageVector = Icons.Rounded.Settings,
             contentDescription = stringResource(R.string.cd_open_settings),
-            tint = NodesWhite,
+            tint = SpartialWhite,
             modifier = Modifier
                 .clip(CircleShape)
                 .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpenSettings)
@@ -273,7 +273,7 @@ private fun HomeHeader(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(NodesWhite)
+                .background(SpartialWhite)
                 .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpenStats),
             contentAlignment = Alignment.Center,
         ) {
@@ -281,7 +281,7 @@ private fun HomeHeader(
                 text = profileInitial(account),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = NodesBlack,
+                color = SpartialBlack,
             )
         }
     }
@@ -302,7 +302,7 @@ private fun ContinuePlayingRow(
     onPlay: (Track) -> Unit,
 ) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+        contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(items = tracks, key = { "continue-${it.id}" }) { track ->
@@ -329,7 +329,7 @@ private fun ContinuePlayingRow(
                                 androidx.compose.ui.text.SpanStyle(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
-                                    color = NodesWhite,
+                                    color = SpartialWhite,
                                 ),
                             ) { append(track.title) }
                             track.artist.takeIf { it.isNotBlank() }?.let { artist ->
@@ -337,7 +337,7 @@ private fun ContinuePlayingRow(
                                     androidx.compose.ui.text.SpanStyle(
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 13.sp,
-                                        color = NodesWhite.copy(alpha = 0.60f),
+                                        color = SpartialWhite.copy(alpha = 0.60f),
                                     ),
                                 ) { append(" ($artist)") }
                             }
@@ -348,9 +348,9 @@ private fun ContinuePlayingRow(
                     track.album?.takeIf { it.isNotBlank() }?.let { album ->
                         Text(
                             text = album,
-                            style = NodesType.rowMeta.copy(
+                            style = SpartialType.rowMeta.copy(
                                 fontSize = 12.sp,
-                                color = NodesWhite.copy(alpha = 0.50f),
+                                color = SpartialWhite.copy(alpha = 0.50f),
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -374,7 +374,7 @@ private fun HomeSectionRail(
         onClick = onSeeAll,
     )
     LazyRow(
-        contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+        contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(items = section.tracks, key = { "${section.id}-${it.id}" }) { track ->

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -57,9 +57,9 @@ import app.nodes.ui.components.TintedBackdrop
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.runtimeLabel
 import app.nodes.ui.screens.player.PlayerViewModel
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialWhite
 import app.nodes.ui.theme.rememberArtworkTint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -171,7 +171,7 @@ fun CollectionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
-            contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
         ) {
             item(key = "top") {
                 DetailTopBar(onBack = onBack)
@@ -181,7 +181,7 @@ fun CollectionScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = NodesSpacing.gutter),
+                        .padding(horizontal = SpartialSpacing.gutter),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Spacer(Modifier.height(10.dp))
@@ -206,13 +206,13 @@ fun CollectionScreen(
                             },
                         ).uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = NodesGrey,
+                        color = SpartialGrey,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = title,
                         style = MaterialTheme.typography.headlineLarge,
-                        color = NodesWhite,
+                        color = SpartialWhite,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -241,7 +241,7 @@ fun CollectionScreen(
                             )
                         },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = NodesGrey,
+                        color = SpartialGrey,
                         textAlign = TextAlign.Center,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
@@ -255,7 +255,7 @@ fun CollectionScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = NodesSpacing.gutter),
+                            .padding(horizontal = SpartialSpacing.gutter),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -281,7 +281,7 @@ fun CollectionScreen(
                                 },
                             ),
                             onClick = { viewModel.setAllLiked(!allLiked) },
-                            tint = if (allLiked) NodesWhite else NodesGrey,
+                            tint = if (allLiked) SpartialWhite else SpartialGrey,
                             filled = true,
                         )
                     }
@@ -292,8 +292,8 @@ fun CollectionScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(
-                                start = NodesSpacing.gutter,
-                                end = NodesSpacing.gutter,
+                                start = SpartialSpacing.gutter,
+                                end = SpartialSpacing.gutter,
                                 top = 22.dp,
                                 bottom = 6.dp,
                             ),
@@ -308,13 +308,13 @@ fun CollectionScreen(
                                 },
                             ).uppercase(),
                             style = MaterialTheme.typography.labelSmall,
-                            color = NodesGrey,
+                            color = SpartialGrey,
                         )
                         Spacer(Modifier.weight(1f))
                         Text(
                             text = stringResource(R.string.playlist_track_count, tracks.size),
                             style = MaterialTheme.typography.bodySmall,
-                            color = NodesGrey,
+                            color = SpartialGrey,
                         )
                     }
                 }

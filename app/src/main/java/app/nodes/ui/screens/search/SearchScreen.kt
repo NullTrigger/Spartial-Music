@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -55,11 +55,11 @@ import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
 import app.nodes.ui.components.trackSupportingLine
 import app.nodes.ui.screens.player.PlayerViewModel
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 private data class BrowseEntry(
     val gradientIndex: Int,
@@ -108,7 +108,7 @@ fun SearchScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         PageHeader(
             title = stringResource(R.string.search_title),
@@ -121,8 +121,8 @@ fun SearchScreen(
             onQueryChange = viewModel::setQuery,
             onSearch = viewModel::submit,
             modifier = Modifier.padding(
-                start = NodesSpacing.gutter,
-                end = NodesSpacing.gutter,
+                start = SpartialSpacing.gutter,
+                end = SpartialSpacing.gutter,
                 top = 12.dp,
             ),
         )
@@ -146,7 +146,7 @@ fun SearchScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
         ) {
             if (state.query.isBlank()) {
                 item(key = "genres-head") {
@@ -203,7 +203,7 @@ fun SearchScreen(
                         selectedIndex = state.filter.ordinal,
                         onSelect = { index -> viewModel.setFilter(SearchFilter.entries[index]) },
                         modifier = Modifier.padding(
-                            horizontal = NodesSpacing.gutter,
+                            horizontal = SpartialSpacing.gutter,
                             vertical = 10.dp,
                         ),
                     )
@@ -217,7 +217,7 @@ fun SearchScreen(
                             }
                             item(key = "artists-rail") {
                                 LazyRow(
-                                    contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+                                    contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 ) {
                                     items(state.artists, key = { "artist-${it.name}" }) { artist ->
@@ -237,7 +237,7 @@ fun SearchScreen(
                             }
                             item(key = "albums-rail") {
                                 LazyRow(
-                                    contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+                                    contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 ) {
                                     items(state.albums, key = { "album-${it.name}" }) { album ->
@@ -298,7 +298,7 @@ fun SearchScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(
-                                            horizontal = NodesSpacing.gutter,
+                                            horizontal = SpartialSpacing.gutter,
                                             vertical = 8.dp,
                                         ),
                                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -354,12 +354,12 @@ private fun ChipRow(
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = NodesGrey,
-                modifier = Modifier.padding(horizontal = NodesSpacing.gutter),
+                color = SpartialGrey,
+                modifier = Modifier.padding(horizontal = SpartialSpacing.gutter),
             )
         }
         LazyRow(
-            contentPadding = PaddingValues(horizontal = NodesSpacing.gutter, vertical = 6.dp),
+            contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(values, key = { it }) { term ->
@@ -372,7 +372,7 @@ private fun ChipRow(
                     Text(
                         text = term,
                         style = MaterialTheme.typography.labelMedium,
-                        color = NodesWhite,
+                        color = SpartialWhite,
                         maxLines = 1,
                     )
                 }
@@ -390,7 +390,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.genreRows(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = NodesSpacing.gutter, vertical = 5.dp),
+                    .padding(horizontal = SpartialSpacing.gutter, vertical = 5.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 row.forEach { entry ->
@@ -470,15 +470,15 @@ private fun AlbumResultCard(
         Spacer(Modifier.height(8.dp))
         Text(
             text = album.name,
-            style = NodesType.rowTitle,
-            color = NodesWhite,
+            style = SpartialType.rowTitle,
+            color = SpartialWhite,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = stringResource(R.string.collection_track_count, album.trackCount),
-            style = NodesType.rowMeta,
-            color = NodesGrey,
+            style = SpartialType.rowMeta,
+            color = SpartialGrey,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -494,7 +494,7 @@ private fun ArtistResultRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = NodesSpacing.gutter, vertical = 8.dp),
+            .padding(horizontal = SpartialSpacing.gutter, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Artwork(
@@ -508,22 +508,22 @@ private fun ArtistResultRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = artist.name,
-                style = NodesType.rowTitle,
-                color = NodesWhite,
+                style = SpartialType.rowTitle,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = stringResource(R.string.artist_songs_count, artist.trackCount),
-                style = NodesType.rowMeta,
-                color = NodesGrey,
+                style = SpartialType.rowMeta,
+                color = SpartialGrey,
                 maxLines = 1,
             )
         }
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
-            tint = NodesGrey,
+            tint = SpartialGrey,
             modifier = Modifier.size(22.dp),
         )
     }

@@ -1,6 +1,6 @@
 # Lyrics providers
 
-Nodes never bundles lyrics. A track gets lyrics from a local `.lrc` file the
+Spartial Music never bundles lyrics. A track gets lyrics from a local `.lrc` file the
 user placed on the device, or from one of the public providers below, in the
 order chosen under **Settings → Lyrics**. The repository asks providers one at a
 time with a short budget, refuses an answer whose title, artist or duration
@@ -29,10 +29,10 @@ tracks) the video id. See [PRIVACY.md](../PRIVACY.md).
   was put there deliberately, and it keeps working offline.
 - **NetEase Cloud Music** — uses the same web endpoints as the NetEase player.
   They are not a documented public API, may change without notice, and may be
-  rate-limited or blocked in some regions. Nodes sends a browser User-Agent and
+  rate-limited or blocked in some regions. Spartial Music sends a browser User-Agent and
   a `Referer` header, does not log in, and does not scrape account pages.
 - **LRCLIB** — <https://lrclib.net>. The API is free for non-commercial use and
-  asks callers to identify themselves; the provider sends the `Nodes/1.0`
+  asks callers to identify themselves; the provider sends the `Spartial Music/1.0`
   User-Agent. `/api/get` is exact-match, with `/api/search` as a filtered
   fallback.
 - **SimpMusic** — <https://api-lyrics.simpmusic.org>. The provider prefers the

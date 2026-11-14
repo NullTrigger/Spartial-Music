@@ -50,7 +50,7 @@ faster timeline.
 
 ## Handling of secrets
 
-Nodes never ships API keys. Keys are read at build time from `local.properties`
+Spartial Music never ships API keys. Keys are read at build time from `local.properties`
 (git-ignored) or the environment. If you find a key in the repository or in build
 output, treat it as compromised: revoke it in Google Cloud Console / the Jamendo
 portal and open a private report.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -32,8 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.nodes.R
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * The track "more" menu used by list rows and the queue.
@@ -72,7 +72,7 @@ fun TrackMenuButton(
             Icon(
                 imageVector = Icons.Rounded.MoreVert,
                 contentDescription = stringResource(R.string.player_queue_options),
-                tint = NodesGrey,
+                tint = SpartialGrey,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -162,14 +162,14 @@ private fun QueueMenuItem(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (enabled) NodesWhite else NodesGrey.copy(alpha = 0.5f),
+                color = if (enabled) SpartialWhite else SpartialGrey.copy(alpha = 0.5f),
             )
         },
         leadingIcon = {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (enabled) NodesGrey else NodesGrey.copy(alpha = 0.5f),
+                tint = if (enabled) SpartialGrey else SpartialGrey.copy(alpha = 0.5f),
                 modifier = Modifier.size(18.dp),
             )
         },

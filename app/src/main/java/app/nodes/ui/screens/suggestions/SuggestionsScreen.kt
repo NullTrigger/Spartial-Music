@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -45,11 +45,11 @@ import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
 import app.nodes.ui.screens.player.PlayerViewModel
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSpacing
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 @Composable
 fun SuggestionsScreen(
@@ -59,9 +59,9 @@ fun SuggestionsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    Box(Modifier.background(NodesBlack)) {
+    Box(Modifier.background(SpartialBlack)) {
         LazyColumn(
-            contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
         ) {
             item(key = "header") {
                 PageHeader(
@@ -99,7 +99,7 @@ fun SuggestionsScreen(
                         }
                         item(key = "top") {
                             LazyRow(
-                                contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+                                contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 items(state.topPicks, key = { "top-${it.id}" }) { track ->
@@ -143,7 +143,7 @@ fun SuggestionsScreen(
                         }
                         item(key = "fresh") {
                             LazyRow(
-                                contentPadding = PaddingValues(horizontal = NodesSpacing.gutter),
+                                contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 items(state.fresh, key = { "fresh-${it.id}" }) { track ->
@@ -169,7 +169,7 @@ fun SuggestionsScreen(
 private fun SuggestionsIntro() {
     Row(
         modifier = Modifier
-            .padding(horizontal = NodesSpacing.gutter, vertical = 8.dp)
+            .padding(horizontal = SpartialSpacing.gutter, vertical = 8.dp)
             .fillMaxWidth()
             .glass(RoundedCornerShape(24.dp), strong = true, scrim = 0.28f)
             .padding(horizontal = 18.dp, vertical = 16.dp),
@@ -178,13 +178,13 @@ private fun SuggestionsIntro() {
         Box(
             modifier = Modifier
                 .size(46.dp)
-                .background(NodesWhite.copy(alpha = 0.1f), RoundedCornerShape(15.dp)),
+                .background(SpartialWhite.copy(alpha = 0.1f), RoundedCornerShape(15.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Rounded.AutoAwesome,
                 contentDescription = null,
-                tint = NodesWhite,
+                tint = SpartialWhite,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -192,13 +192,13 @@ private fun SuggestionsIntro() {
         Column {
             Text(
                 text = stringResource(R.string.suggestions_title),
-                style = NodesType.rowTitle,
-                color = NodesWhite,
+                style = SpartialType.rowTitle,
+                color = SpartialWhite,
             )
             Text(
                 text = stringResource(R.string.suggestions_subtitle),
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
             )
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -27,9 +27,9 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.nodes.ui.theme.GlassBorder
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * A glass segmented control. The selected segment is a solid white pill, which
@@ -56,7 +56,7 @@ fun SegmentedFilter(
                 modifier = Modifier
                     .defaultMinSize(minHeight = 40.dp)
                     .clip(CircleShape)
-                    .background(if (selected) NodesWhite else Color.Transparent)
+                    .background(if (selected) SpartialWhite else Color.Transparent)
                     .clickable(role = Role.Tab) { onSelect(index) }
                     .semantics {
                         this.selected = selected
@@ -67,7 +67,7 @@ fun SegmentedFilter(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) NodesBlack else NodesGrey,
+                    color = if (selected) SpartialBlack else SpartialGrey,
                     maxLines = 1,
                 )
             }
@@ -86,7 +86,7 @@ fun FilterChip(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(if (selected) NodesWhite else Color.White.copy(alpha = 0.07f))
+            .background(if (selected) SpartialWhite else Color.White.copy(alpha = 0.07f))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
@@ -94,7 +94,7 @@ fun FilterChip(
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = if (selected) NodesBlack else NodesWhite,
+            color = if (selected) SpartialBlack else SpartialWhite,
             maxLines = 1,
         )
     }

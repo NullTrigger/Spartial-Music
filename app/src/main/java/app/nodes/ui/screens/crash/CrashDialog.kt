@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -31,8 +31,8 @@ import app.nodes.R
 import app.nodes.core.crash.CrashLogFile
 import app.nodes.core.crash.CrashShare
 import app.nodes.core.crash.CrashStore
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * "Spartial Music crashed last time", shown once on the launch after a crash.
@@ -65,19 +65,19 @@ fun CrashDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF15171B),
-        title = { Text(stringResource(R.string.crash_last_time_title), color = NodesWhite) },
+        title = { Text(stringResource(R.string.crash_last_time_title), color = SpartialWhite) },
         text = {
             Column {
                 Text(
                     text = stringResource(R.string.crash_last_time_body),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = NodesGrey,
+                    color = SpartialGrey,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = report.name,
                     style = MaterialTheme.typography.labelSmall,
-                    color = NodesGrey.copy(alpha = 0.8f),
+                    color = SpartialGrey.copy(alpha = 0.8f),
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

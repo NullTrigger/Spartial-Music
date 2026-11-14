@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -28,9 +28,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
 import app.nodes.core.lyrics.LyricsProviders
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesGreyDim
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * Lyrics settings.
@@ -129,14 +129,14 @@ private fun LyricsProviderRow(
             Text(
                 text = name,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (enabled) NodesWhite else NodesGrey,
+                color = if (enabled) SpartialWhite else SpartialGrey,
             )
             Text(
                 text = stringResource(
                     if (enabled) R.string.settings_lyrics_source_on else R.string.settings_lyrics_source_off,
                 ),
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGreyDim,
+                color = SpartialGreyDim,
                 modifier = Modifier.padding(top = 1.dp),
             )
         }
@@ -144,7 +144,7 @@ private fun LyricsProviderRow(
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowUp,
                 contentDescription = stringResource(R.string.settings_lyrics_move_up),
-                tint = if (canMoveUp) NodesGrey else NodesGreyDim.copy(alpha = 0.4f),
+                tint = if (canMoveUp) SpartialGrey else SpartialGreyDim.copy(alpha = 0.4f),
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -152,7 +152,7 @@ private fun LyricsProviderRow(
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowDown,
                 contentDescription = stringResource(R.string.settings_lyrics_move_down),
-                tint = if (canMoveDown) NodesGrey else NodesGreyDim.copy(alpha = 0.4f),
+                tint = if (canMoveDown) SpartialGrey else SpartialGreyDim.copy(alpha = 0.4f),
                 modifier = Modifier.size(18.dp),
             )
         }

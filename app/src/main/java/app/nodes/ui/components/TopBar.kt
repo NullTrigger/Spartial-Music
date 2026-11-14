@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -32,9 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.nodes.R
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * Home header: wordmark on the left, settings and a small profile avatar on the
@@ -60,21 +60,21 @@ fun HomeTopBar(
             text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
-            color = NodesWhite,
+            color = SpartialWhite,
             modifier = Modifier.weight(1f),
         )
         CircleIconButton(
             icon = Icons.Rounded.Settings,
             contentDescription = stringResource(R.string.cd_open_settings),
             onClick = onOpenSettings,
-            tint = NodesWhite,
+            tint = SpartialWhite,
         )
         Spacer(Modifier.width(4.dp))
         Box(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(NodesWhite)
+                .background(SpartialWhite)
                 .clickable(onClick = onOpenStats),
             contentAlignment = Alignment.Center,
         ) {
@@ -82,7 +82,7 @@ fun HomeTopBar(
                 text = avatarInitial,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = NodesBlack,
+                color = SpartialBlack,
             )
         }
     }
@@ -105,7 +105,7 @@ fun CircularBackButton(
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = contentDescription,
-            tint = NodesWhite,
+            tint = SpartialWhite,
             modifier = Modifier.size(20.dp),
         )
     }
@@ -160,7 +160,7 @@ fun PageHeader(
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineLarge,
-                color = NodesWhite,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -171,7 +171,7 @@ fun PageHeader(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
                 modifier = Modifier.padding(
                     start = if (back != null) 52.dp else 8.dp,
                     top = 2.dp,

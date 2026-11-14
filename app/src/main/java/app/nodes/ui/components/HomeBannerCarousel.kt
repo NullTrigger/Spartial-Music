@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -55,9 +55,9 @@ import androidx.lifecycle.compose.currentStateAsState
 import app.nodes.R
 import app.nodes.core.model.Track
 import app.nodes.core.util.thumbnailCandidates
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.CancellationException
@@ -92,13 +92,13 @@ fun HomeBannerCarousel(
             modifier = modifier
                 .fillMaxWidth()
                 .height(bannerHeight())
-                .background(NodesBlack),
+                .background(SpartialBlack),
         ) {
             if (loading) {
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(NodesWhite.copy(alpha = 0.03f)),
+                        .background(SpartialWhite.copy(alpha = 0.03f)),
                 )
             }
             header()
@@ -168,9 +168,9 @@ fun HomeBannerCarousel(
                 .background(
                     Brush.verticalGradient(
                         0f to Color.Transparent,
-                        0.45f to NodesBlack.copy(alpha = 0.55f),
-                        0.80f to NodesBlack.copy(alpha = 0.94f),
-                        1f to NodesBlack,
+                        0.45f to SpartialBlack.copy(alpha = 0.55f),
+                        0.80f to SpartialBlack.copy(alpha = 0.94f),
+                        1f to SpartialBlack,
                     ),
                 ),
         )
@@ -184,7 +184,7 @@ fun HomeBannerCarousel(
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        0f to NodesBlack.copy(alpha = 0.55f),
+                        0f to SpartialBlack.copy(alpha = 0.55f),
                         1f to Color.Transparent,
                     ),
                 ),
@@ -203,8 +203,8 @@ fun HomeBannerCarousel(
             ) {
                 Text(
                     text = banners[active].title,
-                    style = NodesType.sheetTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
-                    color = NodesWhite,
+                    style = SpartialType.sheetTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
+                    color = SpartialWhite,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -212,7 +212,7 @@ fun HomeBannerCarousel(
                 Text(
                     text = banners[active].artist,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = NodesWhite.copy(alpha = 0.70f),
+                    color = SpartialWhite.copy(alpha = 0.70f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -225,7 +225,7 @@ fun HomeBannerCarousel(
                         .fillMaxWidth(0.5f)
                         .height(48.dp)
                         .clip(RoundedCornerShape(24.dp))
-                        .background(NodesWhite.copy(alpha = 0.18f))
+                        .background(SpartialWhite.copy(alpha = 0.18f))
                         .clickable(role = Role.Button) {
                             onPlay(banners[active], banners)
                         },
@@ -233,8 +233,8 @@ fun HomeBannerCarousel(
                 ) {
                     Text(
                         text = stringResource(R.string.action_play),
-                        style = NodesType.pill.copy(fontSize = 15.sp),
-                        color = NodesWhite,
+                        style = SpartialType.pill.copy(fontSize = 15.sp),
+                        color = SpartialWhite,
                     )
                 }
                 Spacer(Modifier.height(14.dp))
@@ -262,7 +262,7 @@ fun HomeBannerCarousel(
                                     },
                                 )
                                 .clip(CircleShape)
-                                .background(NodesWhite.copy(alpha = if (isActive) 1f else 0.30f)),
+                                .background(SpartialWhite.copy(alpha = if (isActive) 1f else 0.30f)),
                         )
                     }
                     Spacer(Modifier.weight(1f))
@@ -293,7 +293,7 @@ private fun BannerArtwork(track: Track, targetPx: Int) {
         contentDescription = null,
         contentScale = ContentScale.Crop,
         modifier = Modifier.fillMaxSize(),
-        loading = { Box(Modifier.fillMaxSize().background(NodesBlack)) },
+        loading = { Box(Modifier.fillMaxSize().background(SpartialBlack)) },
         error = {
             val fallback = candidates.getOrNull(1)
             if (fallback == null) {
@@ -304,7 +304,7 @@ private fun BannerArtwork(track: Track, targetPx: Int) {
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
-                    loading = { Box(Modifier.fillMaxSize().background(NodesBlack)) },
+                    loading = { Box(Modifier.fillMaxSize().background(SpartialBlack)) },
                     error = {
                         GeneratedArt(
                             title = track.title,

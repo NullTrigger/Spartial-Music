@@ -1,5 +1,5 @@
 <!--
-  Copyright (C) 2026 The Nodes Authors.
+  Copyright (C) 2026 The Spartial Music Authors.
   Licensed under GPL-3.0-or-later. See LICENSE.
 -->
 

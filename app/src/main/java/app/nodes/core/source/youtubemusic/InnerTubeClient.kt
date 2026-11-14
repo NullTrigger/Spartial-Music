@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -77,7 +77,7 @@ internal data class InnerTubeHome(val sections: List<HomeSection>)
  * This is the **unofficial** interface used by YouTube's own clients, not a
  * published API. It is not covered by the YouTube API Services Terms, it can
  * change or start requiring attestation tokens without notice, and Google may
- * rate-limit or block traffic that uses it. It exists in Nodes because the
+ * rate-limit or block traffic that uses it. It exists in Spartial Music because the
  * maintainer chose to add it on top of the documented Data API path; see
  * YOUTUBE.md and THIRD_PARTY_LICENSES.md.
  *
@@ -316,7 +316,7 @@ class InnerTubeClient @Inject constructor(
     /**
      * Pushes "liked" for [videoId] onto the signed-in account.
      *
-     * This is the one write Nodes makes to a YouTube account, under the
+     * This is the one write Spartial Music makes to a YouTube account, under the
      * maintainer decision recorded in YOUTUBE.md. The session cookie already
      * carries that power the moment it is captured; the endpoint is YouTube
      * Music's own `like/like`. Liking a video that is already liked is accepted

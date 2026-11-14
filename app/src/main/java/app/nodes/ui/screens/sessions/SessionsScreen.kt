@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -59,10 +59,10 @@ import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.PillButton
 import app.nodes.ui.components.PillStyle
 import app.nodes.ui.components.glass
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * Sessions - listen together with friends.
@@ -84,7 +84,7 @@ fun SessionsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         PageHeader(
             title = stringResource(R.string.sessions_title),
@@ -107,7 +107,7 @@ fun SessionsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(NodesWhite.copy(alpha = 0.08f))
+                            .background(SpartialWhite.copy(alpha = 0.08f))
                             .clickable(onClick = viewModel::clearNotice)
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -115,13 +115,13 @@ fun SessionsScreen(
                         Text(
                             text = message,
                             style = MaterialTheme.typography.bodySmall,
-                            color = NodesWhite,
+                            color = SpartialWhite,
                             modifier = Modifier.weight(1f),
                         )
                         Text(
                             text = stringResource(R.string.sessions_dismiss),
                             style = MaterialTheme.typography.labelSmall,
-                            color = NodesGrey,
+                            color = SpartialGrey,
                         )
                     }
                 }
@@ -171,7 +171,7 @@ fun SessionsScreen(
                         Text(
                             text = stringResource(R.string.sessions_code_label),
                             style = MaterialTheme.typography.labelMedium,
-                            color = NodesGrey,
+                            color = SpartialGrey,
                         )
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -183,18 +183,18 @@ fun SessionsScreen(
                                 placeholder = {
                                     Text(
                                         text = stringResource(R.string.sessions_code_hint),
-                                        color = NodesGrey,
+                                        color = SpartialGrey,
                                     )
                                 },
                                 textStyle = TextStyle(
                                     fontWeight = FontWeight.SemiBold,
                                     letterSpacing = 4.sp,
-                                    color = NodesWhite,
+                                    color = SpartialWhite,
                                 ),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = NodesWhite.copy(alpha = 0.4f),
-                                    unfocusedBorderColor = NodesWhite.copy(alpha = 0.14f),
-                                    focusedLabelColor = NodesGrey,
+                                    focusedBorderColor = SpartialWhite.copy(alpha = 0.4f),
+                                    unfocusedBorderColor = SpartialWhite.copy(alpha = 0.14f),
+                                    focusedLabelColor = SpartialGrey,
                                 ),
                             )
                             Spacer(Modifier.width(10.dp))
@@ -211,7 +211,7 @@ fun SessionsScreen(
                     Text(
                         text = stringResource(R.string.sessions_privacy_note),
                         style = MaterialTheme.typography.bodySmall,
-                        color = NodesGrey,
+                        color = SpartialGrey,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -240,7 +240,7 @@ private fun LiveRoom(
                 if (state.isHost) R.string.sessions_role_host else R.string.sessions_role_guest,
             ).uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = NodesGrey,
+            color = SpartialGrey,
         )
         Spacer(Modifier.height(10.dp))
         Text(
@@ -248,7 +248,7 @@ private fun LiveRoom(
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.Bold,
             letterSpacing = 8.sp,
-            color = NodesWhite,
+            color = SpartialWhite,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(6.dp))
@@ -259,7 +259,7 @@ private fun LiveRoom(
             Icon(
                 imageVector = Icons.Rounded.ContentCopy,
                 contentDescription = stringResource(R.string.sessions_copy_code),
-                tint = NodesGrey,
+                tint = SpartialGrey,
                 modifier = Modifier
                     .size(18.dp)
                     .clip(CircleShape)
@@ -270,7 +270,7 @@ private fun LiveRoom(
             Text(
                 text = stringResource(R.string.sessions_code_share),
                 style = MaterialTheme.typography.bodySmall,
-                color = NodesGrey,
+                color = SpartialGrey,
             )
         }
 
@@ -278,7 +278,7 @@ private fun LiveRoom(
         Text(
             text = stringResource(R.string.sessions_people, state.members.size + 1),
             style = MaterialTheme.typography.titleMedium,
-            color = NodesWhite,
+            color = SpartialWhite,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(6.dp))
@@ -290,7 +290,7 @@ private fun LiveRoom(
             Text(
                 text = stringResource(R.string.sessions_pending),
                 style = MaterialTheme.typography.labelMedium,
-                color = NodesGrey,
+                color = SpartialGrey,
                 modifier = Modifier.fillMaxWidth(),
             )
             state.pending.forEach { request ->
@@ -302,8 +302,8 @@ private fun LiveRoom(
                 ) {
                     Text(
                         text = request.username,
-                        style = NodesType.rowTitle,
-                        color = NodesWhite,
+                        style = SpartialType.rowTitle,
+                        color = SpartialWhite,
                         modifier = Modifier.weight(1f),
                     )
                     PillButton(
@@ -346,7 +346,7 @@ private fun LiveRoom(
                 if (state.isHost) R.string.sessions_host_hint else R.string.sessions_guest_hint,
             ),
             style = MaterialTheme.typography.bodySmall,
-            color = NodesGrey,
+            color = SpartialGrey,
         )
     }
 }
@@ -363,13 +363,13 @@ private fun MemberRow(name: String) {
             Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(NodesWhite.copy(alpha = 0.55f)),
+                .background(SpartialWhite.copy(alpha = 0.55f)),
         )
         Spacer(Modifier.width(10.dp))
         Text(
             text = name,
-            style = NodesType.rowMeta,
-            color = NodesWhite.copy(alpha = 0.86f),
+            style = SpartialType.rowMeta,
+            color = SpartialWhite.copy(alpha = 0.86f),
         )
     }
 }
@@ -390,7 +390,7 @@ private fun FieldCard(
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = NodesGrey,
+            color = SpartialGrey,
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
@@ -398,13 +398,13 @@ private fun FieldCard(
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            placeholder = { Text(text = placeholder, color = NodesGrey) },
+            placeholder = { Text(text = placeholder, color = SpartialGrey) },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = NodesWhite.copy(alpha = 0.4f),
-                unfocusedBorderColor = NodesWhite.copy(alpha = 0.14f),
-                focusedTextColor = NodesWhite,
-                unfocusedTextColor = NodesWhite,
-                cursorColor = NodesWhite,
+                focusedBorderColor = SpartialWhite.copy(alpha = 0.4f),
+                unfocusedBorderColor = SpartialWhite.copy(alpha = 0.14f),
+                focusedTextColor = SpartialWhite,
+                unfocusedTextColor = SpartialWhite,
+                cursorColor = SpartialWhite,
             ),
         )
     }
@@ -425,7 +425,7 @@ private fun ServerPicker(selected: String, onSelect: (String) -> Unit) {
         Text(
             text = stringResource(R.string.sessions_server_label),
             style = MaterialTheme.typography.labelMedium,
-            color = NodesGrey,
+            color = SpartialGrey,
         )
         Spacer(Modifier.height(6.dp))
         Box {
@@ -439,14 +439,14 @@ private fun ServerPicker(selected: String, onSelect: (String) -> Unit) {
             ) {
                 Text(
                     text = label,
-                    style = NodesType.rowTitle,
-                    color = NodesWhite,
+                    style = SpartialType.rowTitle,
+                    color = SpartialWhite,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = stringResource(R.string.sessions_change),
                     style = MaterialTheme.typography.labelSmall,
-                    color = NodesGrey,
+                    color = SpartialGrey,
                 )
             }
             DropdownMenu(

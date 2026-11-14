@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -40,9 +40,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.nodes.R
 import app.nodes.core.model.SourceErrorType
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 /** Friendly empty state used by every redesigned screen. */
 @Composable
@@ -62,14 +62,14 @@ fun EmptyState(
     ) {
         Text(
             text = title,
-            style = NodesType.sectionTitle,
-            color = NodesWhite,
+            style = SpartialType.sectionTitle,
+            color = SpartialWhite,
             textAlign = TextAlign.Center,
         )
         Text(
             text = description,
             style = MaterialTheme.typography.bodyMedium,
-            color = NodesGrey,
+            color = SpartialGrey,
             textAlign = TextAlign.Center,
         )
         if (actionLabel != null && onAction != null) {
@@ -103,19 +103,19 @@ fun ErrorState(
         Icon(
             imageVector = Icons.Rounded.CloudOff,
             contentDescription = null,
-            tint = NodesGrey,
+            tint = SpartialGrey,
             modifier = Modifier.size(28.dp),
         )
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = NodesWhite,
+            color = SpartialWhite,
             textAlign = TextAlign.Center,
         )
         Text(
             text = sourceErrorMessage(error),
             style = MaterialTheme.typography.bodySmall,
-            color = NodesGrey,
+            color = SpartialGrey,
             textAlign = TextAlign.Center,
         )
         if (onRetry != null) {
@@ -196,7 +196,7 @@ fun LoadingRows(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CircularProgressIndicator(
-                color = NodesGrey,
+                color = SpartialGrey,
                 strokeWidth = 2.dp,
                 modifier = Modifier.size(16.dp),
             )
@@ -204,7 +204,7 @@ fun LoadingRows(
             Text(
                 text = stringResource(R.string.label_loading),
                 style = MaterialTheme.typography.labelMedium,
-                color = NodesGrey,
+                color = SpartialGrey,
             )
         }
     }
@@ -216,7 +216,7 @@ fun InlineStatus(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
-        color = NodesGrey,
+        color = SpartialGrey,
         modifier = modifier.padding(horizontal = 24.dp, vertical = 16.dp),
     )
 }

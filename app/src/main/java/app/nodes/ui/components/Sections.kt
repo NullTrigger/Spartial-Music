@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -26,9 +26,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.nodes.R
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesType
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialType
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * Section heading with an optional subtitle and a chevron. The whole row is
@@ -53,8 +53,8 @@ fun SectionHeader(
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = NodesType.sectionTitle,
-                color = NodesWhite,
+                style = SpartialType.sectionTitle,
+                color = SpartialWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -62,7 +62,7 @@ fun SectionHeader(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = NodesGrey,
+                    color = SpartialGrey,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -72,14 +72,14 @@ fun SectionHeader(
             Text(
                 text = actionLabel ?: stringResource(R.string.see_all),
                 style = MaterialTheme.typography.labelMedium,
-                color = NodesGrey,
+                color = SpartialGrey,
                 maxLines = 1,
             )
             Spacer(Modifier.width(2.dp))
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = null,
-                tint = NodesGrey,
+                tint = SpartialGrey,
                 modifier = Modifier.size(22.dp),
             )
         }

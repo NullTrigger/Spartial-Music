@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -26,8 +26,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.BuildConfig
 import app.nodes.R
 import app.nodes.ui.components.MessageBanner
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesGreyDim
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 
@@ -204,19 +204,19 @@ fun SettingsScreen(
             Text(
                 text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.labelSmall,
-                color = NodesGreyDim,
+                color = SpartialGreyDim,
                 modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 22.dp),
             )
             Text(
                 text = stringResource(R.string.app_tagline),
                 style = MaterialTheme.typography.labelSmall,
-                color = NodesGrey.copy(alpha = 0.7f),
+                color = SpartialGrey.copy(alpha = 0.7f),
                 modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 6.dp),
             )
             Text(
                 text = stringResource(R.string.disclaimer_short),
                 style = MaterialTheme.typography.labelSmall,
-                color = NodesGreyDim,
+                color = SpartialGreyDim,
                 modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 10.dp),
             )
         }

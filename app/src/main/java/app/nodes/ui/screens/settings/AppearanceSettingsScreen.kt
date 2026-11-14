@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -17,7 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nodes.R
 
 /**
- * Appearance. Nodes ships dark only: the glass surfaces and the artwork
+ * Appearance. Spartial Music ships dark only: the glass surfaces and the artwork
  * backdrop are designed against a near-black base, so a light palette is a
  * separate piece of work rather than a switch.
  */

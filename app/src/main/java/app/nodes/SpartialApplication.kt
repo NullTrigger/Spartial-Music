@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
-class NodesApplication : Application() {
+class SpartialApplication : Application() {
 
     @Inject
     lateinit var settings: SettingsRepository
@@ -32,7 +32,7 @@ class NodesApplication : Application() {
     private val appScope = CoroutineScope(
         SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, error ->
             AppLogger.e("App", "Uncaught coroutine error", error)
-            CrashReport.recordNonFatal(this@NodesApplication, error, "coroutine")
+            CrashReport.recordNonFatal(this@SpartialApplication, error, "coroutine")
         },
     )
 

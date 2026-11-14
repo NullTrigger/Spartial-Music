@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -42,10 +42,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodes.R
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSerif
-import app.nodes.ui.theme.NodesWhite
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSerif
+import app.nodes.ui.theme.SpartialWhite
 
 /**
  * First-run screen, matching the reference lockup: mark + serif wordmark, the
@@ -63,7 +63,7 @@ fun OnboardingScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NodesBlack)
+            .background(SpartialBlack)
             .systemBarsPadding()
             .padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -79,10 +79,10 @@ fun OnboardingScreen(
             Spacer(Modifier.width(12.dp))
             Text(
                 text = stringResource(R.string.app_name),
-                fontFamily = NodesSerif,
+                fontFamily = SpartialSerif,
                 fontWeight = FontWeight.Bold,
                 fontSize = 32.sp,
-                color = NodesWhite,
+                color = SpartialWhite,
             )
         }
 
@@ -91,7 +91,7 @@ fun OnboardingScreen(
         Text(
             text = stringResource(R.string.onboarding_heading),
             style = MaterialTheme.typography.headlineLarge,
-            color = NodesWhite,
+            color = SpartialWhite,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -121,7 +121,7 @@ fun OnboardingScreen(
         Text(
             text = stringResource(R.string.onboarding_footnote),
             style = MaterialTheme.typography.bodySmall,
-            color = NodesGrey,
+            color = SpartialGrey,
             textAlign = TextAlign.Center,
         )
 
@@ -140,7 +140,7 @@ private fun OnboardingPill(
             .fillMaxWidth()
             .height(62.dp)
             .clip(CircleShape)
-            .background(NodesWhite)
+            .background(SpartialWhite)
             .clickable(onClick = onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -148,14 +148,14 @@ private fun OnboardingPill(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = NodesBlack,
+            tint = SpartialBlack,
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(10.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.titleLarge,
-            color = NodesBlack,
+            color = SpartialBlack,
         )
     }
 }

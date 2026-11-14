@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Copyright (C) 2026 The Nodes Authors.
+  Copyright (C) 2026 The Spartial Music Authors.
   Licensed under GPL-3.0-or-later. See LICENSE.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -22,7 +22,7 @@
         android:maxSdkVersion="32" />
 
     <application
-        android:name=".NodesApplication"
+        android:name=".SpartialApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -31,7 +31,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
-        android:theme="@style/Theme.Nodes.Starting"
+        android:theme="@style/Theme.Spartial.Starting"
         tools:targetApi="33">
 
         <activity
@@ -39,7 +39,7 @@
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.Nodes.Starting"
+            android:theme="@style/Theme.Spartial.Starting"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -53,7 +53,7 @@
             android:name=".ui.screens.crash.CrashActivity"
             android:exported="false"
             android:excludeFromRecents="true"
-            android:theme="@style/Theme.Nodes" />
+            android:theme="@style/Theme.Spartial" />
 
         <!-- Shares the crash report as a text file. Only cache/crash is exposed;
              see res/xml/crash_paths.xml. -->

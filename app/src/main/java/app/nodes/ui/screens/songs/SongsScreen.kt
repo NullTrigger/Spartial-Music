@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -30,9 +30,9 @@ import app.nodes.ui.components.SegmentedFilter
 import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.screens.player.PlayerViewModel
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesSpacing
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
 
 @Composable
 fun SongsScreen(
@@ -52,10 +52,10 @@ fun SongsScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         LazyColumn(
-            contentPadding = PaddingValues(bottom = NodesSpacing.dockSpace),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
         ) {
             item(key = "header") {
                 PageHeader(
@@ -72,7 +72,7 @@ fun SongsScreen(
                     onSearch = {},
                     placeholder = stringResource(R.string.songs_search),
                     modifier = Modifier
-                        .padding(horizontal = NodesSpacing.gutter)
+                        .padding(horizontal = SpartialSpacing.gutter)
                         .padding(top = 10.dp),
                 )
             }
@@ -82,7 +82,7 @@ fun SongsScreen(
                     options = sortLabels,
                     selectedIndex = state.sort.ordinal,
                     onSelect = { index -> viewModel.setSort(SongSort.entries[index]) },
-                    modifier = Modifier.padding(horizontal = NodesSpacing.gutter, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = SpartialSpacing.gutter, vertical = 10.dp),
                 )
             }
 
@@ -128,9 +128,9 @@ fun SongsScreen(
                     Text(
                         text = stringResource(R.string.tracks_count, state.tracks.size),
                         style = MaterialTheme.typography.bodySmall,
-                        color = NodesGrey,
+                        color = SpartialGrey,
                         modifier = Modifier.padding(
-                            horizontal = NodesSpacing.gutter,
+                            horizontal = SpartialSpacing.gutter,
                             vertical = 16.dp,
                         ),
                     )

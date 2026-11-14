@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -20,7 +20,7 @@ import androidx.room.RoomDatabase
     version = 1,
     exportSchema = true,
 )
-abstract class NodesDatabase : RoomDatabase() {
+abstract class SpartialDatabase : RoomDatabase() {
     abstract fun trackDao(): TrackDao
     abstract fun libraryDao(): LibraryDao
     abstract fun remoteCacheDao(): RemoteCacheDao

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Nodes Authors.
+ * Copyright (C) 2026 The Spartial Music Authors.
  * Licensed under GPL-3.0-or-later. See LICENSE.
  */
 
@@ -40,9 +40,9 @@ import app.nodes.core.source.youtubemusic.InnerTubeAuth
 import app.nodes.core.source.youtubemusic.InnerTubeClient
 import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.PageHeader
-import app.nodes.ui.theme.NodesBlack
-import app.nodes.ui.theme.NodesGrey
-import app.nodes.ui.theme.NodesAccent
+import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialAccent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -142,7 +142,7 @@ fun MusicLoginScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(NodesBlack),
+            .background(SpartialBlack),
     ) {
         PageHeader(
             title = stringResource(R.string.login_title),
@@ -151,7 +151,7 @@ fun MusicLoginScreen(
                 TextButton(onClick = ::submit) {
                     Text(
                         text = stringResource(R.string.login_done),
-                        color = NodesAccent,
+                        color = SpartialAccent,
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -161,14 +161,14 @@ fun MusicLoginScreen(
         Text(
             text = stringResource(R.string.login_explainer),
             style = MaterialTheme.typography.bodySmall,
-            color = NodesGrey,
+            color = SpartialGrey,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
         )
 
         if (state.loading) {
             LinearProgressIndicator(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-                color = NodesAccent,
+                color = SpartialAccent,
             )
         }
 
