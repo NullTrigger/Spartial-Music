@@ -41,8 +41,14 @@ import kotlin.math.max
  */
 object ArtworkEdgeSampler {
 
-    /** Per-track cache: revisiting a song must not resample it. */
+    /**
+     * Cache keyed on the track *and* the artwork, so revisiting a song is
+     * instant while a track whose thumbnail changes is still sampled again -
+     * the gradient belongs to the picture, not to the row that named it.
+     */
     private val cache = ConcurrentHashMap<String, Color>()
+
+    private fun cacheKey(trackId: String, artworkUri: String?): String = "$trackId|$artworkUri"
 
     /** The fallback when there is no artwork, or sampling fails. */
     val fallback: Color = navAccent.copy(
@@ -58,14 +64,15 @@ object ArtworkEdgeSampler {
         stageWidthPx: Int,
         stageHeightPx: Int,
     ): Color {
-        cache[trackId]?.let { return it }
+        val key = cacheKey(trackId, artworkUri)
+        cache[key]?.let { return it }
         if (artworkUri.isNullOrBlank() || stageWidthPx <= 0 || stageHeightPx <= 0) return fallback
         val sampled = withContext(Dispatchers.IO) {
             runCatching { sampleBlocking(context, artworkUri, stageWidthPx, stageHeightPx) }.getOrNull()
         } ?: fallback
         // Only cache a real sample: a failed one would keep returning the
-        // fallback for that track even after the artwork loads.
-        if (sampled != fallback) cache[trackId] = sampled
+        // fallback for that thumbnail even after the artwork loads.
+        if (sampled != fallback) cache[key] = sampled
         return sampled
     }
 
@@ -187,10 +194,10 @@ object ArtworkEdgeSampler {
 /**
  * The player gradient's colour for the current track.
  *
- * The colour is recomputed when the track changes - not when playback is
- * paused or the position moves - and the previous colour stays on screen until
- * the new artwork has actually been sampled, so the art and the wash never
- * disagree. The change itself is a 500 ms crossfade.
+ * The colour is recomputed when the track *or its artwork* changes - not when
+ * playback is paused or the position moves - and the previous colour stays on
+ * screen until the new thumbnail has actually been sampled, so the art and the
+ * wash never disagree. The change itself is a 500 ms crossfade.
  */
 @Composable
 fun rememberDynamicEdgeColour(
@@ -208,10 +215,12 @@ fun rememberDynamicEdgeColour(
         label = "edgeColour",
     )
 
-    LaunchedEffect(trackId, stageWidthPx, stageHeightPx) {
+    LaunchedEffect(trackId, artworkUri, stageWidthPx, stageHeightPx) {
         val id = trackId ?: return@LaunchedEffect
-        // Deliberately not keyed on the artwork URI: the same track id means
-        // the same song, and revisiting it must be instant thanks to the cache.
+        // Keyed on the artwork URI as well as the track id, because the
+        // gradient belongs to the thumbnail: a cover that changes has to
+        // repaint it. Revisiting a song is still instant, since the sampler's
+        // cache is keyed on the same pair.
         val sampled = ArtworkEdgeSampler.sample(
             context = context,
             trackId = id,
