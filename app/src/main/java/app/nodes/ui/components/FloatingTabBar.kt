@@ -215,7 +215,6 @@ private fun SearchCircle(
  * The pill with the four tabs and the draggable active bubble.
  */
 @Composable
-@Composable
 private fun TabPill(
     items: List<BottomNavItem>,
     currentRoute: String?,
