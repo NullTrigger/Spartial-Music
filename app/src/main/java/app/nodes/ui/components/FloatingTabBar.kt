@@ -8,8 +8,8 @@ package app.nodes.ui.components
 import android.provider.Settings
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -215,6 +215,7 @@ private fun SearchCircle(
  * The pill with the four tabs and the draggable active bubble.
  */
 @Composable
+@Composable
 private fun TabPill(
     items: List<BottomNavItem>,
     currentRoute: String?,
@@ -229,52 +230,7 @@ private fun TabPill(
     var dragX by remember { mutableStateOf(0f) }
     val bubbleTouch = rememberLiquidTouch()
 
-    BoxWithConstraints(
-        Modifier
-            .fillMaxSize()
-            .pointerInput(items, currentRoute) {
-                val px = slotWidthPx
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    val startX = down.position.x
-                    val startIndex = (startX / px).toInt().coerceIn(items.indices)
-                    dragIndex = startIndex
-                    dragging = true
-                    bubbleTouch.pressed = true
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        val raw = change.position.x - startX
-                        val min = -startIndex * px
-                        val max = (items.lastIndex - startIndex) * px
-                        dragX = when {
-                            raw < min -> min + (raw - min) * 0.3f
-                            raw > max -> max + (raw - max) * 0.3f
-                            else -> raw
-                        }
-                        bubbleTouch.position = change.position
-                        val over = ((startIndex * px + dragX) / px).roundToInt()
-                            .coerceIn(items.indices)
-                        if (over != dragIndex) {
-                            dragIndex = over
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }
-                        change.consume()
-                        if (!change.pressed) break
-                    }
-                    dragging = false
-                    bubbleTouch.pressed = false
-                    val target = ((startIndex * px + dragX) / px).roundToInt()
-                        .coerceIn(items.indices)
-                    dragX = 0f
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (items[target].route != currentRoute) {
-                        onSelect(items[target].route)
-                    }
-                }
-            },
-    ) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val slotWidth = maxWidth / items.size
         val slotWidthPx = with(LocalDensity.current) { slotWidth.toPx() }
         val highlightOffset by animateFloatAsState(
@@ -301,52 +257,103 @@ private fun TabPill(
             0f
         }
 
-        // Glass capsule riding at the bubble's position, protruding above and
-        // below the pill while lifted.
+        // The drag surface wraps the bubble and the tabs; it observes events
+        // even when a child consumes them, so a drag starting on any tab works.
         Box(
-            modifier = Modifier
-                .offset(x = with(LocalDensity.current) { highlightOffset.toDp() })
-                .padding(4.dp)
-                .width(slotWidth)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(26.dp))
-                .liquidGlass(
-                    hazeState = hazeState,
-                    shape = RoundedCornerShape(26.dp),
-                    touchState = bubbleTouch,
-                    refraction = (bubbleTouch.isPressed || dragging) && !reduceMotion,
-                )
-                .graphicsLayer {
-                    scaleX = 1f + stretch
-                    scaleY = 1f + (lift * 0.25f)
-                }
-                .testTag("bubble"),
-            contentAlignment = Alignment.Center,
+            Modifier
+                .fillMaxSize()
+                .pointerInput(items, currentRoute, slotWidthPx) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val startX = down.position.x
+                        val startIndex = (startX / slotWidthPx).toInt().coerceIn(items.indices)
+                        dragIndex = startIndex
+                        dragging = true
+                        bubbleTouch.pressed = true
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            val raw = change.position.x - startX
+                            val min = -startIndex * slotWidthPx
+                            val max = (items.lastIndex - startIndex) * slotWidthPx
+                            dragX = when {
+                                raw < min -> min + (raw - min) * 0.3f
+                                raw > max -> max + (raw - max) * 0.3f
+                                else -> raw
+                            }
+                            bubbleTouch.position = change.position
+                            val over = ((startIndex * slotWidthPx + dragX) / slotWidthPx)
+                                .roundToInt()
+                                .coerceIn(items.indices)
+                            if (over != dragIndex) {
+                                dragIndex = over
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                            change.consume()
+                            if (!change.pressed) break
+                        }
+                        dragging = false
+                        bubbleTouch.pressed = false
+                        val target = ((startIndex * slotWidthPx + dragX) / slotWidthPx)
+                            .roundToInt()
+                            .coerceIn(items.indices)
+                        dragX = 0f
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (items[target].route != currentRoute) {
+                            onSelect(items[target].route)
+                        }
+                    }
+                },
         ) {
-            Icon(
-                painter = painterResource(items[dragIndex.coerceIn(items.indices)].icon),
-                contentDescription = null,
-                tint = navAccent,
-                modifier = Modifier.size(26.dp),
-            )
-        }
-
-        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            items.forEachIndexed { index, item ->
-                val selected = index == dragIndex.coerceIn(items.indices)
-                Tab(
-                    item = item,
-                    selected = selected,
-                    onClick = {
-                        dragIndex = index
-                        onSelect(item.route)
-                    },
-                    modifier = Modifier.weight(1f),
+            // Glass capsule riding at the bubble's position, protruding above
+            // and below the pill while lifted.
+            Box(
+                modifier = Modifier
+                    .offset(x = with(LocalDensity.current) { highlightOffset.toDp() })
+                    .padding(4.dp)
+                    .width(slotWidth)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(26.dp))
+                    .liquidGlass(
+                        hazeState = hazeState,
+                        shape = RoundedCornerShape(26.dp),
+                        touchState = bubbleTouch,
+                        refraction = (bubbleTouch.isPressed || dragging) && !reduceMotion,
+                    )
+                    .graphicsLayer {
+                        scaleX = 1f + stretch
+                        scaleY = 1f + (lift * 0.25f)
+                    }
+                    .testTag("bubble"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(items[dragIndex.coerceIn(items.indices)].icon),
+                    contentDescription = null,
+                    tint = navAccent,
+                    modifier = Modifier.size(26.dp),
                 )
+            }
+
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                items.forEachIndexed { index, item ->
+                    val selected = index == dragIndex.coerceIn(items.indices)
+                    Tab(
+                        item = item,
+                        selected = selected,
+                        onClick = {
+                            dragIndex = index
+                            onSelect(item.route)
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }
 }
+
 
 @Composable
 private fun Tab(
