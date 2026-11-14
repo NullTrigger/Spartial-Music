@@ -1,6 +1,6 @@
 # Copyright (C) 2026 The Spartial Music Authors.
 # Licensed under GPL-3.0-or-later. See LICENSE.
-name: Build
+name: Spartial Music Nightly
 
 on:
   push:
@@ -12,12 +12,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
+  group: nightly-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Lint and assemble debug
+    name: Lint, Test and Build Nightly APKs
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -27,67 +27,98 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up JDK 17
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # ubuntu-latest already ships the Android SDK. Installing packages with
-      # the bundled sdkmanager avoids android-actions/setup-android, which
-      # runs a legacy `sdkmanager tools` call that fails on current images
-      # ("Failed to find package 'tools'").
-      - name: Install Android SDK packages
+      - name: Install Android SDK
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER=$(command -v sdkmanager); fi
-          yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
-            "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
 
-      - name: Make Gradle wrapper executable
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(command -v sdkmanager)
+          fi
+
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
+            "platforms;android-37.0" \
+            "build-tools;37.0.0" \
+            "platform-tools"
+
+      - name: Enable Gradle wrapper
         run: chmod +x gradlew
 
-      - name: Set up Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Optional: without the key the app still builds and uses the placeholder
-      # catalogue. Add YOUTUBE_API_KEY as a repository secret to build with it.
-      - name: Write local.properties
+      - name: Configure API key
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
-          {
-            echo "YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}"
-          } > local.properties
+          echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY" > local.properties
 
-      - name: Lint both flavours
-        # The flavours make lintDebug ambiguous; lint each flavour's debug.
-        run: ./gradlew :app:lintGmsDebug :app:lintFossDebug --stacktrace
+      - name: Run GMS and FOSS lint
+        run: |
+          ./gradlew :app:lintGmsDebug :app:lintFossDebug --stacktrace
 
-      - name: Assemble debug
-        # assembleDebug still aggregates both flavours.
-        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Run GMS and FOSS unit tests
+        run: |
+          ./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest --stacktrace
 
-      - name: Unit tests
-        run: ./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest --stacktrace
+      - name: Build GMS Nightly APK
+        run: ./gradlew :app:assembleGmsDebug --stacktrace
 
-      - name: Upload debug APK
-        if: success()
+      - name: Build FOSS Nightly APK
+        run: ./gradlew :app:assembleFossDebug --stacktrace
+
+      - name: Rename APKs
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          GMS=$(find app/build/outputs/apk/gms/debug \
+            -name '*.apk' -print -quit)
+
+          FOSS=$(find app/build/outputs/apk/foss/debug \
+            -name '*.apk' -print -quit)
+
+          test -n "$GMS" || {
+            echo "::error::GMS APK not found"
+            exit 1
+          }
+
+          test -n "$FOSS" || {
+            echo "::error::FOSS APK not found"
+            exit 1
+          }
+
+          cp "$GMS" dist/Spartial-Music-Nightly-GMS.apk
+          cp "$FOSS" dist/Spartial-Music-Nightly-FOSS.apk
+
+          ls -lh dist
+
+      - name: Upload Nightly APKs
         uses: actions/upload-artifact@v4
         with:
-          name: spartial-music-debug-apk
-          path: app/build/outputs/apk/*/debug/*.apk
+          name: Spartial-Music-Nightly
+          path: dist/*.apk
           if-no-files-found: error
+          retention-days: 14
 
-      - name: Upload reports
+      - name: Upload test and lint reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports
+          name: Spartial-Music-Reports
           path: |
             app/build/reports/lint-results-gmsDebug.html
             app/build/reports/lint-results-fossDebug.html
             app/build/reports/tests/testGmsDebugUnitTest
             app/build/reports/tests/testFossDebugUnitTest
           if-no-files-found: ignore
+          retention-days: 14
