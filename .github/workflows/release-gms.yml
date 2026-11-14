@@ -14,20 +14,23 @@
 
 
 
+
 name: Spartial Music Release
+
+run-name: Spartial Music Release (${{ inputs.release_type }})
 
 on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: "Choose the version increment"
+        description: "Choose the version increment. The current and next versions will appear in the run summary."
         required: true
         type: choice
+        default: patch
         options:
           - patch
           - minor
           - major
-        default: patch
 
 permissions:
   contents: write
@@ -38,31 +41,28 @@ concurrency:
 
 jobs:
   prepare-version:
-    name: Calculate New Version
+    name: Calculate Release Version
     runs-on: ubuntu-latest
 
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      current_version: ${{ steps.version.outputs.current_version }}
+      new_version: ${{ steps.version.outputs.new_version }}
       version_code: ${{ steps.version.outputs.version_code }}
       tag: ${{ steps.version.outputs.tag }}
       base_sha: ${{ steps.version.outputs.base_sha }}
 
     steps:
-      - name: Checkout source
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 0
-          submodules: recursive
 
-      - name: Calculate version
+      - name: Calculate next version
         id: version
         env:
           RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
-          set -euo pipefail
-
-          python3 <<'PY'
+          python3 - <<'PY'
           import os
           import re
           import subprocess
@@ -72,32 +72,19 @@ jobs:
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
 
-          version_match = re.search(
-              r'(?m)^(\s*versionName\s*=\s*)"([^"]+)"',
-              content
-          )
+          code_match = re.search(r'versionCode\s*=\s*(\d+)', content)
+          name_match = re.search(r'versionName\s*=\s*"(\d+)\.(\d+)\.(\d+)"', content)
 
-          code_match = re.search(
-              r'(?m)^(\s*versionCode\s*=\s*)(\d+)',
-              content
-          )
-
-          if not version_match or not code_match:
+          if not code_match or not name_match:
               raise SystemExit(
-                  "Could not find versionName or versionCode "
+                  "Could not find versionCode or MAJOR.MINOR.PATCH versionName "
                   "in app/build.gradle.kts"
               )
 
-          old_version = version_match.group(2)
-          old_code = int(code_match.group(2))
+          version_code = int(code_match.group(1)) + 1
+          major, minor, patch = map(int, name_match.groups())
+          current_version = f"{major}.{minor}.{patch}"
 
-          if not re.fullmatch(r"\d+\.\d+\.\d+", old_version):
-              raise SystemExit(
-                  f"Unsupported version format: {old_version}. "
-                  "Expected MAJOR.MINOR.PATCH."
-              )
-
-          major, minor, patch = map(int, old_version.split("."))
           release_type = os.environ["RELEASE_TYPE"]
 
           if release_type == "patch":
@@ -113,27 +100,38 @@ jobs:
               raise SystemExit("Invalid release type")
 
           new_version = f"{major}.{minor}.{patch}"
-          new_code = old_code + 1
           tag = f"v{new_version}"
-
           base_sha = subprocess.check_output(
-              ["git", "rev-parse", "HEAD"],
-              text=True
+              ["git", "rev-parse", "HEAD"], text=True
           ).strip()
 
-          print(f"Old version: {old_version} ({old_code})")
-          print(f"New version: {new_version} ({new_code})")
-          print(f"Release tag: {tag}")
-
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"version={new_version}\n")
-              f.write(f"version_code={new_code}\n")
+              f.write(f"current_version={current_version}\n")
+              f.write(f"new_version={new_version}\n")
+              f.write(f"version_code={version_code}\n")
               f.write(f"tag={tag}\n")
               f.write(f"base_sha={base_sha}\n")
+
+          summary = os.environ["GITHUB_STEP_SUMMARY"]
+          with open(summary, "a") as f:
+              f.write("# Spartial Music Release Preview\n\n")
+              f.write(f"| Detail | Value |\n")
+              f.write(f"|---|---|\n")
+              f.write(f"| Current version | `{current_version}` |\n")
+              f.write(f"| Release type | **{release_type.capitalize()}** |\n")
+              f.write(f"| New version | **`{new_version}`** |\n")
+              f.write(f"| New versionCode | `{version_code}` |\n")
+              f.write(f"| Git tag | `{tag}` |\n")
           PY
 
+      - name: Show release version
+        run: |
+          echo "Current: ${{ steps.version.outputs.current_version }}"
+          echo "New: ${{ steps.version.outputs.new_version }}"
+          echo "Tag: ${{ steps.version.outputs.tag }}"
+
   build:
-    name: Build ${{ matrix.variant }} Release
+    name: Build ${{ matrix.variant }} APK
     needs: prepare-version
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -142,28 +140,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - variant: gms
-            variantName: Gms
+          - variant: GMS
+            gradle_variant: Gms
             apk_name: Spartial-Music-GMS.apk
 
-          - variant: foss
-            variantName: Foss
+          - variant: FOSS
+            gradle_variant: Foss
             apk_name: Spartial-Music-FOSS.apk
 
     steps:
-      - name: Checkout source
+      - name: Checkout release source
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare-version.outputs.base_sha }}
-          submodules: recursive
 
-      - name: Setup JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Install Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: |
@@ -171,18 +168,15 @@ jobs:
             platforms;android-37.0
             build-tools;37.0.0
 
-      - name: Setup Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Grant execute permission
-        run: chmod +x gradlew
 
       - name: Apply release version
         env:
-          VERSION: ${{ needs.prepare-version.outputs.version }}
+          VERSION: ${{ needs.prepare-version.outputs.new_version }}
           VERSION_CODE: ${{ needs.prepare-version.outputs.version_code }}
         run: |
-          python3 <<'PY'
+          python3 - <<'PY'
           import os
           import re
 
@@ -191,96 +185,83 @@ jobs:
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
 
-          content, version_count = re.subn(
-              r'(?m)^(\s*versionName\s*=\s*)"[^"]+"',
-              lambda m: m.group(1) + '"' + os.environ["VERSION"] + '"',
-              content,
-              count=1
-          )
-
           content, code_count = re.subn(
-              r'(?m)^(\s*versionCode\s*=\s*)\d+',
-              lambda m: m.group(1) + os.environ["VERSION_CODE"],
+              r'versionCode\s*=\s*\d+',
+              f'versionCode = {os.environ["VERSION_CODE"]}',
               content,
               count=1
           )
 
-          if version_count != 1 or code_count != 1:
-              raise SystemExit("Could not update version information")
+          content, name_count = re.subn(
+              r'versionName\s*=\s*"[^"]+"',
+              f'versionName = "{os.environ["VERSION"]}"',
+              content,
+              count=1
+          )
+
+          if code_count != 1 or name_count != 1:
+              raise SystemExit("Could not update versionCode/versionName")
 
           with open(path, "w", encoding="utf-8") as f:
               f.write(content)
           PY
 
-      - name: Configure API key
+      - name: Configure YouTube API key
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
-          printf 'YOUTUBE_API_KEY=%s\n' "$YOUTUBE_API_KEY" > local.properties
+          echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY" > local.properties
 
-      - name: Build and lint release APK
+      - name: Build and lint ${{ matrix.variant }}
         run: |
-          ./gradlew --console=plain \
-            :app:assemble${{ matrix.variantName }}Release \
-            :app:lint${{ matrix.variantName }}Release \
-            --warning-mode summary
+          chmod +x gradlew
+          ./gradlew \
+            :app:lint${{ matrix.gradle_variant }}Release \
+            :app:assemble${{ matrix.gradle_variant }}Release
 
-      - name: Sign Release APK
-        uses: ilharp/sign-android-release@v2.0.0
+      - name: Sign APK
+        id: sign
+        uses: ilharp/sign-android-release@v2
         with:
-          releaseDir: app/build/outputs/apk/${{ matrix.variant }}/release/
+          releaseDir: app/build/outputs/apk/${{ matrix.variant == 'GMS' && 'gms' || 'foss' }}/release
           signingKey: ${{ secrets.KEYSTORE }}
           keyAlias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
-          buildToolsVersion: 37.0.0
+          buildToolsVersion: "37.0.0"
 
-      - name: Rename signed APK
+      - name: Prepare APK
         env:
-          VARIANT: ${{ matrix.variant }}
+          SIGNED_FILE: ${{ steps.sign.outputs.signedFile }}
           APK_NAME: ${{ matrix.apk_name }}
         run: |
-          set -euo pipefail
-
-          OUTPUT_DIR="app/build/outputs/apk/${VARIANT}/release"
-          mkdir -p dist
-
-          SIGNED_APK=$(find "$OUTPUT_DIR" \
-            -maxdepth 1 -type f -name '*-signed.apk' \
-            -print -quit)
-
-          if [ -z "$SIGNED_APK" ]; then
-            echo "::error::Signed APK not found"
-            ls -la "$OUTPUT_DIR"
+          if [ -z "$SIGNED_FILE" ] || [ ! -f "$SIGNED_FILE" ]; then
+            echo "Signed APK was not found."
             exit 1
           fi
 
-          cp "$SIGNED_APK" "dist/$APK_NAME"
+          cp "$SIGNED_FILE" "$APK_NAME"
 
-          test -s "dist/$APK_NAME"
-          ls -lh dist/
+          echo "APK: $APK_NAME"
+          ls -lh "$APK_NAME"
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: spartial-music-${{ matrix.variant }}
-          path: dist/*.apk
+          name: ${{ matrix.variant == 'GMS' && 'Spartial-Music-GMS' || 'Spartial-Music-FOSS' }}
+          path: ${{ matrix.apk_name }}
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
 
   finalize-version:
-    name: Commit Version and Create Tag
+    name: Update Version and Create Tag
     needs:
       - prepare-version
       - build
     runs-on: ubuntu-latest
 
-    outputs:
-      tag: ${{ needs.prepare-version.outputs.tag }}
-      version: ${{ needs.prepare-version.outputs.version }}
-
     steps:
-      - name: Checkout original source
+      - name: Checkout release source
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare-version.outputs.base_sha }}
@@ -288,10 +269,10 @@ jobs:
 
       - name: Update version in Gradle
         env:
-          VERSION: ${{ needs.prepare-version.outputs.version }}
+          VERSION: ${{ needs.prepare-version.outputs.new_version }}
           VERSION_CODE: ${{ needs.prepare-version.outputs.version_code }}
         run: |
-          python3 <<'PY'
+          python3 - <<'PY'
           import os
           import re
 
@@ -300,111 +281,95 @@ jobs:
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
 
-          content, version_count = re.subn(
-              r'(?m)^(\s*versionName\s*=\s*)"[^"]+"',
-              lambda m: m.group(1) + '"' + os.environ["VERSION"] + '"',
-              content,
-              count=1
-          )
-
           content, code_count = re.subn(
-              r'(?m)^(\s*versionCode\s*=\s*)\d+',
-              lambda m: m.group(1) + os.environ["VERSION_CODE"],
+              r'versionCode\s*=\s*\d+',
+              f'versionCode = {os.environ["VERSION_CODE"]}',
               content,
               count=1
           )
 
-          if version_count != 1 or code_count != 1:
-              raise SystemExit("Could not update version information")
+          content, name_count = re.subn(
+              r'versionName\s*=\s*"[^"]+"',
+              f'versionName = "{os.environ["VERSION"]}"',
+              content,
+              count=1
+          )
+
+          if code_count != 1 or name_count != 1:
+              raise SystemExit("Could not update versionCode/versionName")
 
           with open(path, "w", encoding="utf-8") as f:
               f.write(content)
           PY
 
-      - name: Commit version and push tag
+      - name: Commit version and create tag
         env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.prepare-version.outputs.version }}
+          VERSION: ${{ needs.prepare-version.outputs.new_version }}
           TAG: ${{ needs.prepare-version.outputs.tag }}
         run: |
-          set -euo pipefail
-
           git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG"; then
-            echo "::error::Release tag $TAG already exists"
-            exit 1
-          fi
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add app/build.gradle.kts
+          git commit -m "chore: release v$VERSION"
 
-          git commit -m "Bump version to $VERSION"
+          git tag -a "$TAG" -m "Spartial Music $VERSION"
 
-          git tag -a "$TAG" -m "Release $TAG"
-
-          git push --atomic origin \
-            HEAD:refs/heads/main \
-            "refs/tags/$TAG"
-
-          echo "Version committed and tag $TAG pushed successfully."
+          git push --atomic origin HEAD:main "refs/tags/$TAG"
 
   publish-release:
     name: Publish GitHub Release
     needs:
       - prepare-version
-      - build
       - finalize-version
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-      - name: Download GMS and FOSS APKs
+      - name: Download GMS APK
         uses: actions/download-artifact@v4
         with:
-          pattern: spartial-music-*
-          path: release_files
-          merge-multiple: true
+          name: Spartial-Music-GMS
+          path: artifacts/gms
 
-      - name: Verify release APKs
+      - name: Download FOSS APK
+        uses: actions/download-artifact@v4
+        with:
+          name: Spartial-Music-FOSS
+          path: artifacts/foss
+
+      - name: Verify APK files
         run: |
-          set -euo pipefail
+          test -s artifacts/gms/Spartial-Music-GMS.apk
+          test -s artifacts/foss/Spartial-Music-FOSS.apk
 
-          test -s release_files/Spartial-Music-GMS.apk
-          test -s release_files/Spartial-Music-FOSS.apk
+          ls -lh artifacts/gms/
+          ls -lh artifacts/foss/
 
-          ls -lh release_files/
-
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.prepare-version.outputs.version }}
-          TAG: ${{ needs.finalize-version.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare-version.outputs.new_version }}
+          TAG: ${{ needs.prepare-version.outputs.tag }}
         run: |
-          set -euo pipefail
-
           gh release create "$TAG" \
+            artifacts/gms/Spartial-Music-GMS.apk \
+            artifacts/foss/Spartial-Music-FOSS.apk \
             --title "Spartial Music $VERSION" \
             --generate-notes \
-            --latest \
-            release_files/Spartial-Music-GMS.apk \
-            release_files/Spartial-Music-FOSS.apk
+            --latest
 
       - name: Release summary
         env:
-          VERSION: ${{ needs.prepare-version.outputs.version }}
-          TAG: ${{ needs.finalize-version.outputs.tag }}
-          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ needs.prepare-version.outputs.new_version }}
+          TAG: ${{ needs.prepare-version.outputs.tag }}
         run: |
           {
-            echo "## Spartial Music Release"
+            echo "# Release Published"
             echo ""
-            echo "- **Version:** $VERSION"
-            echo "- **Tag:** $TAG"
-            echo "- **GMS:** Spartial-Music-GMS.apk"
-            echo "- **FOSS:** Spartial-Music-FOSS.apk"
+            echo "**Version:** $VERSION"
             echo ""
-            echo "[View GitHub Release](https://github.com/$REPOSITORY/releases/tag/$TAG)"
+            echo "**Tag:** $TAG"
+            echo ""
+            echo "- Spartial-Music-GMS.apk"
+            echo "- Spartial-Music-FOSS.apk"
           } >> "$GITHUB_STEP_SUMMARY"
