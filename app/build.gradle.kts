@@ -32,6 +32,23 @@ fun secret(name: String): String = (localProperties.getProperty(name) ?: System.
     .replace("\"", "\\\"")
 
 /**
+ * Every APK says which build it came from. CI exports GITHUB_RUN_NUMBER and
+ * GITHUB_SHA, so a nightly reads `0.1.0-debug.<run>.<sha>`; a local build falls
+ * back to `local`. versionCode stays at 1 on purpose - moving it per build would
+ * make a local build uninstallable over a CI one - so the stamp is the only way
+ * to answer "which APK is this?" once a phone has held more than one of them.
+ */
+fun buildStamp(): String {
+    val run = (System.getenv("GITHUB_RUN_NUMBER") ?: "").trim()
+    val sha = (System.getenv("GITHUB_SHA") ?: "").trim().take(7)
+    return when {
+        run.isNotEmpty() && sha.isNotEmpty() -> "$run.$sha"
+        sha.isNotEmpty() -> sha
+        else -> "local"
+    }
+}
+
+/**
  * Release signing lives in a git-ignored keystore.properties (see
  * keystore.properties.example and BUILDING.md). Without it the release build
  * falls back to the debug key so forks can still build; never distribute an APK
@@ -115,7 +132,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+            versionNameSuffix = "-debug.${buildStamp()}"
             // Not the per-machine debug key: the committed one, so every build
             // - here or on CI - is an in-place update of every other.
             signingConfig = signingConfigs.getByName("stableDebug")

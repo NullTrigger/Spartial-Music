@@ -128,6 +128,7 @@ import app.nodes.ui.components.CircleIconButton
 import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.KeepScreenOn
 import app.nodes.ui.components.LoadingRows
+import app.nodes.ui.components.LiquidGlassDefaults
 import app.nodes.ui.components.PlayerEdgeBackdrop
 import app.nodes.ui.components.liquidGlass
 import app.nodes.ui.components.liquidGlassPress
@@ -969,7 +970,14 @@ private fun ControlsActionRow(
             modifier = Modifier
                 .liquidGlassTouch(lyricsTouch)
                 .size(44.dp)
-                .liquidGlass(hazeState, CircleShape, lyricsTouch)
+                .liquidGlass(
+                    hazeState,
+                    CircleShape,
+                    lyricsTouch,
+                    // The controls sit on the artwork's edge colour, so the
+                    // overlay stays light enough for the hue to read through.
+                    whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                )
                 .liquidGlassPress(lyricsTouch, haptics)
                 .clickable(role = Role.Button, onClick = onOpenLyrics)
                 .semantics { this.contentDescription = lyricsLabel },
@@ -987,7 +995,12 @@ private fun ControlsActionRow(
                 .liquidGlassTouch(capsuleTouch)
                 .width(180.dp)
                 .height(44.dp)
-                .liquidGlass(hazeState, CircleShape, capsuleTouch)
+                .liquidGlass(
+                    hazeState,
+                    CircleShape,
+                    capsuleTouch,
+                    whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                )
                 .liquidGlassPress(capsuleTouch, haptics),
         ) {
             Row(
@@ -1019,7 +1032,12 @@ private fun ControlsActionRow(
             modifier = Modifier
                 .liquidGlassTouch(queueTouch)
                 .size(44.dp)
-                .liquidGlass(hazeState, CircleShape, queueTouch)
+                .liquidGlass(
+                    hazeState,
+                    CircleShape,
+                    queueTouch,
+                    whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                )
                 .liquidGlassPress(queueTouch, haptics)
                 .clickable(role = Role.Button, onClick = onOpenQueue)
                 .semantics { this.contentDescription = queueLabel },

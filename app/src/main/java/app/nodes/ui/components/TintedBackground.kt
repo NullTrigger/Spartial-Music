@@ -241,54 +241,65 @@ fun PlayerEdgeBackdrop(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val stageHeight = playerStageHeight()
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    0f to edgeColour,
-                    1f to edgeColour.deepenedAndSaturated(),
-                ),
-            ),
-    ) {
-        if (showArtwork && !artworkUri.isNullOrBlank()) {
-            val stageHeightPx = with(LocalDensity.current) { stageHeight.toPx().toInt() }
+    Box(modifier = modifier.fillMaxSize()) {
+        // One captured layer - the edge-colour gradient plus the artwork that
+        // fades into it - and a sibling of the controls rather than their
+        // parent. The capture used to sit on the artwork stage alone, so the
+        // glass below the artwork blurred an empty layer and fell back to a
+        // flat tint: the controls came out dark instead of a light tint of the
+        // background they actually sit on.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .hazeSource(hazeState),
+        ) {
             Box(
                 Modifier
-                    .fillMaxWidth()
-                    .height(stageHeight)
-                    .align(Alignment.TopCenter)
-                    // The artwork + fade is what the glass controls read.
-                    .hazeSource(hazeState),
-            ) {
-                // FillWidth: the aspect ratio survives, nothing zooms.
-                Artwork(
-                    artworkUri = artworkUri,
-                    title = title,
-                    modifier = Modifier.fillMaxSize(),
-                    shape = RectangleShape,
-                    contentScale = ContentScale.FillWidth,
-                    targetPx = 1280,
-                    // The cover crossfades in step with the gradient.
-                    crossfadeMillis = EDGE_FADE_MS,
-                )
-                // Eased fade over the bottom ~25% only; the rest of the
-                // artwork is never tinted.
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to edgeColour,
+                            1f to edgeColour.deepenedAndSaturated(),
+                        ),
+                    ),
+            )
+            if (showArtwork && !artworkUri.isNullOrBlank()) {
+                val stageHeightPx = with(LocalDensity.current) { stageHeight.toPx().toInt() }
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight()
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                0f to Color.Transparent,
-                                0.74f to Color.Transparent,
-                                0.86f to edgeColour.copy(alpha = 0.22f),
-                                0.94f to edgeColour.copy(alpha = 0.62f),
-                                1f to edgeColour,
+                        .height(stageHeight)
+                        .align(Alignment.TopCenter),
+                ) {
+                    // FillWidth: the aspect ratio survives, nothing zooms.
+                    Artwork(
+                        artworkUri = artworkUri,
+                        title = title,
+                        modifier = Modifier.fillMaxSize(),
+                        shape = RectangleShape,
+                        contentScale = ContentScale.FillWidth,
+                        targetPx = 1280,
+                        // The cover crossfades in step with the gradient.
+                        crossfadeMillis = EDGE_FADE_MS,
+                    )
+                    // Eased fade over the bottom ~25% only; the rest of the
+                    // artwork is never tinted.
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    0f to Color.Transparent,
+                                    0.74f to Color.Transparent,
+                                    0.86f to edgeColour.copy(alpha = 0.22f),
+                                    0.94f to edgeColour.copy(alpha = 0.62f),
+                                    1f to edgeColour,
+                                ),
                             ),
-                        ),
-                )
+                    )
+                }
             }
         }
         content()
