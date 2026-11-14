@@ -48,8 +48,10 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
+import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
@@ -103,6 +105,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -120,7 +123,13 @@ import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.KeepScreenOn
 import app.nodes.ui.components.LoadingRows
 import app.nodes.ui.components.PlayerEdgeBackdrop
+import app.nodes.ui.components.liquidGlass
+import app.nodes.ui.components.liquidGlassPress
+import app.nodes.ui.components.liquidGlassTouch
+import app.nodes.ui.components.rememberLiquidTouch
 import dev.chrisbanes.haze.HazeState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
 import app.nodes.ui.components.trackSupportingLine
@@ -130,6 +139,7 @@ import app.nodes.ui.theme.SpartialSpacing
 import app.nodes.ui.theme.SpartialSurface
 import app.nodes.ui.theme.SpartialType
 import app.nodes.ui.theme.SpartialWhite
+import app.nodes.ui.theme.rememberArtworkEdgeColour
 import app.nodes.ui.theme.rememberArtworkTint
 import app.nodes.ui.theme.toPlayerAccent
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -890,7 +900,6 @@ private fun PlayerDock(
                 onOpenControls = onOpenControls,
                 onOpenLyrics = onOpenLyrics,
                 onOpenQueue = onOpenQueue,
-                hazeState = hazeState,
             )
         }
 
@@ -1270,6 +1279,7 @@ private fun PlayerTransport(
         // spring, glyph crossfades with play state. 56dp is the touch target.
         Box(
             modifier = Modifier
+                .liquidGlassTouch(playTouch)
                 .size(56.dp)
                 .scale(playScale)
                 .clickable(role = Role.Button, onClick = onPlayPause),
