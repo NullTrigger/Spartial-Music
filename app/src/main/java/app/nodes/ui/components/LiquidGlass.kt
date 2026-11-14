@@ -164,7 +164,7 @@ fun Modifier.liquidGlass(
                 // backdrop, which is the point.
                 Modifier.graphicsLayer {
                     val matrix = android.graphics.ColorMatrix().apply {
-                        setToSaturation(LiquidGlassDefaults.saturation)
+                        setSaturation(LiquidGlassDefaults.saturation)
                     }
                     val filter = android.graphics.ColorMatrixColorFilter(matrix)
                     renderEffect = android.graphics.RenderEffect
