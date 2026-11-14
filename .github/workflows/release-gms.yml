@@ -13,183 +13,398 @@
 
 
 
-name: Build Spartial Music Universal APKs
+
+name: Spartial Music Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Choose the version increment"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: spartial-music-release
+  cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build GMS and FOSS Universal APKs
+  prepare-version:
+    name: Calculate New Version
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      tag: ${{ steps.version.outputs.tag }}
+      base_sha: ${{ steps.version.outputs.base_sha }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
+          ref: main
+          fetch-depth: 0
           submodules: recursive
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Install Android SDK packages
+      - name: Calculate version
+        id: version
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
           set -euo pipefail
 
-          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          python3 <<'PY'
+          import os
+          import re
+          import subprocess
 
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER=$(command -v sdkmanager)
-          fi
+          path = "app/build.gradle.kts"
 
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          with open(path, "r", encoding="utf-8") as f:
+              content = f.read()
 
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
-            "platforms;android-37.0" \
-            "build-tools;37.0.0" \
-            "platform-tools"
+          version_match = re.search(
+              r'(?m)^(\s*versionName\s*=\s*)"([^"]+)"',
+              content
+          )
 
-      - name: Make Gradle executable
-        run: chmod +x gradlew
+          code_match = re.search(
+              r'(?m)^(\s*versionCode\s*=\s*)(\d+)',
+              content
+          )
+
+          if not version_match or not code_match:
+              raise SystemExit(
+                  "Could not find versionName or versionCode "
+                  "in app/build.gradle.kts"
+              )
+
+          old_version = version_match.group(2)
+          old_code = int(code_match.group(2))
+
+          if not re.fullmatch(r"\d+\.\d+\.\d+", old_version):
+              raise SystemExit(
+                  f"Unsupported version format: {old_version}. "
+                  "Expected MAJOR.MINOR.PATCH."
+              )
+
+          major, minor, patch = map(int, old_version.split("."))
+          release_type = os.environ["RELEASE_TYPE"]
+
+          if release_type == "patch":
+              patch += 1
+          elif release_type == "minor":
+              minor += 1
+              patch = 0
+          elif release_type == "major":
+              major += 1
+              minor = 0
+              patch = 0
+          else:
+              raise SystemExit("Invalid release type")
+
+          new_version = f"{major}.{minor}.{patch}"
+          new_code = old_code + 1
+          tag = f"v{new_version}"
+
+          base_sha = subprocess.check_output(
+              ["git", "rev-parse", "HEAD"],
+              text=True
+          ).strip()
+
+          print(f"Old version: {old_version} ({old_code})")
+          print(f"New version: {new_version} ({new_code})")
+          print(f"Release tag: {tag}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"version={new_version}\n")
+              f.write(f"version_code={new_code}\n")
+              f.write(f"tag={tag}\n")
+              f.write(f"base_sha={base_sha}\n")
+          PY
+
+  build:
+    name: Build ${{ matrix.variant }} Release
+    needs: prepare-version
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: gms
+            variantName: Gms
+            apk_name: Spartial-Music-GMS.apk
+
+          - variant: foss
+            variantName: Foss
+            apk_name: Spartial-Music-FOSS.apk
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.base_sha }}
+          submodules: recursive
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-37.0
+            build-tools;37.0.0
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Validate signing secrets
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Apply release version
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          VERSION: ${{ needs.prepare-version.outputs.version }}
+          VERSION_CODE: ${{ needs.prepare-version.outputs.version_code }}
         run: |
-          set -euo pipefail
+          python3 <<'PY'
+          import os
+          import re
 
-          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
-            if [ -z "${!name}" ]; then
-              echo "::error::$name is missing"
-              exit 1
-            fi
-          done
+          path = "app/build.gradle.kts"
 
-      - name: Decode release keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: |
-          set -euo pipefail
+          with open(path, "r", encoding="utf-8") as f:
+              content = f.read()
 
-          echo "$KEYSTORE_BASE64" | base64 --decode \
-            > "$RUNNER_TEMP/spartial-release.jks"
+          content, version_count = re.subn(
+              r'(?m)^(\s*versionName\s*=\s*)"[^"]+"',
+              lambda m: m.group(1) + '"' + os.environ["VERSION"] + '"',
+              content,
+              count=1
+          )
 
-          keytool -list \
-            -keystore "$RUNNER_TEMP/spartial-release.jks" \
-            -storepass "$KEYSTORE_PASSWORD" >/dev/null
+          content, code_count = re.subn(
+              r'(?m)^(\s*versionCode\s*=\s*)\d+',
+              lambda m: m.group(1) + os.environ["VERSION_CODE"],
+              content,
+              count=1
+          )
 
-      - name: Configure release signing
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          {
-            echo "storeFile=$RUNNER_TEMP/spartial-release.jks"
-            echo "storePassword=$KEYSTORE_PASSWORD"
-            echo "keyAlias=$KEY_ALIAS"
-            echo "keyPassword=$KEY_PASSWORD"
-          } > keystore.properties
+          if version_count != 1 or code_count != 1:
+              raise SystemExit("Could not update version information")
 
-      - name: Configure API keys
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(content)
+          PY
+
+      - name: Configure API key
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          YOUTUBE_OAUTH_CLIENT_ID: ${{ secrets.YOUTUBE_OAUTH_CLIENT_ID }}
-          JAMENDO_CLIENT_ID: ${{ secrets.JAMENDO_CLIENT_ID }}
         run: |
-          {
-            echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY"
-            echo "YOUTUBE_OAUTH_CLIENT_ID=$YOUTUBE_OAUTH_CLIENT_ID"
-            echo "JAMENDO_CLIENT_ID=$JAMENDO_CLIENT_ID"
-          } > local.properties
+          printf 'YOUTUBE_API_KEY=%s\n' "$YOUTUBE_API_KEY" > local.properties
 
-      - name: Build GMS release
-        run: ./gradlew :app:assembleGmsRelease --stacktrace
+      - name: Build and lint release APK
+        run: |
+          ./gradlew --console=plain \
+            :app:assemble${{ matrix.variantName }}Release \
+            :app:lint${{ matrix.variantName }}Release \
+            --warning-mode summary
 
-      - name: Build FOSS release
-        run: ./gradlew :app:assembleFossRelease --stacktrace
+      - name: Sign Release APK
+        uses: ilharp/sign-android-release@v2.0.0
+        with:
+          releaseDir: app/build/outputs/apk/${{ matrix.variant }}/release/
+          signingKey: ${{ secrets.KEYSTORE }}
+          keyAlias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          buildToolsVersion: 37.0.0
 
-      - name: Collect universal APKs
+      - name: Rename signed APK
+        env:
+          VARIANT: ${{ matrix.variant }}
+          APK_NAME: ${{ matrix.apk_name }}
         run: |
           set -euo pipefail
 
+          OUTPUT_DIR="app/build/outputs/apk/${VARIANT}/release"
           mkdir -p dist
 
-          collect_apk() {
-            FLAVOR="$1"
-            OUTPUT="$2"
-            DIR="app/build/outputs/apk/$FLAVOR/release"
+          SIGNED_APK=$(find "$OUTPUT_DIR" \
+            -maxdepth 1 -type f -name '*-signed.apk' \
+            -print -quit)
 
-            mapfile -t APKS < <(
-              find "$DIR" -maxdepth 1 -type f -name '*.apk'
-            )
+          if [ -z "$SIGNED_APK" ]; then
+            echo "::error::Signed APK not found"
+            ls -la "$OUTPUT_DIR"
+            exit 1
+          fi
 
-            if [ "${#APKS[@]}" -ne 1 ]; then
-              echo "::error::Expected exactly one universal APK for $FLAVOR, found ${#APKS[@]}"
-              exit 1
-            fi
+          cp "$SIGNED_APK" "dist/$APK_NAME"
 
-            cp "${APKS[0]}" "dist/$OUTPUT"
-          }
+          test -s "dist/$APK_NAME"
+          ls -lh dist/
 
-          collect_apk gms Spartial-Music-GMS.apk
-          collect_apk foss Spartial-Music-FOSS.apk
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: spartial-music-${{ matrix.variant }}
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 14
 
-          echo "APK architecture contents:"
+  finalize-version:
+    name: Commit Version and Create Tag
+    needs:
+      - prepare-version
+      - build
+    runs-on: ubuntu-latest
 
-          for APK in dist/*.apk; do
-            echo "Checking $APK"
+    outputs:
+      tag: ${{ needs.prepare-version.outputs.tag }}
+      version: ${{ needs.prepare-version.outputs.version }}
 
-            LIBS=$(unzip -Z1 "$APK" | grep '^lib/' || true)
+    steps:
+      - name: Checkout original source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.base_sha }}
+          fetch-depth: 0
 
-            if [ -n "$LIBS" ]; then
-              echo "$LIBS" | cut -d/ -f2 | sort -u
-            else
-              echo "No packaged native libraries."
-            fi
-          done
+      - name: Update version in Gradle
+        env:
+          VERSION: ${{ needs.prepare-version.outputs.version }}
+          VERSION_CODE: ${{ needs.prepare-version.outputs.version_code }}
+        run: |
+          python3 <<'PY'
+          import os
+          import re
 
-          ls -lh dist
+          path = "app/build.gradle.kts"
 
-      - name: Verify APK signatures
+          with open(path, "r", encoding="utf-8") as f:
+              content = f.read()
+
+          content, version_count = re.subn(
+              r'(?m)^(\s*versionName\s*=\s*)"[^"]+"',
+              lambda m: m.group(1) + '"' + os.environ["VERSION"] + '"',
+              content,
+              count=1
+          )
+
+          content, code_count = re.subn(
+              r'(?m)^(\s*versionCode\s*=\s*)\d+',
+              lambda m: m.group(1) + os.environ["VERSION_CODE"],
+              content,
+              count=1
+          )
+
+          if version_count != 1 or code_count != 1:
+              raise SystemExit("Could not update version information")
+
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(content)
+          PY
+
+      - name: Commit version and push tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare-version.outputs.version }}
+          TAG: ${{ needs.prepare-version.outputs.tag }}
         run: |
           set -euo pipefail
 
-          APKSIGNER="$ANDROID_HOME/build-tools/37.0.0/apksigner"
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
-          for APK in dist/*.apk; do
-            echo "Verifying $APK"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG"; then
+            echo "::error::Release tag $TAG already exists"
+            exit 1
+          fi
 
-            "$APKSIGNER" verify --verbose --print-certs "$APK"
-          done
+          git add app/build.gradle.kts
 
-      - name: Generate SHA256 checksums
-        run: |
-          cd dist
-          sha256sum *.apk > SHA256SUMS.txt
+          git commit -m "Bump version to $VERSION"
 
-      - name: Upload universal APKs
-        uses: actions/upload-artifact@v4
+          git tag -a "$TAG" -m "Release $TAG"
+
+          git push --atomic origin \
+            HEAD:refs/heads/main \
+            "refs/tags/$TAG"
+
+          echo "Version committed and tag $TAG pushed successfully."
+
+  publish-release:
+    name: Publish GitHub Release
+    needs:
+      - prepare-version
+      - build
+      - finalize-version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download GMS and FOSS APKs
+        uses: actions/download-artifact@v4
         with:
-          name: Spartial-Music-Universal-APKs
-          path: dist/*
-          if-no-files-found: error
-          retention-days: 30
+          pattern: spartial-music-*
+          path: release_files
+          merge-multiple: true
+
+      - name: Verify release APKs
+        run: |
+          set -euo pipefail
+
+          test -s release_files/Spartial-Music-GMS.apk
+          test -s release_files/Spartial-Music-FOSS.apk
+
+          ls -lh release_files/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare-version.outputs.version }}
+          TAG: ${{ needs.finalize-version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          gh release create "$TAG" \
+            --title "Spartial Music $VERSION" \
+            --generate-notes \
+            --latest \
+            release_files/Spartial-Music-GMS.apk \
+            release_files/Spartial-Music-FOSS.apk
+
+      - name: Release summary
+        env:
+          VERSION: ${{ needs.prepare-version.outputs.version }}
+          TAG: ${{ needs.finalize-version.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          {
+            echo "## Spartial Music Release"
+            echo ""
+            echo "- **Version:** $VERSION"
+            echo "- **Tag:** $TAG"
+            echo "- **GMS:** Spartial-Music-GMS.apk"
+            echo "- **FOSS:** Spartial-Music-FOSS.apk"
+            echo ""
+            echo "[View GitHub Release](https://github.com/$REPOSITORY/releases/tag/$TAG)"
+          } >> "$GITHUB_STEP_SUMMARY"
