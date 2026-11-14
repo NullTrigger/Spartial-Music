@@ -44,7 +44,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -81,14 +83,13 @@ data class BottomNavItem(
  *
  * **Collapsed** (content scrolled down): one 56dp row - the current tab's
  * icon in [navAccent] at the left, the mini player between, Search at the
- * right. Sizes morph continuously on a ~350ms spring; the mini player is the
- * same composable in both states, so it never pops.
+ * right. The mini player is the same composable in both states, so it never
+ * pops.
  *
  * **The bubble**: the active tab rests in a brighter glass capsule. Touching
- * it lifts it (x1.2 x x1.25), and dragging slides it along the pill with a
- * rubber-band clamp and up to ~12% stretch; the tab it passes lights in
- * [navAccent]; on release it snaps to the nearest tab, shrinks back and
- * navigates then - never during the drag.
+ * it lifts it (x1.2 x x1.25), dragging slides it along the pill with a
+ * rubber-band clamp and up to ~12% stretch; on release it snaps to the
+ * nearest tab, shrinks back and navigates then - never during the drag.
  */
 @Composable
 fun FloatingTabBar(
@@ -112,9 +113,7 @@ fun FloatingTabBar(
             1f,
         ) == 0f
     }
-    val haptics = LocalHapticFeedback.current
 
-    // Expanded: nav row on top, mini player below.
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -139,7 +138,6 @@ fun FloatingTabBar(
                         onSelect = onSelect,
                         hazeState = hazeState,
                         reduceMotion = reduceMotion,
-                        haptics = haptics,
                     )
                 }
                 SearchCircle(
@@ -162,11 +160,7 @@ fun FloatingTabBar(
                     modifier = Modifier
                         .size(56.dp)
                         .liquidGlass(hazeState, CircleShape)
-                        .clickable(role = Role.Button, onClick = {
-                            // Expanding is the tap's job; navigation is the
-                            // tab's, already active.
-                            onSelect(current.route)
-                        }),
+                        .clickable(role = Role.Button, onClick = { onSelect(current.route) }),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -186,6 +180,7 @@ fun FloatingTabBar(
             }
         }
     }
+}
 
 @Composable
 private fun SearchCircle(
@@ -226,8 +221,8 @@ private fun TabPill(
     onSelect: (String) -> Unit,
     hazeState: HazeState?,
     reduceMotion: Boolean,
-    haptics: LocalHapticFeedback,
 ) {
+    val haptics = LocalHapticFeedback.current
     val selectedIndex = items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     var dragIndex by remember { mutableIntStateOf(selectedIndex) }
     var dragging by remember { mutableStateOf(false) }
@@ -281,10 +276,9 @@ private fun TabPill(
             },
     ) {
         val slotWidth = maxWidth / items.size
-        val density = LocalDensity.current
-        val slotWidthPx = with(density) { slotWidth.toPx() }
+        val slotWidthPx = with(LocalDensity.current) { slotWidth.toPx() }
         val highlightOffset by animateFloatAsState(
-            targetValue = (slotWidthPx * dragIndex + dragX),
+            targetValue = slotWidthPx * dragIndex + dragX,
             animationSpec = if (dragging) {
                 spring(stiffness = Spring.StiffnessHigh)
             } else {
@@ -292,7 +286,6 @@ private fun TabPill(
             },
             label = "bubble",
         )
-
         // The bubble: brighter glass, lifted while touched, draggable.
         val lift by animateFloatAsState(
             targetValue = if (bubbleTouch.isPressed || dragging) 1f else 0f,
@@ -312,7 +305,7 @@ private fun TabPill(
         // below the pill while lifted.
         Box(
             modifier = Modifier
-                .offset(x = with(LocalDensity.current) { (highlightOffset).toDp() })
+                .offset(x = with(LocalDensity.current) { highlightOffset.toDp() })
                 .padding(4.dp)
                 .width(slotWidth)
                 .fillMaxHeight()
@@ -323,11 +316,10 @@ private fun TabPill(
                     touchState = bubbleTouch,
                     refraction = (bubbleTouch.isPressed || dragging) && !reduceMotion,
                 )
-                .graphicsLayerStretch(stretch, lift)
-                .clickable(
-                    role = Role.Tab,
-                    onClick = { onSelect(items[dragIndex.coerceIn(items.indices)].route) },
-                )
+                .graphicsLayer {
+                    scaleX = 1f + stretch
+                    scaleY = 1f + (lift * 0.25f)
+                }
                 .testTag("bubble"),
             contentAlignment = Alignment.Center,
         ) {
@@ -353,18 +345,8 @@ private fun TabPill(
                 )
             }
         }
-
-        }
     }
 }
-
-/** Protrude above and below the pill while lifted, stretch along the drag. */
-private fun Modifier.graphicsLayerStretch(stretch: Float, lift: Float): Modifier =
-    graphicsLayer {
-        scaleX = 1f + stretch
-        scaleY = 1f + (lift * 0.25f)
-        alpha = 1f
-    }
 
 @Composable
 private fun Tab(
@@ -375,7 +357,7 @@ private fun Tab(
 ) {
     // Icon and label under the bubble move to the accent in ~120ms; the rest
     // stay at white 60%.
-    val tint by androidx.compose.animation.animateColorAsState(
+    val tint by animateColorAsState(
         targetValue = if (selected) navAccent else SpartialWhite.copy(alpha = 0.60f),
         animationSpec = tween(120),
         label = "tabTint",

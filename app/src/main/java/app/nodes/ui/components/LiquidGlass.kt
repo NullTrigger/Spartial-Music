@@ -38,7 +38,6 @@ import androidx.compose.ui.graphics.ColorMatrixColorFilter
 import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.asRuntimeShader
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -169,8 +168,9 @@ fun Modifier.liquidGlass(
                     val matrix = ColorMatrix().apply {
                         setToSaturation(LiquidGlassDefaults.saturation)
                     }
-                    renderEffect = RenderEffect
-                        .createColorFilterEffect(ColorMatrixColorFilter(matrix))
+                    val filter = ColorMatrixColorFilter(matrix)
+                    renderEffect = android.graphics.RenderEffect
+                        .createColorFilterEffect(filter)
                         .asComposeRenderEffect()
                 }
             } else {
@@ -218,9 +218,11 @@ private fun Modifier.rim(shape: Shape, api33: Boolean): Modifier = this
  */
 private fun Modifier.refractionLens(touch: LiquidTouchState): Modifier {
     if (Build.VERSION.SDK_INT < 33) return this
-    val shader = remember { RuntimeShader(REFACTION_SHADER_SRC.trimIndent()) }
+    // Created once per composition-free call; the shader object is mutated in
+    // the graphicsLayer block, which re-reads it whenever state changes.
     return graphicsLayer {
         if (touch.pressed && touch.pressProgress.value > 0.01f) {
+            val shader = RuntimeShader(REFACTION_SHADER_SRC.trimIndent())
             shader.setFloatUniform("uSize", size.width, size.height)
             shader.setFloatUniform("uCenter", touch.position.x, touch.position.y)
             shader.setFloatUniform(
@@ -228,8 +230,8 @@ private fun Modifier.refractionLens(touch: LiquidTouchState): Modifier {
                 maxOf(size.width, size.height) * 0.62f,
             )
             shader.setFloatUniform("uProgress", touch.pressProgress.value)
-            renderEffect = RenderEffect
-                .createRuntimeShaderEffect(shader.asRuntimeShader(), "uContent")
+            renderEffect = android.graphics.RenderEffect
+                .createRuntimeShaderEffect(shader, "uContent")
                 .asComposeRenderEffect()
         } else {
             renderEffect = null
