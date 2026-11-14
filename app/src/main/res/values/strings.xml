@@ -28,6 +28,7 @@
     <string name="nav_sessions">Sessions</string>
     <string name="nav_library">Library</string>
     <string name="nav_search">Search</string>
+    <string name="nav_expand">Expand navigation bar</string>
     <string name="cd_open_settings">Open settings</string>
     <string name="cd_profile">Profile</string>
     <string name="cd_search">Search</string>

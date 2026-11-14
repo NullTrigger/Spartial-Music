@@ -333,6 +333,8 @@ fun SpartialApp() {
                         },
                         hazeState = hazeState,
                         collapsed = collapsed,
+                        // The collapsed tab circle expands the bar again.
+                        onExpand = { BarCollapseBus.set(false) },
                         // The mini capsule lives inside the bar in both
                         // states: stacked below the pill when expanded, in
                         // the row between the circles when collapsed.
