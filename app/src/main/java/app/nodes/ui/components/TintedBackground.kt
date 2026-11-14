@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import app.nodes.ui.theme.EDGE_FADE_MS
 import app.nodes.ui.theme.SpartialBlack
 import dev.chrisbanes.haze.HazeState

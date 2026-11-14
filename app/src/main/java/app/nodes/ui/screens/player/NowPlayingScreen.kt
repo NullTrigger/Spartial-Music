@@ -99,6 +99,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
@@ -132,6 +133,7 @@ import app.nodes.ui.components.liquidGlass
 import app.nodes.ui.components.liquidGlassPress
 import app.nodes.ui.components.liquidGlassTouch
 import app.nodes.ui.components.rememberLiquidTouch
+import app.nodes.ui.components.playerStageHeight
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.platform.LocalHapticFeedback
 import app.nodes.ui.components.TrackMenuButton
@@ -933,6 +935,7 @@ private fun PlayerDock(
             onPrevious = onPrevious,
             onNext = onNext,
             onShuffle = onShuffle,
+            onRepeat = onRepeat,
         )
     }
 }
