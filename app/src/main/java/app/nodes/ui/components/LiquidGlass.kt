@@ -33,8 +33,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.ColorMatrixColorFilter
 import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asComposeRenderEffect
@@ -165,10 +163,10 @@ fun Modifier.liquidGlass(
                 // drawn later are near-neutral, so the vibrancy lands on the
                 // backdrop, which is the point.
                 Modifier.graphicsLayer {
-                    val matrix = ColorMatrix().apply {
+                    val matrix = android.graphics.ColorMatrix().apply {
                         setToSaturation(LiquidGlassDefaults.saturation)
                     }
-                    val filter = ColorMatrixColorFilter(matrix)
+                    val filter = android.graphics.ColorMatrixColorFilter(matrix)
                     renderEffect = android.graphics.RenderEffect
                         .createColorFilterEffect(filter)
                         .asComposeRenderEffect()
