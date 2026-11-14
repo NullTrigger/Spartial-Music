@@ -13,9 +13,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.animation.animateColorAsState
-import androidx.compose.ui.animation.core.FastOutSlowInEasing
-import androidx.compose.ui.animation.core.tween
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.drawable.toBitmap
@@ -69,7 +69,7 @@ object ArtworkEdgeSampler {
         return sampled
     }
 
-    private fun sampleBlocking(
+    private suspend fun sampleBlocking(
         context: android.content.Context,
         artworkUri: String,
         stageWidthPx: Int,
