@@ -99,7 +99,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
@@ -134,7 +133,6 @@ import app.nodes.ui.components.liquidGlass
 import app.nodes.ui.components.liquidGlassPress
 import app.nodes.ui.components.liquidGlassTouch
 import app.nodes.ui.components.rememberLiquidTouch
-import app.nodes.ui.components.playerStageHeight
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.platform.LocalHapticFeedback
 import app.nodes.ui.components.TrackMenuButton
@@ -146,8 +144,8 @@ import app.nodes.ui.theme.SpartialSpacing
 import app.nodes.ui.theme.SpartialSurface
 import app.nodes.ui.theme.SpartialType
 import app.nodes.ui.theme.SpartialWhite
-import app.nodes.ui.theme.navAccent
-import app.nodes.ui.theme.rememberDynamicEdgeColour
+import app.nodes.ui.theme.ArtworkPalette
+import app.nodes.ui.theme.rememberArtworkPalette
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
@@ -176,7 +174,8 @@ private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
  * and drops the handle (YOUTUBE.md).
  *
  * The surface behind everything is a gradient built from the artwork's own
- * edge colour, sampled off the main thread by [rememberDynamicEdgeColour]; see
+ * colours: the palette is sampled off the main thread by
+ * [rememberArtworkPalette] and crossfades when the song changes; see
  * [PlayerEdgeBackdrop]. The wash is pure geometry, identical on every device.
  */
 @Composable
@@ -231,21 +230,12 @@ fun NowPlayingScreen(
 
     // The screen's own backdrop capture: the glass controls read it.
     val hazeState = remember { HazeState() }
-    // The artwork stage is what the sampler measures the visible region
-    // against, so both use the same height.
-    val stageHeight = playerStageHeight()
-    val density = LocalDensity.current
-    val stageWidthPx = with(density) {
-        LocalConfiguration.current.screenWidthDp.dp.toPx().toInt()
-    }
-    val stageHeightPx = with(density) { stageHeight.toPx().toInt() }
-    // The fade colour follows the artwork and changes with the song - never
-    // with a pause or a seek.
-    val edgeColour = rememberDynamicEdgeColour(
+    // The palette follows the artwork: the background, the seek bar and the
+    // control icons all take their colour from it, and it crossfades when the
+    // song changes.
+    val palette = rememberArtworkPalette(
         trackId = track.id,
         artworkUri = track.artworkUri,
-        stageWidthPx = stageWidthPx,
-        stageHeightPx = stageHeightPx,
     )
     val sourceName = playerSourceName(track.sourceId)
     val queueTitle = track.album?.takeIf { it.isNotBlank() }
@@ -310,7 +300,7 @@ fun NowPlayingScreen(
         PlayerEdgeBackdrop(
             artworkUri = track.artworkUri,
             title = track.title,
-            edgeColour = edgeColour,
+            palette = palette,
             showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
             hazeState = hazeState,
         ) {
@@ -383,6 +373,7 @@ fun NowPlayingScreen(
                     state = playerState,
                     track = track,
                     sourceName = sourceName,
+                    palette = palette,
                     liked = liked,
                     hazeState = hazeState,
                     onToggleLike = { viewModel.toggleLike(track) },
@@ -875,6 +866,7 @@ private fun PlayerDock(
     state: PlayerUiState,
     track: Track,
     sourceName: String,
+    palette: ArtworkPalette,
     liked: Boolean,
     hazeState: HazeState?,
     onToggleLike: () -> Unit,
@@ -927,11 +919,14 @@ private fun PlayerDock(
         PlayerProgress(
             state = state,
             sourceName = sourceName,
+            audioFormat = track.audioFormat,
+            accent = palette.accent,
             onSeek = onSeek,
         )
         Spacer(Modifier.height(24.dp))
         PlayerTransport(
             state = state,
+            accent = palette.accent,
             onPlayPause = onPlayPause,
             onPrevious = onPrevious,
             onNext = onNext,
@@ -977,6 +972,10 @@ private fun ControlsActionRow(
                     // The controls sit on the artwork's edge colour, so the
                     // overlay stays light enough for the hue to read through.
                     whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                    // The reference draws these as a flat hairline.
+                    borderWidth = LiquidGlassDefaults.playerBorderWidth,
+                    borderBrush = LiquidGlassDefaults.playerBorder,
+                    chroma = false,
                 )
                 .liquidGlassPress(lyricsTouch, haptics)
                 .clickable(role = Role.Button, onClick = onOpenLyrics)
@@ -1000,6 +999,9 @@ private fun ControlsActionRow(
                     CircleShape,
                     capsuleTouch,
                     whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                    borderWidth = LiquidGlassDefaults.playerBorderWidth,
+                    borderBrush = LiquidGlassDefaults.playerBorder,
+                    chroma = false,
                 )
                 .liquidGlassPress(capsuleTouch, haptics),
         ) {
@@ -1037,6 +1039,9 @@ private fun ControlsActionRow(
                     CircleShape,
                     queueTouch,
                     whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                    borderWidth = LiquidGlassDefaults.playerBorderWidth,
+                    borderBrush = LiquidGlassDefaults.playerBorder,
+                    chroma = false,
                 )
                 .liquidGlassPress(queueTouch, haptics)
                 .clickable(role = Role.Button, onClick = onOpenQueue)
@@ -1160,12 +1165,13 @@ private fun DockAction(
 private fun PlayerProgress(
     state: PlayerUiState,
     sourceName: String,
+    audioFormat: String?,
+    accent: Color,
     onSeek: (Long) -> Unit,
 ) {
     val fraction = state.progress.coerceIn(0f, 1f)
-    // The accent is fixed, not taken from the artwork: the bar must read the
-    // same on every song.
-    val accent = navAccent
+    // The filled part takes the artwork's accent colour, so the bar belongs
+    // to the song; the rest stays a quiet white line.
     // A flat bar with no knob, as in the reference: the filled part is the
     // only marker. Scrubbing tracks the finger and seeks when it lifts, so the
     // music does not restart on every pixel.
@@ -1223,7 +1229,7 @@ private fun PlayerProgress(
                 .height(barHeight)
                 .align(Alignment.CenterStart)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color.White.copy(alpha = 0.20f)),
+                .background(Color.White.copy(alpha = 0.25f)),
         ) {
             Box(
                 Modifier
@@ -1239,37 +1245,63 @@ private fun PlayerProgress(
     ) {
         Text(
             text = formatDuration(state.positionMs.coerceAtLeast(0L)),
-            style = MaterialTheme.typography.labelMedium,
-            color = SpartialWhite.copy(alpha = 0.72f),
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+            color = SpartialWhite.copy(alpha = 0.70f),
         )
         Spacer(Modifier.weight(1f))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Rounded.GraphicEq,
-                contentDescription = null,
-                tint = SpartialWhite.copy(alpha = 0.64f),
-                modifier = Modifier.size(13.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = sourceName.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = SpartialWhite.copy(alpha = 0.60f),
-                maxLines = 1,
-            )
+        // The centre slot: the audio format when the source knows it, and the
+        // source's name otherwise, so the attribution never disappears.
+        if (!audioFormat.isNullOrBlank()) {
+            AudioFormatBadge(label = audioFormat)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.GraphicEq,
+                    contentDescription = null,
+                    tint = SpartialWhite.copy(alpha = 0.64f),
+                    modifier = Modifier.size(13.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = sourceName.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SpartialWhite.copy(alpha = 0.60f),
+                    maxLines = 1,
+                )
+            }
         }
         Spacer(Modifier.weight(1f))
         Text(
             text = formatDuration(state.durationMs.coerceAtLeast(0L)),
-            style = MaterialTheme.typography.labelMedium,
-            color = SpartialWhite.copy(alpha = 0.72f),
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+            color = SpartialWhite.copy(alpha = 0.70f),
         )
     }
+}
+
+/**
+ * The audio format badge in the middle of the times row: a small, quiet
+ * label for tracks whose format the source knows, such as a lossless local
+ * file. It is only drawn when there is something to say.
+ */
+@Composable
+private fun AudioFormatBadge(label: String) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+        ),
+        color = SpartialWhite.copy(alpha = 0.72f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable
 private fun PlayerTransport(
     state: PlayerUiState,
+    accent: Color,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -1277,7 +1309,6 @@ private fun PlayerTransport(
     onRepeat: () -> Unit,
 ) {
     val context = LocalContext.current
-    val accent = navAccent
     val haptics = LocalHapticFeedback.current
     val playTouch = rememberLiquidTouch()
     // Play/pause presses scale to ~0.9 on a spring and crossfade the glyph.
@@ -1296,10 +1327,15 @@ private fun PlayerTransport(
         Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
             CastRouteButton(
                 unavailable = state.embeddedVideoId != null,
+                tint = accent,
                 onUnavailableTap = {
                     Toast.makeText(
                         context,
-                        R.string.player_cast_unavailable,
+                        if (state.embeddedVideoId != null) {
+                            R.string.player_cast_unavailable
+                        } else {
+                            R.string.player_cast_unsupported
+                        },
                         Toast.LENGTH_SHORT,
                     ).show()
                 },
@@ -1320,12 +1356,12 @@ private fun PlayerTransport(
             size = 52.dp,
             iconSize = 34.dp,
         )
-        // Play/pause: the largest control at ~56dp, press scales to ~0.9 on a
-        // spring, glyph crossfades with play state. 56dp is the touch target.
+        // Play/pause: the largest control at 64dp, press scales to ~0.9 on a
+        // spring, glyph crossfades with play state.
         Box(
             modifier = Modifier
                 .liquidGlassTouch(playTouch)
-                .size(56.dp)
+                .size(64.dp)
                 .scale(playScale)
                 .clickable(role = Role.Button, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
@@ -1340,7 +1376,7 @@ private fun PlayerTransport(
                     if (state.isPlaying) R.string.action_pause else R.string.action_play,
                 ),
                 tint = accent,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(46.dp),
             )
         }
         CircleIconButton(

@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -46,6 +47,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -93,6 +95,16 @@ object LiquidGlassDefaults {
 
     /** The rim stroke: the only gradient the surface is allowed to carry. */
     val rimWidth = 1.2.dp
+
+    /**
+     * A flat, light hairline for glass that sits on a coloured background:
+     * one thin white line around the edge, the way the reference player draws
+     * its buttons.
+     */
+    val playerBorder: Brush = SolidColor(Color.White.copy(alpha = 0.25f))
+
+    /** The player's hairline width. */
+    val playerBorderWidth = 1.dp
 
     /**
      * Chromatic fringe, API 33+ only. It is stroked along the shape's boundary,
@@ -147,6 +159,10 @@ fun rememberLiquidTouch(): LiquidTouchState = remember { LiquidTouchState() }
  * @param whiteOverlay the white layer on the fill: [LiquidGlassDefaults.whiteOverlayDark]
  *   on dark UI, [LiquidGlassDefaults.whiteOverlayColoured] on a coloured
  *   backdrop such as the player, where a heavy overlay would wash the hue out.
+ * @param borderWidth the rim stroke's width.
+ * @param borderBrush the rim stroke's paint; null keeps the default gradient.
+ * @param chroma whether the chromatic fringe is drawn on the rim. It is off
+ *   for the player's buttons, where a coloured fringe would break the tint.
  */
 fun Modifier.liquidGlass(
     hazeState: HazeState?,
@@ -154,6 +170,9 @@ fun Modifier.liquidGlass(
     touchState: LiquidTouchState? = null,
     refraction: Boolean = false,
     whiteOverlay: Float = LiquidGlassDefaults.whiteOverlayDark,
+    borderWidth: Dp = LiquidGlassDefaults.rimWidth,
+    borderBrush: Brush? = null,
+    chroma: Boolean = true,
 ): Modifier {
     val api31 = Build.VERSION.SDK_INT >= 31
     val api33 = Build.VERSION.SDK_INT >= 33
@@ -204,12 +223,24 @@ fun Modifier.liquidGlass(
                 Modifier
             },
         )
-        .rim(shape, api33)
+        .rim(shape, api33 && chroma)
         .then(
             if (refraction && api33 && touchState != null) {
                 Modifier.refractionLens(touchState)
             } else {
                 Modifier
+            },
+        )
+        .then(
+            // One rim only: the shared gradient, or the caller's own hairline.
+            if (borderBrush != null) {
+                Modifier.border(width = borderWidth, brush = borderBrush, shape = shape)
+            } else {
+                Modifier.border(
+                    width = LiquidGlassDefaults.rimWidth,
+                    brush = LiquidGlassDefaults.rim,
+                    shape = shape,
+                )
             },
         )
 }
@@ -250,11 +281,6 @@ private fun Modifier.rim(shape: Shape, api33: Boolean): Modifier = this
         } else {
             Modifier
         },
-    )
-    .border(
-        width = LiquidGlassDefaults.rimWidth,
-        brush = LiquidGlassDefaults.rim,
-        shape = shape,
     )
 
 /** Strokes an outline's boundary only - never its interior. */

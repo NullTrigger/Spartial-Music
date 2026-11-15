@@ -5,6 +5,7 @@
 
 package app.nodes.ui.components
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -18,20 +19,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.shape.RoundedCornerShape
 import app.nodes.ui.theme.EDGE_FADE_MS
 import app.nodes.ui.theme.SpartialBlack
+import app.nodes.ui.theme.ArtworkPalette
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import app.nodes.ui.theme.toBackdrop
@@ -217,87 +223,149 @@ fun PlayerBackdrop(
 }
 
 /**
- * The player backdrop built on the artwork's own edge colour.
+ * The Now Playing backdrop: the reference layout, in layers.
  *
- * The cover is drawn scaled to the stage width with its aspect preserved, so
- * nothing is cropped away by a centre-crop and nothing zooms; the area above
- * and below it is the edge colour. An eased fade covers only the bottom quarter
- * of the artwork and ends exactly on that colour, and the gradient below
- * continues from the same value into a slightly darker, more saturated shade -
- * so the art appears to melt into the screen rather than sitting on a tinted
- * rectangle.
+ *  - **The blurred bed.** A heavily blurred, slightly enlarged copy of the
+ *    artwork, drained of most of its saturation and covered by the palette's
+ *    dominant colour. It fills the whole screen, so the whole lower half
+ *    reads as one soft, monochrome-tinted wash.
+ *  - **The sharp art.** The cover itself, edge to edge, behind the status bar,
+ *    with the top corners rounded like a phone frame. An alpha mask dissolves
+ *    it into the bed, so there is no hard edge where the art ends.
  *
- * Lyrics and Queue use the same gradient with the artwork hidden: they are the
- * same surface, one mode with the poster and one without.
+ * The two layers live in one captured [hazeState] source and sit beside the
+ * controls rather than above them, so the glass buttons read the artwork and
+ * the gradient they actually stand on.
  */
 @Composable
 fun PlayerEdgeBackdrop(
     artworkUri: String?,
     title: String,
-    edgeColour: Color,
+    palette: ArtworkPalette,
     showArtwork: Boolean,
     hazeState: HazeState,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val stageHeight = playerStageHeight()
+    val screenHeightDp = LocalConfiguration.current.screenHeightDp
+    // The sharp art reaches past the 60% mark so its fade can finish at 70%
+    // of the screen, with the visible, undissolved cover filling the top 52%.
+    val artHeight = (screenHeightDp * ART_FADE_END).dp
+    val fadeStart = (FADE_START / ART_FADE_END).coerceIn(0f, 1f)
+
     Box(modifier = modifier.fillMaxSize()) {
-        // One captured layer - the edge-colour gradient plus the artwork that
-        // fades into it - and a sibling of the controls rather than their
-        // parent. The capture used to sit on the artwork stage alone, so the
-        // glass below the artwork blurred an empty layer and fell back to a
-        // flat tint: the controls came out dark instead of a light tint of the
-        // background they actually sit on.
+        // One captured layer: the blurred bed and the sharp art, so the glass
+        // controls blur the artwork and the gradient behind them.
         Box(
             Modifier
                 .fillMaxSize()
                 .hazeSource(hazeState),
         ) {
+            // The bed: blurred, desaturated art under a dominant-colour wash.
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0f to edgeColour,
-                            1f to edgeColour.deepenedAndSaturated(),
+                    .background(palette.deep),
+            ) {
+                if (!artworkUri.isNullOrBlank()) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            // Drain most of the colour so the wash reads as one
+                            // monochrome tint rather than as a second picture.
+                            // Colour filters need API 31; below that the bed
+                            // keeps the cover's own colours.
+                            .graphicsLayer {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    renderEffect = android.graphics.RenderEffect
+                                        .createColorFilterEffect(
+                                            android.graphics.ColorMatrixColorFilter(
+                                                android.graphics.ColorMatrix().apply {
+                                                    setSaturation(MONOCHROME_SATURATION)
+                                                },
+                                            ),
+                                        )
+                                        .asComposeRenderEffect()
+                                }
+                            },
+                    ) {
+                        Artwork(
+                            artworkUri = artworkUri,
+                            title = title,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .blur(BED_BLUR_RADIUS, BlurredEdgeTreatment.Rectangle)
+                                .scale(BED_SCALE),
+                            shape = RectangleShape,
+                            contentScale = ContentScale.Crop,
+                            targetPx = 1024,
+                            crossfadeMillis = EDGE_FADE_MS,
+                        )
+                    }
+                }
+                // The dominant colour over the bed, then a gradient down into
+                // the deep shade so the bottom of the screen holds the hue.
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(palette.dominant.copy(alpha = DOMINANT_OVERLAY)),
+                )
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0f to palette.dominant.copy(alpha = 0.20f),
+                                0.42f to palette.dominant.copy(alpha = 0.42f),
+                                0.72f to palette.dominant.copy(alpha = 0.50f),
+                                1f to palette.deep,
+                            ),
                         ),
-                    ),
-            )
+                )
+            }
+
+            // The sharp art.
             if (showArtwork && !artworkUri.isNullOrBlank()) {
-                val stageHeightPx = with(LocalDensity.current) { stageHeight.toPx().toInt() }
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(stageHeight)
-                        .align(Alignment.TopCenter),
+                        .height(artHeight)
+                        .align(Alignment.TopCenter)
+                        // The phone frame: rounded top corners.
+                        .clip(RoundedCornerShape(topStart = FRAME_CORNER, topEnd = FRAME_CORNER))
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }
+                        .drawWithContent {
+                            drawContent()
+                            // The alpha mask: opaque over the cover, then a
+                            // long smooth fade so the art dissolves into the
+                            // bed with no visible edge.
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    0f to Color.White,
+                                    fadeStart to Color.White,
+                                    // Eased out, so the cover melts into the
+                                    // bed instead of fading at a constant rate.
+                                    (fadeStart + (1f - fadeStart) * 0.35f) to
+                                        Color.White.copy(alpha = 0.62f),
+                                    (fadeStart + (1f - fadeStart) * 0.7f) to
+                                        Color.White.copy(alpha = 0.24f),
+                                    1f to Color.Transparent,
+                                ),
+                                blendMode = BlendMode.DstIn,
+                            )
+                        },
                 ) {
-                    // FillWidth: the aspect ratio survives, nothing zooms.
                     Artwork(
                         artworkUri = artworkUri,
                         title = title,
                         modifier = Modifier.fillMaxSize(),
                         shape = RectangleShape,
-                        contentScale = ContentScale.FillWidth,
+                        contentScale = ContentScale.Crop,
                         targetPx = 1280,
-                        // The cover crossfades in step with the gradient.
+                        // The cover crossfades in step with the palette.
                         crossfadeMillis = EDGE_FADE_MS,
-                    )
-                    // Eased fade over the bottom ~25% only; the rest of the
-                    // artwork is never tinted.
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight()
-                            .align(Alignment.BottomCenter)
-                            .background(
-                                Brush.verticalGradient(
-                                    0f to Color.Transparent,
-                                    0.74f to Color.Transparent,
-                                    0.86f to edgeColour.copy(alpha = 0.22f),
-                                    0.94f to edgeColour.copy(alpha = 0.62f),
-                                    1f to edgeColour,
-                                ),
-                            ),
                     )
                 }
             }
@@ -306,24 +374,26 @@ fun PlayerEdgeBackdrop(
     }
 }
 
-/** The height of the artwork stage: the top ~62% of the screen. */
-@Composable
-fun playerStageHeight(): androidx.compose.ui.unit.Dp =
-    (LocalConfiguration.current.screenHeightDp * 0.62f)
-        .dp
-        .coerceIn(420.dp, 560.dp)
+/** Where the art starts to dissolve into the bed, as a fraction of the screen. */
+private const val FADE_START = 0.52f
 
-/**
- * The gradient's lower stop: the same hue, a little darker and a little more
- * saturated, so the bottom of the screen has depth without the colour drifting.
- */
-fun Color.deepenedAndSaturated(darken: Float = 0.84f, saturationBoost: Float = 1.16f): Color {
-    val hsv = FloatArray(3)
-    android.graphics.Color.colorToHSV(toArgb(), hsv)
-    hsv[1] = (hsv[1] * saturationBoost).coerceIn(0f, 1f)
-    hsv[2] = (hsv[2] * darken).coerceIn(0f, 1f)
-    return Color(android.graphics.Color.HSVToColor(hsv))
-}
+/** Where the art has dissolved completely, as a fraction of the screen. */
+private const val ART_FADE_END = 0.70f
+
+/** The bed's blur radius. */
+private val BED_BLUR_RADIUS = 70.dp
+
+/** The bed's enlargement, so the blur has something to smear. */
+private const val BED_SCALE = 1.15f
+
+/** How much colour is left in the bed before the tint goes over it. */
+private const val MONOCHROME_SATURATION = 0.35f
+
+/** The dominant colour's share over the bed. */
+private const val DOMINANT_OVERLAY = 0.40f
+
+/** The screen's top corners, rounded like a phone frame. */
+private val FRAME_CORNER = 30.dp
 
 /**
  * Blurred artwork backdrop for album pages. API 26 cannot use a real backdrop

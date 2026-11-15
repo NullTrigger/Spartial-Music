@@ -57,6 +57,12 @@ data class Track(
     /** Licence line for CC content, e.g. "CC BY 4.0 · Jamendo". */
     val licenseNote: String? = null,
     val isExplicit: Boolean = false,
+    /**
+     * The audio format shown on the player's badge, when the source knows it:
+     * a lossless or otherwise named format. Null means "nothing to say", and
+     * the badge is hidden then.
+     */
+    val audioFormat: String? = null,
 ) {
     val isYoutube: Boolean get() = sourceId == SourceId.YOUTUBE
 }
