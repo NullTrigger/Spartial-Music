@@ -204,7 +204,6 @@ fun Modifier.liquidGlass(
                 Modifier
             },
         )
-        )
         .rim(shape, api33)
         .then(
             if (refraction && api33 && touchState != null) {
@@ -270,11 +269,11 @@ private fun DrawScope.drawOutlineStroke(outline: Outline, color: Color, stroke: 
 
         is Outline.Rounded -> drawRoundRect(
             color = color,
-            topLeft = Offset(outline.roundedRect.left, outline.roundedRect.top),
-            size = Size(outline.roundedRect.width, outline.roundedRect.height),
+            topLeft = Offset(outline.roundRect.left, outline.roundRect.top),
+            size = Size(outline.roundRect.width, outline.roundRect.height),
             cornerRadius = CornerRadius(
-                outline.roundedRect.topLeftCornerRadiusX,
-                outline.roundedRect.topLeftCornerRadiusY,
+                outline.roundRect.topLeftCornerRadius.x,
+                outline.roundRect.topLeftCornerRadius.y,
             ),
             style = stroke,
         )

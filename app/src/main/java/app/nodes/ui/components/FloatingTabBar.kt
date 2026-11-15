@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,6 +56,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -365,6 +367,13 @@ private fun TabPill(
         }
         var pressed by remember { mutableStateOf(false) }
         var stretch by remember { mutableFloatStateOf(0f) }
+        // While the finger is down the bubble *is* the finger. The Animatable
+        // only owns it at rest, because `awaitPointerEventScope` is a
+        // restricted suspending scope and cannot drive an animation from
+        // inside it.
+        var liveCentre by remember(items.size, pillWidthPx) {
+            mutableFloatStateOf(centreOf(selectedIndex))
+        }
 
         // Hard clamp: the bubble's bounds stay inside [4dp, pillWidth - 4dp].
         // No overshoot and no rubber band - a drag past the end simply stops.
@@ -390,6 +399,7 @@ private fun TabPill(
         val bubbleWidthDp = itemWidth * (1f + (BubblePressedWidthScale - 1f) * growAnimated.value)
         val bubbleHeightDp = BubbleRestHeight +
             (BubblePressedHeight - BubbleRestHeight) * growAnimated.value
+        val shownCentre = if (pressed) liveCentre else bubbleCentre.value
 
         // Layer 1: the pill's own glass. A sibling of the bubble, never its
         // parent, or the clip that rounds the pill would also cut the bubble's
@@ -405,8 +415,10 @@ private fun TabPill(
             Box(
                 modifier = Modifier
                     .offset(
-                        x = with(density) { (bubbleCentre.value - bubbleWidthDp.toPx() / 2f).toDp() },
-                        y = (PillHeight - bubbleHeightDp) / 2,
+                        x = with(density) {
+                            (shownCentre - bubbleWidthDp.toPx() / 2f).toDp()
+                        },
+                        y = (PillHeight - bubbleHeightDp) / 2f,
                     )
                     .size(bubbleWidthDp, bubbleHeightDp)
                     .graphicsLayer {
@@ -429,7 +441,7 @@ private fun TabPill(
                 Tab(
                     item = item,
                     selected = index == selectedIndex,
-                    proximity = proximityOf(bubbleCentre.value, centreOf(index), itemWidthPx),
+                    proximity = proximityOf(shownCentre, centreOf(index), itemWidthPx),
                     pressed = pressed,
                     onSelect = onSelect,
                     modifier = Modifier.weight(1f),
@@ -437,21 +449,33 @@ private fun TabPill(
             }
         }
 
+        // The gesture: raw pointer events on the whole pill. No drag detector
+        // and no touch slop, so the bubble starts moving on the frame the finger
+        // lands, and navigation happens once - on release.
+        //
+        // The loop is split in two on purpose. `awaitPointerEventScope` is a
+        // restricted suspending scope: it may only await pointer events, so the
+        // finger tracking below touches plain state and nothing else, and the
+        // spring back to the nearest tab runs outside it.
         val dragModifier = Modifier.pointerInput(items, pillWidthPx, itemWidthPx) {
-            awaitPointerEventScope {
-                while (true) {
+            while (true) {
+                var pressedNow = false
+                var releaseX = liveCentre
+                var releaseIndex = hoverIndex
+                awaitPointerEventScope {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
-                    if (event.type != PointerEventType.Press) continue
-                    val down = event.changes.firstOrNull() ?: continue
+                    if (event.type != PointerEventType.Press) return@awaitPointerEventScope
+                    val down = event.changes.firstOrNull() ?: return@awaitPointerEventScope
                     down.consume()
+                    pressedNow = true
                     val pointerId = down.id
 
                     pressed = true
                     stretch = 0f
                     bubbleTouch.pressed = true
                     bubbleTouch.position = down.position
-                    hoverIndex = hoverOf(clampCentre(down.position.x))
-                    bubbleCentre.snapTo(clampCentre(down.position.x))
+                    liveCentre = clampCentre(down.position.x)
+                    hoverIndex = hoverOf(liveCentre)
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
                     var lastX = down.position.x
@@ -464,7 +488,7 @@ private fun TabPill(
                         lastX = x
 
                         val clamped = clampCentre(x)
-                        bubbleCentre.snapTo(clamped)
+                        liveCentre = clamped
                         bubbleTouch.position = change.position
 
                         val hovered = hoverOf(clamped)
@@ -490,22 +514,30 @@ private fun TabPill(
                         if (!change.pressed) break
                     }
 
-                    // Release: snap to the nearest item, then navigate. The
-                    // bubble never navigates mid-drag.
-                    stretch = 0f
-                    bubbleTouch.pressed = false
-                    val target = hoverOf(bubbleCentre.value)
-                    hoverIndex = target
-                    pressed = false
-                    bubbleCentre.animateTo(
-                        targetValue = centreOf(target),
-                        animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
-                    )
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (items[target].route != currentRoute) {
-                        onSelect(items[target].route)
-                    }
+                    releaseX = liveCentre
+                    releaseIndex = hoverOf(liveCentre)
                 }
+                if (!pressedNow) continue
+
+                // Release: navigate first, then settle the bubble. Navigating
+                // after the snap animation would hold the selection back until
+                // the spring finished - the bubble never navigates mid-drag,
+                // but it must not delay the release either.
+                stretch = 0f
+                bubbleTouch.pressed = false
+                hoverIndex = releaseIndex
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                if (items[releaseIndex].route != currentRoute) {
+                    onSelect(items[releaseIndex].route)
+                }
+                // Hand the bubble over without a frame's pop: the Animatable
+                // takes the finger's last position before the flag flips.
+                bubbleCentre.snapTo(releaseX)
+                pressed = false
+                bubbleCentre.animateTo(
+                    targetValue = centreOf(releaseIndex),
+                    animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
+                )
             }
         }
         Box(Modifier.fillMaxSize().then(dragModifier))
