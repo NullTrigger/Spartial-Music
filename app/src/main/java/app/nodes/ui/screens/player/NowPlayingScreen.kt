@@ -151,9 +151,17 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.Abs
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
+
+/**
+ * How long the close waits before deciding that the pop never happened. It is
+ * longer than the navigation's exit transition, so a normal pop is never
+ * mistaken for a refused one.
+ */
+private const val POP_GRACE_MS = 500L
 
 /**
  * Full Now Playing, built around the three views in the reference design:
@@ -254,6 +262,19 @@ fun NowPlayingScreen(
     val dismissScope = rememberCoroutineScope()
     val dismissOffset = remember { Animatable(0f) }
     var dismissed by rememberSaveable { mutableStateOf(false) }
+
+    // The safety net for a refused pop: if the screen is still here a moment
+    // after the close, the pop never happened, so the player must come back
+    // instead of staying stuck half off screen.
+    LaunchedEffect(dismissed) {
+        if (dismissed) {
+            delay(POP_GRACE_MS)
+            if (dismissed) {
+                dismissed = false
+                dismissOffset.animateTo(0f, tween(200))
+            }
+        }
+    }
     val dismissDragModifier = Modifier
         .draggable(
             state = rememberDraggableState { delta ->
@@ -271,15 +292,22 @@ fun NowPlayingScreen(
                     val shouldClose = dismissOffset.value > screenHeightPx / 3f || velocity > 1_400f
                     if (shouldClose) {
                         dismissed = true
-                        dismissOffset.animateTo(screenHeightPx, tween(180))
+                        // Hand the gesture over to the navigation's exit
+                        // transition: the player is already where the finger
+                        // left it, and the transition carries it the rest of
+                        // the way over the home screen behind it.
+                        //
+                        // It used to animate the player off screen first and
+                        // then reset the offset straight after the pop, which
+                        // did two wrong things: the black base background was
+                        // revealed for a moment, and the reset put the full
+                        // player back on screen while the exit transition was
+                        // still running - so the player appeared again just
+                        // after the swipe that was meant to close it.
                         onBack()
-                        // The screen is leaving, but reset anyway: if the pop is
-                        // refused or the composition survives the transition, a
-                        // stuck flag would leave the player unable to swipe.
-                        dismissed = false
-                        dismissOffset.snapTo(0f)
                     } else {
                         dismissOffset.animateTo(0f, spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow))
+                        dismissed = false
                     }
                 }
             },
@@ -311,8 +339,6 @@ fun NowPlayingScreen(
             ) {
                 PlayerTopBar(
                     mode = mode,
-                    sourceName = sourceName,
-                    onBack = onBack,
                     onExitMode = { mode = PlayerMode.CONTROLS },
                 )
 
@@ -422,13 +448,21 @@ fun NowPlayingScreen(
     }
 }
 
+/**
+ * The bar above the stage.
+ *
+ * The controls view has no button at all: the player is closed by the
+ * swipe-down gesture or the system back button, and the chevron that used to
+ * sit there was drawn on top of the artwork's own title. Lyrics and Queue
+ * keep their back arrow, because they are modes inside the player rather
+ * than the player itself.
+ */
 @Composable
 private fun PlayerTopBar(
     mode: PlayerMode,
-    sourceName: String,
-    onBack: () -> Unit,
     onExitMode: () -> Unit,
 ) {
+    if (mode == PlayerMode.CONTROLS) return
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -436,17 +470,9 @@ private fun PlayerTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CircleIconButton(
-            icon = if (mode == PlayerMode.CONTROLS) {
-                Icons.Rounded.KeyboardArrowDown
-            } else {
-                Icons.AutoMirrored.Rounded.ArrowBack
-            },
-            contentDescription = if (mode == PlayerMode.CONTROLS) {
-                stringResource(R.string.action_close)
-            } else {
-                stringResource(R.string.cd_back)
-            },
-            onClick = if (mode == PlayerMode.CONTROLS) onBack else onExitMode,
+            icon = Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = stringResource(R.string.cd_back),
+            onClick = onExitMode,
             filled = true,
             background = Color.Black.copy(alpha = 0.26f),
         )

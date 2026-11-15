@@ -7,6 +7,7 @@ package app.nodes.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -30,12 +31,18 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -75,6 +82,14 @@ fun MiniPlayer(
     // Negative while dragging up, so the capsule lifts toward the player.
     val lift = remember { Animatable(0f) }
     val openThreshold = 72f
+    // How far the capsule travels when it hands over to the full player. It is
+    // measured from the capsule itself, so it leaves the screen exactly.
+    var capsuleHeightPx by remember { mutableIntStateOf(0) }
+    var exiting by remember { mutableStateOf(false) }
+    // Where the handover starts and ends, so the fade can follow the travel
+    // instead of the absolute position.
+    var exitFrom by remember { mutableFloatStateOf(0f) }
+    var exitTo by remember { mutableFloatStateOf(0f) }
     val dragModifier = Modifier
         .draggable(
             state = rememberDraggableState { delta ->
@@ -86,7 +101,19 @@ fun MiniPlayer(
             onDragStopped = { velocity ->
                 scope.launch {
                     if (lift.value < -openThreshold || velocity < -900f) {
-                        lift.snapTo(0f)
+                        // The gesture continues into the handover: the capsule
+                        // carries on up and out and fades as it goes. It used
+                        // to snap back to rest first, so the capsule jumped
+                        // back down and blinked out of the way in a single
+                        // frame while the player was still rising.
+                        exiting = true
+                        exitFrom = lift.value
+                        // Always further up than the finger already took it.
+                        exitTo = minOf(
+                            exitFrom - (if (capsuleHeightPx > 0) capsuleHeightPx.toFloat() else openThreshold),
+                            -openThreshold * 2f,
+                        )
+                        lift.animateTo(exitTo, tween(160))
                         onClick()
                     } else {
                         lift.animateTo(0f, spring())
@@ -96,7 +123,15 @@ fun MiniPlayer(
         )
         .graphicsLayer {
             translationY = lift.value
-            alpha = 1f - (-lift.value / (openThreshold * 3f)).coerceIn(0f, 0.6f)
+            alpha = if (exiting) {
+                // How far along the handover the capsule is, so it fades out
+                // exactly as it leaves.
+                val travel = (exitFrom - exitTo).coerceAtLeast(1f)
+                val progress = ((exitFrom - lift.value) / travel).coerceIn(0f, 1f)
+                1f - progress
+            } else {
+                1f - (-lift.value / (openThreshold * 3f)).coerceIn(0f, 0.6f)
+            }
         }
 
     Column(
@@ -104,6 +139,9 @@ fun MiniPlayer(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 3.dp)
             .then(dragModifier)
+            // The capsule's own height, so the handover animation can carry it
+            // exactly off the screen.
+            .onSizeChanged { size -> capsuleHeightPx = size.height }
             // The same real-blur glass as the bar, layout untouched.
             .then(glassNavBackdrop(Modifier, hazeState, RoundedCornerShape(22.dp)))
             .clickable(role = Role.Button, onClick = onClick),

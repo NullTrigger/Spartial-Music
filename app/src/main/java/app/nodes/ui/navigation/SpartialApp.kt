@@ -190,14 +190,14 @@ fun SpartialApp() {
                 enterTransition = {
                     slideIntoContainer(
                         AnimatedContentTransitionScope.SlideDirection.Up,
-                        animationSpec = tween(260),
-                    ) + fadeIn(tween(200))
+                        animationSpec = tween(220),
+                    ) + fadeIn(tween(160))
                 },
                 popExitTransition = {
                     slideOutOfContainer(
                         AnimatedContentTransitionScope.SlideDirection.Down,
-                        animationSpec = tween(240),
-                    ) + fadeOut(tween(180))
+                        animationSpec = tween(220),
+                    ) + fadeOut(tween(160))
                 },
             ) {
                 NowPlayingScreen(
