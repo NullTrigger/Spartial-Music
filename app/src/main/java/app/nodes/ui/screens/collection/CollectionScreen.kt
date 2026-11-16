@@ -145,7 +145,7 @@ class CollectionViewModel @Inject constructor(
 fun CollectionScreen(
     onBack: () -> Unit,
     onOpenArtist: (String) -> Unit,
-    onOpenAlbum: (String) -> Unit,
+    onOpenAlbum: (String, String?) -> Unit,
     viewModel: CollectionViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -349,7 +349,7 @@ fun CollectionScreen(
                                 onViewAlbum = track.album?.takeIf {
                                     it.isNotBlank() && it != viewModel.name
                                 }?.let { album ->
-                                    { onOpenAlbum(album) }
+                                    { onOpenAlbum(album, track.albumId) }
                                 },
                             )
                         },

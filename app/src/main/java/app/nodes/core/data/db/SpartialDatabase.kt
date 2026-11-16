@@ -17,7 +17,7 @@ import androidx.room.RoomDatabase
         PlaylistTrackEntity::class,
         RemoteCacheEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class SpartialDatabase : RoomDatabase() {

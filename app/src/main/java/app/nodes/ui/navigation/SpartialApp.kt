@@ -129,8 +129,8 @@ fun SpartialApp() {
                     onOpenArtist = { name ->
                         navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
                     },
-                    onOpenAlbum = { name ->
-                        navController.navigate(Routes.collection(Routes.COLLECTION_ALBUM, name))
+                    onOpenAlbum = { name, albumId ->
+                        navController.navigate(Routes.album(name, albumId))
                     },
                 )
             }
@@ -175,8 +175,8 @@ fun SpartialApp() {
                     onOpenArtist = { name ->
                         navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
                     },
-                    onOpenAlbum = { name ->
-                        navController.navigate(Routes.collection(Routes.COLLECTION_ALBUM, name))
+                    onOpenAlbum = { name, albumId ->
+                        navController.navigate(Routes.album(name, albumId))
                     },
                 )
             }
@@ -205,8 +205,8 @@ fun SpartialApp() {
                     onOpenArtist = { name ->
                         navController.navigate(Routes.collection(Routes.COLLECTION_ARTIST, name))
                     },
-                    onOpenAlbum = { name ->
-                        navController.navigate(Routes.collection(Routes.COLLECTION_ALBUM, name))
+                    onOpenAlbum = { name, albumId ->
+                        navController.navigate(Routes.album(name, albumId))
                     },
                 )
             }
@@ -276,10 +276,8 @@ fun SpartialApp() {
                                 Routes.collection(Routes.COLLECTION_ARTIST, artist),
                             )
                         },
-                        onOpenAlbum = { album ->
-                            navController.navigate(
-                                Routes.collection(Routes.COLLECTION_ALBUM, album),
-                            )
+                        onOpenAlbum = { album, albumId ->
+                            navController.navigate(Routes.album(album, albumId))
                         },
                     )
                 }
@@ -297,10 +295,8 @@ fun SpartialApp() {
                                 Routes.collection(Routes.COLLECTION_ARTIST, artist),
                             )
                         },
-                        onOpenAlbum = { album ->
-                            navController.navigate(
-                                Routes.collection(Routes.COLLECTION_ALBUM, album),
-                            )
+                        onOpenAlbum = { album, albumId ->
+                            navController.navigate(Routes.album(album, albumId))
                         },
                     )
                 }

@@ -75,6 +75,7 @@ class InnerTubeParserTest {
         assertEquals("One Love", track.title)
         assertEquals("Shubh", track.artist)
         assertEquals("One Love", track.album)
+        assertEquals("MPRE1", track.albumId)
         assertEquals(160_000L, track.durationMs)
         assertEquals("https://img.example/400.jpg", track.artworkUri)
     }

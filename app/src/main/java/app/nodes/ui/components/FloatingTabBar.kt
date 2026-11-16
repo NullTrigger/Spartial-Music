@@ -34,14 +34,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -88,17 +93,17 @@ private val PillHeight = 64.dp
 /** The bubble at rest is the item width by this height. */
 private val BubbleRestHeight = 56.dp
 
-/** Pressed, the bubble grows to 76dp - 6dp proud of the pill top and bottom. */
-private val BubblePressedHeight = 76.dp
+/** Pressed, the lens stands just 2dp proud of the pill, as in the reference. */
+private val BubblePressedHeight = 68.dp
 
-/** Pressed, the bubble is this much wider than its item. */
-private const val BubblePressedWidthScale = 1.2f
+/** Pressed, the bubble is only slightly wider; drag velocity adds the stretch. */
+private const val BubblePressedWidthScale = 1.08f
 
-/** The bubble never crosses the pill's padding, in either direction. */
-private const val BubbleMaxStretch = 0.12f
+/** A fast pull can stretch the lens across neighbouring destinations. */
+private const val BubbleMaxStretch = 0.65f
 
-/** Per-tab magnification while the bubble is pressed. */
-private const val TabPressScale = 0.1f
+/** Keep the selected glyph legible rather than magnifying it excessively. */
+private const val TabPressScale = 0.06f
 
 /** The mini player, above the nav row when expanded. */
 private val MiniPlayerHeight = 60.dp
@@ -343,6 +348,9 @@ private fun TabPill(
     val haptics = LocalHapticFeedback.current
     val selectedIndex = items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     val bubbleTouch = rememberLiquidTouch()
+    // Pointer input is a long-running coroutine. Always call the current
+    // callback, not the one captured when the bar was first composed.
+    val latestOnSelect by rememberUpdatedState(onSelect)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -365,6 +373,12 @@ private fun TabPill(
         var hoverIndex by remember(items.size, pillWidthPx) {
             mutableIntStateOf(selectedIndex)
         }
+        // One revisioned target drives every settle animation. Repeated taps
+        // on the current tab and external route changes use the same path.
+        var settleIndex by remember(items.size, pillWidthPx) {
+            mutableIntStateOf(selectedIndex)
+        }
+        var settleRevision by remember { mutableIntStateOf(0) }
         var pressed by remember { mutableStateOf(false) }
         var stretch by remember { mutableFloatStateOf(0f) }
         // While the finger is down the bubble *is* the finger. The Animatable
@@ -387,8 +401,8 @@ private fun TabPill(
         fun hoverOf(x: Float): Int =
             (0 until items.size).minByOrNull { abs(x - centreOf(it)) } ?: 0
 
-        // Rest is the item width; pressed it is 1.2x wider and 76dp tall, so it
-        // stands 6dp proud of the 64dp pill. A spring settles both.
+        // Rest is the item width; pressed it is 1.08x wider and 68dp tall,
+        // standing just 2dp proud of the 64dp pill. A spring settles both.
         val geometry = spring<Float>(dampingRatio = 0.75f, stiffness = 400f)
         val grow = if (pressed) 1f else 0f
         val growAnimated = animateFloatAsState(
@@ -400,6 +414,52 @@ private fun TabPill(
         val bubbleHeightDp = BubbleRestHeight +
             (BubblePressedHeight - BubbleRestHeight) * growAnimated.value
         val shownCentre = if (pressed) liveCentre else bubbleCentre.value
+        val animatedStretch by animateFloatAsState(
+            targetValue = if (pressed && !reduceMotion) stretch else 0f,
+            animationSpec = spring(dampingRatio = 0.68f, stiffness = 520f),
+            label = "bubbleStretch",
+        )
+
+        // Keep the lens useful with its local coordinates. The gesture is on
+        // the whole pill, while the refraction shader draws inside the bubble.
+        fun updateTouch(x: Float, y: Float) {
+            val width = itemWidthPx *
+                (1f + (BubblePressedWidthScale - 1f) * growAnimated.value)
+            val height = with(density) {
+                (BubbleRestHeight +
+                    (BubblePressedHeight - BubbleRestHeight) * growAnimated.value).toPx()
+            }
+            bubbleTouch.position = Offset(
+                x = x - (liveCentre - width / 2f),
+                y = y - (with(density) { PillHeight.toPx() } - height) / 2f,
+            )
+        }
+
+        // Route changes can also come from Back, accessibility or another
+        // control. They request a settle here; the effect below is the only
+        // owner of the resting Animatable, so animations cannot cancel or
+        // fight the gesture coroutine.
+        LaunchedEffect(selectedIndex, pillWidthPx, itemWidthPx) {
+            if (!pressed && settleIndex != selectedIndex) {
+                settleIndex = selectedIndex
+                settleRevision++
+            }
+        }
+        LaunchedEffect(settleIndex, settleRevision, pillWidthPx, itemWidthPx, reduceMotion) {
+            if (!pressed) {
+                val target = centreOf(settleIndex)
+                hoverIndex = settleIndex
+                liveCentre = target
+                if (reduceMotion) {
+                    bubbleCentre.snapTo(target)
+                } else {
+                    bubbleCentre.animateTo(
+                        targetValue = target,
+                        animationSpec = spring(dampingRatio = 0.72f, stiffness = 520f),
+                    )
+                }
+            }
+        }
 
         // Layer 1: the pill's own glass. A sibling of the bubble, never its
         // parent, or the clip that rounds the pill would also cut the bubble's
@@ -407,7 +467,14 @@ private fun TabPill(
         Box(
             Modifier
                 .fillMaxSize()
-                .liquidGlass(hazeState, RoundedCornerShape(32.dp)),
+                .liquidGlass(
+                    hazeState = hazeState,
+                    shape = RoundedCornerShape(percent = 50),
+                    // The lens carries the edge treatment on this bar. Painting
+                    // the rim and the fringe on both surfaces doubles them
+                    // where they overlap, which reads as a glitch.
+                    chroma = false,
+                ),
         )
 
         // Layer 2: the bubble. No clip on this box or anything above it.
@@ -422,14 +489,25 @@ private fun TabPill(
                     )
                     .size(bubbleWidthDp, bubbleHeightDp)
                     .graphicsLayer {
-                        // The velocity stretch only applies while it still fits.
-                        scaleX = 1f + stretch
+                        // Stretch is animated back to rest as well, so release
+                        // never turns the lens into a different shape in one frame.
+                        scaleX = 1f + animatedStretch
                     }
                     .liquidGlass(
                         hazeState = hazeState,
-                        shape = RoundedCornerShape(28.dp),
+                        shape = RoundedCornerShape(percent = 50),
                         touchState = bubbleTouch,
                         refraction = pressed && !reduceMotion,
+                        // The lens rides on top of the bar's glass, so it
+                        // carries its own shadow. A full one on both surfaces
+                        // piles up into a dark halo around the bubble.
+                        shadowElevation = LiquidGlassDefaults.lensShadowElevation,
+                        shadowAlpha = LiquidGlassDefaults.lensShadowAlpha,
+                        // A flat hairline instead of the shared rim gradient:
+                        // the bar's rim already provides the specular edge, and
+                        // two gradients on top of each other band badly.
+                        borderBrush = SolidColor(Color.White.copy(alpha = 0.30f)),
+                        borderWidth = 1.dp,
                     )
                     .testTag("bubble"),
             )
@@ -469,12 +547,13 @@ private fun TabPill(
                     down.consume()
                     pressedNow = true
                     val pointerId = down.id
+                    val dragOrigin = clampCentre(down.position.x)
 
                     pressed = true
                     stretch = 0f
                     bubbleTouch.pressed = true
-                    bubbleTouch.position = down.position
-                    liveCentre = clampCentre(down.position.x)
+                    liveCentre = dragOrigin
+                    updateTouch(down.position.x, down.position.y)
                     hoverIndex = hoverOf(liveCentre)
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
@@ -489,7 +568,7 @@ private fun TabPill(
 
                         val clamped = clampCentre(x)
                         liveCentre = clamped
-                        bubbleTouch.position = change.position
+                        updateTouch(x, change.position.y)
 
                         val hovered = hoverOf(clamped)
                         if (hovered != hoverIndex) {
@@ -497,18 +576,20 @@ private fun TabPill(
                             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
 
-                        // Velocity stretch, up to 12%, and only while the
-                        // stretched bubble still fits inside the clamp.
-                        val candidate = (speed / (itemWidthPx * 12f)).coerceIn(0f, BubbleMaxStretch)
-                        val stretchedWidth = itemWidthPx * BubblePressedWidthScale * (1f + candidate)
-                        stretch = if (
-                            clamped - stretchedWidth / 2f >= innerPaddingPx &&
-                            clamped + stretchedWidth / 2f <= pillWidthPx - innerPaddingPx
-                        ) {
-                            candidate
-                        } else {
-                            0f
-                        }
+                        // Travel creates the broad liquid stretch in the
+                        // reference; velocity adds a little extra on a flick.
+                        // The available room limits it smoothly at either end
+                        // instead of switching the stretch off in one frame.
+                        val travel = abs(clamped - dragOrigin) / itemWidthPx * 0.48f
+                        val velocity = speed / (itemWidthPx * 1.8f)
+                        val candidate = (travel + velocity).coerceIn(0f, BubbleMaxStretch)
+                        val baseWidth = itemWidthPx * BubblePressedWidthScale
+                        val availableWidth = 2f * minOf(
+                            clamped - innerPaddingPx,
+                            pillWidthPx - innerPaddingPx - clamped,
+                        )
+                        val room = (availableWidth / baseWidth - 1f).coerceAtLeast(0f)
+                        stretch = candidate.coerceAtMost(room)
 
                         change.consume()
                         if (!change.pressed) break
@@ -519,25 +600,23 @@ private fun TabPill(
                 }
                 if (!pressedNow) continue
 
-                // Release: navigate first, then settle the bubble. Navigating
-                // after the snap animation would hold the selection back until
-                // the spring finished - the bubble never navigates mid-drag,
-                // but it must not delay the release either.
+                // Hand over the current position before returning ownership to
+                // the spring. Navigation is deliberately not held until the
+                // animation finishes. Always report a real release, including
+                // Home: the caller decides whether to navigate or scroll top.
                 stretch = 0f
                 bubbleTouch.pressed = false
                 hoverIndex = releaseIndex
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                if (items[releaseIndex].route != currentRoute) {
-                    onSelect(items[releaseIndex].route)
-                }
-                // Hand the bubble over without a frame's pop: the Animatable
-                // takes the finger's last position before the flag flips.
                 bubbleCentre.snapTo(releaseX)
                 pressed = false
-                bubbleCentre.animateTo(
-                    targetValue = centreOf(releaseIndex),
-                    animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
-                )
+                settleIndex = releaseIndex
+                settleRevision++
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                // Always report the release, including Home. The caller
+                // decides between navigating and scrolling back to the top, so
+                // the bubble can never swallow a tap by comparing against a
+                // route it captured long ago.
+                latestOnSelect(items[releaseIndex].route)
             }
         }
         Box(Modifier.fillMaxSize().then(dragModifier))
@@ -557,10 +636,10 @@ private fun Tab(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // The accent follows the bubble's proximity rather than a hard selected
-    // flag, so the glow tracks the drag instead of jumping between tabs.
-    val inactive = SpartialWhite.copy(alpha = 0.60f)
-    val tint = lerp(inactive, navAccent, proximity)
+    // White selection under the clear lens, matching the reference. The fade
+    // follows proximity instead of jumping between accent-coloured tabs.
+    val inactive = SpartialWhite.copy(alpha = 0.62f)
+    val tint = lerp(inactive, SpartialWhite, proximity)
     // Magnification only while the bubble is held: at rest every icon is the
     // same size.
     val scale = 1f + TabPressScale * proximity * (if (pressed) 1f else 0f)

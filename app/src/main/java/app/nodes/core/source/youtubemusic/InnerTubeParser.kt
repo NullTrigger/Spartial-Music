@@ -138,7 +138,7 @@ internal object InnerTubeParser {
         val artist = parts.filter { it.isArtist }.joinToString(", ") { it.text }.ifBlank {
             parts.firstOrNull { !CLOCK.matches(it.text) }?.text ?: "YouTube Music"
         }
-        val album = parts.firstOrNull { it.isAlbum }?.text
+        val album = parts.firstOrNull { it.isAlbum }
         val clock = parts.lastOrNull { CLOCK.matches(it.text) }?.text
             ?: row["lengthText"]?.text()?.takeIf { CLOCK.matches(it) }
 
@@ -146,7 +146,8 @@ internal object InnerTubeParser {
             id = "ytmusic-$videoId",
             title = title,
             artist = artist,
-            album = album,
+            album = album?.text,
+            albumId = album?.albumId,
             artworkUri = musicThumbnail(row),
             mediaUri = null,
             durationMs = parseClock(clock),
@@ -467,9 +468,14 @@ internal object InnerTubeParser {
     private data class Section(
         val text: String,
         val pageTypes: Set<String>,
+        /** Browse id of each page type this section links to, e.g. the album. */
+        val browseIds: Map<String, String> = emptyMap(),
     ) {
         val isArtist: Boolean get() = PAGE_ARTIST in pageTypes
         val isAlbum: Boolean get() = PAGE_ALBUM in pageTypes
+
+        /** The album page this part links to, when it links to one. */
+        val albumId: String? get() = browseIds[PAGE_ALBUM]
     }
 
     /**
@@ -481,14 +487,16 @@ internal object InnerTubeParser {
         val sections = mutableListOf<Section>()
         var text = StringBuilder()
         var pageTypes = mutableSetOf<String>()
+        var browseIds = mutableMapOf<String, String>()
 
         fun flush() {
             val value = text.toString().trim()
             if (value.isNotEmpty() && value != "•") {
-                sections += Section(value, pageTypes)
+                sections += Section(value, pageTypes, browseIds)
             }
             text = StringBuilder()
             pageTypes = mutableSetOf()
+            browseIds = mutableMapOf()
         }
 
         for (element in runs) {
@@ -499,7 +507,10 @@ internal object InnerTubeParser {
                 continue
             }
             text.append(value)
-            run.runPageType()?.let(pageTypes::add)
+            run.runPageType()?.let { pageType ->
+                pageTypes += pageType
+                run.runBrowseId()?.let { browseIds[pageType] = it }
+            }
         }
         flush()
         return sections
@@ -580,6 +591,12 @@ internal object InnerTubeParser {
         (this["navigationEndpoint"] as? JsonObject)
             ?.get("browseEndpoint")?.obj()
             ?.browsePageType()
+
+    /** Browse id a subtitle run links to, e.g. the album a song is on. */
+    private fun JsonObject.runBrowseId(): String? =
+        (this["navigationEndpoint"] as? JsonObject)
+            ?.get("browseEndpoint")?.obj()
+            ?.get("browseId")?.string()
 
     private fun JsonElement?.obj(): JsonObject? = this as? JsonObject
 

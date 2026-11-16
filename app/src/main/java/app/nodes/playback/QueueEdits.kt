@@ -45,4 +45,32 @@ internal object QueueEdits {
         }
         return next
     }
+
+    /**
+     * Picks the tracks to append to a queue of one, so a single tap becomes a
+     * listening session instead of four minutes of music and silence.
+     *
+     * [candidates] is expected in preference order (listening history first);
+     * ranking is stable, so ties keep that order. Another track from the same
+     * album wins, then the same artist, then everything else - minus what the
+     * queue already holds, so nothing appears twice.
+     */
+    fun suggest(queue: List<Track>, candidates: List<Track>, limit: Int): List<Track> {
+        if (limit <= 0) return emptyList()
+        val seed = queue.firstOrNull() ?: return emptyList()
+        val excluded = queue.mapTo(HashSet()) { it.id }
+        return candidates
+            .distinctBy { it.id }
+            .filter { it.id !in excluded }
+            .sortedByDescending { affinity(seed, it) }
+            .take(limit)
+    }
+
+    /** Higher means a better fit for the queue's seed track. */
+    private fun affinity(seed: Track, candidate: Track): Int = when {
+        !seed.album.isNullOrBlank() && candidate.album.equals(seed.album, ignoreCase = true) -> 3
+        candidate.artist.isNotBlank() &&
+            candidate.artist.equals(seed.artist, ignoreCase = true) -> 2
+        else -> 1
+    }
 }

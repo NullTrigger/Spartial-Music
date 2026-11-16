@@ -103,6 +103,9 @@ class SuggestionsViewModel @Inject constructor(
                 val fresh = all
                     .filterNot { it.id in topIds || it.id in becauseIds }
                     .take(10)
+                // Record what was fetched: album and artist pages are a Room
+                // query over music the app has already seen.
+                runCatching { library.cacheTracks(all) }
                 _state.update {
                     it.copy(
                         loading = false,

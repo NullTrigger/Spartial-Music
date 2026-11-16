@@ -89,4 +89,52 @@ class QueueEditsTest {
 
         assertEquals(listOf("a", "b", "c"), result.map { it.id })
     }
+
+    private fun song(
+        id: String,
+        artist: String = "Demo",
+        album: String? = null,
+    ) = Track(id = id, title = id, artist = artist, album = album)
+
+    @Test
+    fun suggestionsRankTheSameAlbumFirstThenTheSameArtist() {
+        val seed = song("seed", artist = "Midnight Signals", album = "Night Drive")
+        val candidates = listOf(
+            song("other"),
+            song("same-artist", artist = "Midnight Signals"),
+            song("same-album", artist = "Midnight Signals", album = "Night Drive"),
+        )
+
+        val result = QueueEdits.suggest(
+            queue = listOf(seed),
+            candidates = candidates,
+            limit = 3,
+        )
+
+        assertEquals(listOf("same-album", "same-artist", "other"), result.map { it.id })
+    }
+
+    @Test
+    fun suggestionsSkipWhatTheQueueAlreadyHolds() {
+        val queue = listOf(song("seed"), song("already"))
+
+        val result = QueueEdits.suggest(
+            queue = queue,
+            candidates = listOf(song("seed"), song("already"), song("fresh")),
+            limit = 5,
+        )
+
+        assertEquals(listOf("fresh"), result.map { it.id })
+    }
+
+    @Test
+    fun suggestionsRespectTheLimitAndKeepCandidateOrderInTies() {
+        val result = QueueEdits.suggest(
+            queue = listOf(song("seed")),
+            candidates = listOf(song("one"), song("two"), song("three")),
+            limit = 2,
+        )
+
+        assertEquals(listOf("one", "two"), result.map { it.id })
+    }
 }

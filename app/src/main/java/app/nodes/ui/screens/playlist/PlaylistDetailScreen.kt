@@ -124,11 +124,16 @@ class PlaylistDetailViewModel @Inject constructor(
             // Not a local playlist, so it is a YouTube Music album, playlist or
             // the liked-songs list: load it through the provider.
             when (val result = registry.byId(SourceId.YOUTUBE_MUSIC)?.getPlaylist(playlistId)) {
-                is SourceResult.Success -> _state.value = PlaylistUiState(
-                    playlist = result.data.playlist,
-                    tracks = result.data.tracks,
-                    loading = false,
-                )
+                is SourceResult.Success -> {
+                    // Record what was fetched: album and artist pages are a
+                    // Room query over music the app has already seen.
+                    runCatching { library.cacheTracks(result.data.tracks) }
+                    _state.value = PlaylistUiState(
+                        playlist = result.data.playlist,
+                        tracks = result.data.tracks,
+                        loading = false,
+                    )
+                }
 
                 is SourceResult.Failure -> _state.value = PlaylistUiState(
                     loading = false,
@@ -166,7 +171,7 @@ fun PlaylistDetailScreen(
     playlistId: String,
     onBack: () -> Unit,
     onOpenArtist: (String) -> Unit = {},
-    onOpenAlbum: (String) -> Unit = {},
+    onOpenAlbum: (String, String?) -> Unit = { _, _ -> },
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -410,8 +415,8 @@ fun PlaylistDetailScreen(
                                 } else {
                                     null
                                 },
-                                onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let {
-                                    { onOpenAlbum(it) }
+                                onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let { album ->
+                                    { onOpenAlbum(album, track.albumId) }
                                 },
                             )
                         },

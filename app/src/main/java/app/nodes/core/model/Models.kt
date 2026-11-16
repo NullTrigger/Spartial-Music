@@ -40,6 +40,12 @@ data class Track(
     val title: String,
     val artist: String,
     val album: String? = null,
+    /**
+     * The provider's own id for the album this track is on, when it names one:
+     * the YouTube Music browse id ("MPRE…"). "View album" uses it to open the
+     * real album page; without it the UI can only fall back to the name.
+     */
+    val albumId: String? = null,
     val artworkUri: String? = null,
     val mediaUri: String? = null,
     val durationMs: Long = 0L,

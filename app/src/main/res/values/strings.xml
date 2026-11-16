@@ -169,6 +169,7 @@
     <string name="player_infinite_on">Infinite queue on — more of your listening is queued automatically.</string>
     <string name="player_infinite_off">Infinite queue off.</string>
     <string name="player_queue_extended">Queued %1$d more from your listening history.</string>
+    <string name="player_queue_suggestions">Queued %1$d suggestions to keep the music going.</string>
     <string name="player_queue_ended">Nothing more to queue yet — like more music and it shows up.</string>
     <string name="player_cast">Cast to a device</string>
     <string name="player_cast_unsupported">Casting needs the Google Play version of Spartial Music.</string>

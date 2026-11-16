@@ -28,6 +28,7 @@ import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -70,6 +72,10 @@ class PlaybackController @Inject constructor(
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
 
     private var controller: MediaController? = null
+
+    /** Completed the moment the session binding answers, good or bad. */
+    private var controllerReady = CompletableDeferred<MediaController?>()
+
     private var queue: List<Track> = emptyList()
 
     /**
@@ -95,6 +101,10 @@ class PlaybackController @Inject constructor(
 
     /** Id of the queue entry whose stream URL was already warmed. */
     private var prefetchedTrackId: String? = null
+
+    /** True while a one-song queue is being topped up with suggestions. */
+    @Volatile
+    private var seedingSuggestions = false
 
     private var sleepJob: Job? = null
 
@@ -233,6 +243,7 @@ class PlaybackController @Inject constructor(
 
     private fun connect() {
         if (controller != null) return
+        val ready = controllerReady
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         val future = MediaController.Builder(context, token).buildAsync()
         future.addListener(
@@ -242,22 +253,31 @@ class PlaybackController @Inject constructor(
                         controller = mediaController
                         mediaController.addListener(listener)
                         syncFromController()
+                        ready.complete(mediaController)
                     }
                     .onFailure { error ->
                         _state.update { it.copy(message = error.message ?: "Player unavailable.") }
+                        ready.complete(null)
                     }
             },
             ContextCompat.getMainExecutor(context),
         )
     }
 
+    /**
+     * The controller, as soon as it is bound.
+     *
+     * Waiting is event-driven: the old poll-every-100ms loop only noticed the
+     * binding a polling interval after the fact, which was dead air added to
+     * every start. A binding that failed once is retried with a fresh
+     * handshake; the wait itself is capped, because a session that cannot
+     * start must tell the user instead of hanging.
+     */
     private suspend fun awaitController(): MediaController? {
         controller?.let { return it }
-        repeat(20) {
-            delay(100)
-            controller?.let { return it }
-        }
-        return controller
+        if (controllerReady.isCompleted) controllerReady = CompletableDeferred()
+        connect()
+        return withTimeoutOrNull(CONTROLLER_WAIT_MS) { controllerReady.await() } ?: controller
     }
 
     fun playNow(track: Track, playbackQueue: List<Track> = listOf(track), forceRefresh: Boolean = false) {
@@ -307,7 +327,14 @@ class PlaybackController @Inject constructor(
 
             try {
                 val reason = applyHandle(track, playbackQueue, handle)
-                if (reason != null) fail(reason)
+                if (reason != null) {
+                    fail(reason)
+                } else if (queue.size <= 1) {
+                    // A queue of one stops after one song. Top it up with
+                    // suggestions right away, so one tap turns into a
+                    // listening session (see seedSuggestions).
+                    seedSuggestions()
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -784,6 +811,41 @@ class PlaybackController @Inject constructor(
     }
 
     /**
+     * Tops a queue of one up with suggestions so the music keeps going after
+     * the tapped song. Candidates come from the app's own cache - what the
+     * user has seen and played on this device - ranked by how well they fit
+     * the song that started it (same album, then same artist, then the rest).
+     * Local data only: like the infinite queue's extension, nothing is
+     * fetched from a provider for this.
+     */
+    private fun seedSuggestions() {
+        if (seedingSuggestions) return
+        seedingSuggestions = true
+        scope.launch {
+            try {
+                val candidates = buildList {
+                    runCatching { library.recentlyPlayed.first() }.getOrNull()?.let(::addAll)
+                    runCatching { library.likedTracks.first() }.getOrNull()?.let(::addAll)
+                    runCatching { library.allTracks.first() }.getOrNull()?.let(::addAll)
+                }
+                val suggestions = QueueEdits.suggest(queue, candidates, SUGGESTION_COUNT)
+                if (suggestions.isEmpty()) return@launch
+                publishQueue(queue + suggestions)
+                _state.update {
+                    it.copy(
+                        message = context.getString(
+                            R.string.player_queue_suggestions,
+                            suggestions.size,
+                        ),
+                    )
+                }
+            } finally {
+                seedingSuggestions = false
+            }
+        }
+    }
+
+    /**
      * Pauses playback once the timer runs out. Passing 0 (or less) cancels it.
      * The deadline is persisted so a timer keeps running while the app is away.
      */
@@ -903,5 +965,11 @@ class PlaybackController @Inject constructor(
 
         /** Tracks appended at a time while the infinite queue is on. */
         const val EXTEND_COUNT = 10
+
+        /** How many suggestions a one-song queue is topped up with. */
+        const val SUGGESTION_COUNT = 8
+
+        /** How long to wait for the session binding before giving up. */
+        const val CONTROLLER_WAIT_MS = 2_000L
     }
 }

@@ -190,7 +190,7 @@ private const val POP_GRACE_MS = 500L
 fun NowPlayingScreen(
     onBack: () -> Unit,
     onOpenArtist: (String) -> Unit = {},
-    onOpenAlbum: (String) -> Unit = {},
+    onOpenAlbum: (String, String?) -> Unit = { _, _ -> },
     viewModel: NowPlayingViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -430,7 +430,9 @@ fun NowPlayingScreen(
             },
             onViewAlbum = {
                 showTrackOptions = false
-                track.album?.takeIf { it.isNotBlank() }?.let(onOpenAlbum)
+                track.album?.takeIf { it.isNotBlank() }?.let { album ->
+                    onOpenAlbum(album, track.albumId)
+                }
             },
             onToggleLibrary = {
                 showTrackOptions = false
@@ -674,7 +676,7 @@ private fun QueueMode(
     onPlayNext: (Track) -> Unit,
     onAddToQueue: (Track) -> Unit,
     onOpenArtist: (String) -> Unit,
-    onOpenAlbum: (String) -> Unit,
+    onOpenAlbum: (String, String?) -> Unit,
     onOpenControls: () -> Unit,
     onInfinite: () -> Unit,
     modifier: Modifier = Modifier,
@@ -730,7 +732,7 @@ private fun QueueMode(
                             null
                         },
                         onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let { album ->
-                            { onOpenAlbum(album) }
+                            { onOpenAlbum(album, track.albumId) }
                         },
                         onRemoveFromQueue = { onRemove(index) },
                         removeEnabled = index != state.queueIndex,

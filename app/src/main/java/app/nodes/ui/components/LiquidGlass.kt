@@ -124,6 +124,14 @@ object LiquidGlassDefaults {
     /** Soft shadow: y 6dp, blur 20dp, black ~25%. */
     const val shadowElevation = 20
     const val shadowAlpha = 0.25f
+
+    /**
+     * A lens that sits on top of another glass surface needs a much smaller
+     * shadow than a surface on its own. Two full shadows overlap into a dark
+     * halo, which reads as a glitch rather than as a raised bubble.
+     */
+    const val lensShadowElevation = 8
+    const val lensShadowAlpha = 0.16f
 }
 
 /**
@@ -163,6 +171,10 @@ fun rememberLiquidTouch(): LiquidTouchState = remember { LiquidTouchState() }
  * @param borderBrush the rim stroke's paint; null keeps the default gradient.
  * @param chroma whether the chromatic fringe is drawn on the rim. It is off
  *   for the player's buttons, where a coloured fringe would break the tint.
+ * @param shadowElevation the drop shadow's height in dp. Lower it for a lens
+ *   that sits on top of another glass surface, so the two shadows do not
+ *   pile up into a dark halo.
+ * @param shadowAlpha the drop shadow's opacity.
  */
 fun Modifier.liquidGlass(
     hazeState: HazeState?,
@@ -173,16 +185,18 @@ fun Modifier.liquidGlass(
     borderWidth: Dp = LiquidGlassDefaults.rimWidth,
     borderBrush: Brush? = null,
     chroma: Boolean = true,
+    shadowElevation: Int = LiquidGlassDefaults.shadowElevation,
+    shadowAlpha: Float = LiquidGlassDefaults.shadowAlpha,
 ): Modifier {
     val api31 = Build.VERSION.SDK_INT >= 31
     val api33 = Build.VERSION.SDK_INT >= 33
     return this
         .shadow(
-            elevation = LiquidGlassDefaults.shadowElevation.dp,
+            elevation = shadowElevation.dp,
             shape = shape,
             clip = false,
-            ambientColor = Color.Black.copy(alpha = LiquidGlassDefaults.shadowAlpha),
-            spotColor = Color.Black.copy(alpha = LiquidGlassDefaults.shadowAlpha),
+            ambientColor = Color.Black.copy(alpha = shadowAlpha),
+            spotColor = Color.Black.copy(alpha = shadowAlpha),
         )
         .clip(shape)
         .then(

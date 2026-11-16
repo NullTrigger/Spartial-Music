@@ -46,4 +46,12 @@ object Routes {
         "collection/$kind/${Uri.encode(name)}"
 
     fun playlist(id: String): String = "playlist/$id"
+
+    /**
+     * An album page. With the provider's own album id the real album loads
+     * through the collection route; without one, the name-keyed cache page is
+     * the best the app can do.
+     */
+    fun album(name: String, albumId: String?): String =
+        albumId?.let { playlist(it) } ?: collection(COLLECTION_ALBUM, name)
 }

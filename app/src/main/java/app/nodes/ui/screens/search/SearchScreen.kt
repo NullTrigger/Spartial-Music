@@ -76,7 +76,7 @@ private data class BrowseEntry(
 fun SearchScreen(
     onBack: (() -> Unit)? = null,
     onOpenArtist: (String) -> Unit = {},
-    onOpenAlbum: (String) -> Unit = {},
+    onOpenAlbum: (String, String?) -> Unit = { _, _ -> },
     viewModel: SearchViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -243,7 +243,7 @@ fun SearchScreen(
                                     items(state.albums, key = { "album-${it.name}" }) { album ->
                                         AlbumResultCard(
                                             album = album,
-                                            onClick = { onOpenAlbum(album.name) },
+                                            onClick = { onOpenAlbum(album.name, album.albumId) },
                                             modifier = Modifier.width(144.dp),
                                         )
                                     }
@@ -306,7 +306,7 @@ fun SearchScreen(
                                     row.forEach { album ->
                                         AlbumResultCard(
                                             album = album,
-                                            onClick = { onOpenAlbum(album.name) },
+                                            onClick = { onOpenAlbum(album.name, album.albumId) },
                                             modifier = Modifier.weight(1f),
                                         )
                                     }
@@ -418,7 +418,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.songItems(
     onPlayNext: (app.nodes.core.model.Track) -> Unit,
     onAddToQueue: (app.nodes.core.model.Track) -> Unit,
     onOpenArtist: (String) -> Unit,
-    onOpenAlbum: (String) -> Unit,
+    onOpenAlbum: (String, String?) -> Unit,
 ) {
     items(items = state.results, key = { "song-${it.id}" }) { track ->
         SongRow(
@@ -439,7 +439,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.songItems(
                         null
                     },
                     onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let { album ->
-                        { onOpenAlbum(album) }
+                        { onOpenAlbum(album, track.albumId) }
                     },
                 )
             },

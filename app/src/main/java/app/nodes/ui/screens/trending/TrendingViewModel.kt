@@ -68,13 +68,18 @@ class TrendingViewModel @Inject constructor(
         _state.update { it.copy(loading = true, error = null, sourceId = sourceId) }
         val source = registry.byId(sourceId) ?: registry.primary()
         when (val result = source.getTrending(30)) {
-            is SourceResult.Success -> _state.update {
-                it.copy(
-                    loading = false,
-                    tracks = result.data,
-                    error = if (result.data.isEmpty()) SourceErrorType.NOT_FOUND else null,
-                    sourceName = source.displayName,
-                )
+            is SourceResult.Success -> {
+                // Record what was fetched: album and artist pages are a Room
+                // query over music the app has already seen.
+                runCatching { library.cacheTracks(result.data) }
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        tracks = result.data,
+                        error = if (result.data.isEmpty()) SourceErrorType.NOT_FOUND else null,
+                        sourceName = source.displayName,
+                    )
+                }
             }
 
             is SourceResult.Failure -> _state.update {

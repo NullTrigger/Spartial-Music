@@ -43,6 +43,8 @@ data class SearchAlbum(
     val artist: String,
     val artworkUri: String?,
     val trackCount: Int,
+    /** The provider's album page id when the rows name one; null keeps the name-only fallback. */
+    val albumId: String? = null,
 )
 
 /** An artist derived from the song results. */
@@ -171,15 +173,20 @@ class SearchViewModel @Inject constructor(
         // the old answer under the new text is worse than showing nothing.
         if (trimmed != _query.value.trim()) return
         when (result) {
-            is SourceResult.Success -> _state.update {
-                it.copy(
-                    loading = false,
-                    results = result.data,
-                    albums = albumGroups(result.data),
-                    artists = artistGroups(result.data),
-                    error = null,
-                    searched = true,
-                )
+            is SourceResult.Success -> {
+                // Record what was fetched: album and artist pages are a Room
+                // query over music the app has already seen.
+                runCatching { library.cacheTracks(result.data) }
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        results = result.data,
+                        albums = albumGroups(result.data),
+                        artists = artistGroups(result.data),
+                        error = null,
+                        searched = true,
+                    )
+                }
             }
 
             is SourceResult.Failure -> _state.update {
@@ -206,6 +213,7 @@ private fun albumGroups(tracks: List<Track>): List<SearchAlbum> =
                 artist = rows.first().artist,
                 artworkUri = rows.firstNotNullOfOrNull { it.artworkUri },
                 trackCount = rows.size,
+                albumId = rows.firstOrNull { it.albumId != null }?.albumId,
             )
         }
         .sortedByDescending { it.trackCount }

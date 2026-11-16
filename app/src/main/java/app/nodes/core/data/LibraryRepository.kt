@@ -88,9 +88,16 @@ class LibraryRepository @Inject constructor(
         )
     }
 
+    /**
+     * Records the tracks the app has seen, so artist and album pages can show
+     * them without another fetch. Rows that are not songs (album and playlist
+     * cards) never enter the cache: they cannot play and would show up as
+     * phantom entries in the Songs list and in queue suggestions.
+     */
     suspend fun cacheTracks(tracks: List<Track>) {
-        if (tracks.isEmpty()) return
-        trackDao.upsertAll(tracks.map { it.toEntity() })
+        val playable = tracks.filter { it.videoId != null || it.mediaUri != null }
+        if (playable.isEmpty()) return
+        trackDao.upsertAll(playable.map { it.toEntity() })
     }
 
     suspend fun toggleLike(track: Track): Boolean {
