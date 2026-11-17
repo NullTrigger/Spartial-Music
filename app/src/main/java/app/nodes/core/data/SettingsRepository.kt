@@ -15,7 +15,10 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.nodes.core.lyrics.LyricsProviders
+import app.nodes.core.model.EqualizerSettings
 import app.nodes.core.model.SourceId
+import app.nodes.core.model.decodeEqualizerSettings
+import app.nodes.core.model.encode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -165,6 +168,14 @@ class SettingsRepository @Inject constructor(
         prefs[KEY_QUOTA_USED] = used
     }
 
+    /** Equalizer state as one JSON blob; see [EqualizerSettings]. */
+    val equalizerSettings: Flow<EqualizerSettings> = dataStore.data.map { prefs ->
+        decodeEqualizerSettings(prefs[KEY_EQUALIZER])
+    }
+
+    suspend fun setEqualizerSettings(equalizer: EqualizerSettings) =
+        dataStore.edit { it[KEY_EQUALIZER] = equalizer.encode() }
+
     private companion object {
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
@@ -187,6 +198,7 @@ class SettingsRepository @Inject constructor(
         val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val KEY_STOP_MUSIC_ON_TASK_CLEAR = booleanPreferencesKey("stop_music_on_task_clear")
         val KEY_SLEEP_TIMER_ENDS_AT = longPreferencesKey("sleep_timer_ends_at")
+        val KEY_EQUALIZER = stringPreferencesKey("equalizer_settings")
 
         const val MIN_SPEED = 0.5f
         const val MAX_SPEED = 2.0f

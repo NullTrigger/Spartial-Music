@@ -41,6 +41,7 @@ import app.nodes.ui.components.ErrorState
 import app.nodes.ui.components.LoadingRows
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.SectionHeader
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
@@ -214,12 +215,14 @@ private fun SuggestionSongRow(
     SongRow(
         track = track,
         onClick = onClick,
+        onLongClick = { AddToPlaylistBus.request(track) },
         showDownload = false,
         showStar = false,
         menu = {
             TrackMenuButton(
                 onPlayNext = { playerViewModel.playNext(track) },
                 onAddToQueue = { playerViewModel.addToQueue(track) },
+                onAddToPlaylist = { AddToPlaylistBus.request(track) },
                 onViewArtist = if (track.artist.isNotBlank()) {
                     { onOpenArtist(track.artist) }
                 } else {

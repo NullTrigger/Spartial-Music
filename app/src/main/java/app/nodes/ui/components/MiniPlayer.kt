@@ -10,6 +10,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -64,7 +65,8 @@ import kotlinx.coroutines.launch
  * follows the finger and opens on release, which is the gesture the full player
  * answers with a downward swipe. The transport controls remain separate touch
  * targets. A hairline at the top carries playback progress without adding a
- * second row of chrome.
+ * second row of chrome. A long-press opens the track menu, where the current
+ * track can be added to a playlist without opening the full player.
  */
 @Composable
 fun MiniPlayer(
@@ -77,8 +79,12 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
     progress: Float = 0f,
     hazeState: HazeState? = null,
+    onPlayNext: () -> Unit = {},
+    onAddToQueue: () -> Unit = {},
+    onAddToPlaylist: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
+    var menuOpen by remember { mutableStateOf(false) }
     // Negative while dragging up, so the capsule lifts toward the player.
     val lift = remember { Animatable(0f) }
     val openThreshold = 72f
@@ -144,7 +150,16 @@ fun MiniPlayer(
             .onSizeChanged { size -> capsuleHeightPx = size.height }
             // The same real-blur glass as the bar, layout untouched.
             .then(glassNavBackdrop(Modifier, hazeState, RoundedCornerShape(22.dp)))
-            .clickable(role = Role.Button, onClick = onClick),
+            // Tap opens the player; long-press opens the track menu.
+            .combinedClickable(
+                role = Role.Button,
+                onClick = onClick,
+                onLongClick = if (onAddToPlaylist != null) {
+                    { menuOpen = true }
+                } else {
+                    null
+                },
+            ),
     ) {
         if (progress > 0f) {
             Box(
@@ -231,5 +246,12 @@ fun MiniPlayer(
                 )
             }
         }
+        TrackMenuDropdown(
+            expanded = menuOpen,
+            onDismiss = { menuOpen = false },
+            onPlayNext = onPlayNext,
+            onAddToQueue = onAddToQueue,
+            onAddToPlaylist = onAddToPlaylist,
+        )
     }
 }

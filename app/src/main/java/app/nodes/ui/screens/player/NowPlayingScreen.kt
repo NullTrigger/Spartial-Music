@@ -59,6 +59,7 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
@@ -121,6 +122,7 @@ import app.nodes.core.model.Track
 import app.nodes.core.util.formatDuration
 import app.nodes.playback.PlayerUiState
 import app.nodes.playback.RepeatMode
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.CastRouteButton
 import app.nodes.ui.components.CircleIconButton
@@ -191,6 +193,7 @@ fun NowPlayingScreen(
     onBack: () -> Unit,
     onOpenArtist: (String) -> Unit = {},
     onOpenAlbum: (String, String?) -> Unit = { _, _ -> },
+    onOpenEqualizer: () -> Unit = {},
     viewModel: NowPlayingViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -413,6 +416,7 @@ fun NowPlayingScreen(
                     onOpenQueue = { mode = PlayerMode.QUEUE },
                     onOpenControls = { mode = PlayerMode.CONTROLS },
                     onAddToQueue = { playerViewModel.addToQueue(track) },
+                    onAddToPlaylist = { AddToPlaylistBus.request(track) },
                     onMore = { showTrackOptions = true },
                 )
             }
@@ -424,6 +428,10 @@ fun NowPlayingScreen(
             track = track,
             liked = liked,
             onDismiss = { showTrackOptions = false },
+            onOpenEqualizer = {
+                showTrackOptions = false
+                onOpenEqualizer()
+            },
             onViewArtist = {
                 showTrackOptions = false
                 if (track.artist.isNotBlank()) onOpenArtist(track.artist)
@@ -908,6 +916,7 @@ private fun PlayerDock(
     onOpenQueue: () -> Unit,
     onOpenControls: () -> Unit,
     onAddToQueue: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onMore: () -> Unit,
 ) {
     Column(
@@ -928,6 +937,7 @@ private fun PlayerDock(
                 liked = liked,
                 onToggleLike = onToggleLike,
                 onAddToQueue = onAddToQueue,
+                onAddToPlaylist = onAddToPlaylist,
                 onMore = onMore,
                 onOpenLyrics = onOpenLyrics,
                 onOpenQueue = onOpenQueue,
@@ -969,6 +979,7 @@ private fun ControlsActionRow(
     liked: Boolean,
     onToggleLike: () -> Unit,
     onAddToQueue: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onMore: () -> Unit,
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
@@ -1043,6 +1054,12 @@ private fun ControlsActionRow(
                     contentDescription = stringResource(R.string.player_like),
                     tint = SpartialWhite,
                     onClick = onToggleLike,
+                )
+                DockAction(
+                    icon = Icons.AutoMirrored.Rounded.PlaylistAddCheck,
+                    contentDescription = stringResource(R.string.player_add_to_playlist),
+                    tint = SpartialWhite,
+                    onClick = onAddToPlaylist,
                 )
                 DockAction(
                     icon = Icons.Rounded.MusicNote,
@@ -1467,6 +1484,7 @@ private fun TrackOptionsSheet(
     onToggleLibrary: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
+    onOpenEqualizer: () -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1515,6 +1533,11 @@ private fun TrackOptionsSheet(
             label = stringResource(R.string.player_add_to_queue),
             icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
             onClick = onAddToQueue,
+        )
+        SheetAction(
+            label = stringResource(R.string.player_equalizer),
+            icon = Icons.Rounded.GraphicEq,
+            onClick = onOpenEqualizer,
         )
         if (link != null) {
             SheetAction(

@@ -143,8 +143,44 @@ interface LibraryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylistTrack(cross: PlaylistTrackEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPlaylistTracks(rows: List<PlaylistTrackEntity>)
+
+    /** Caches a track from inside a playlist transaction (same database). */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTrack(track: TrackEntity)
+
     @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun nextSortOrder(playlistId: String): Int
+
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM playlist_tracks
+            WHERE playlistId = :playlistId AND trackId = :trackId
+        )
+        """,
+    )
+    suspend fun playlistContains(playlistId: String, trackId: String): Boolean
+
+    @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId AND trackId = :trackId")
+    suspend fun removeFromPlaylist(playlistId: String, trackId: String)
+
+    @Query("SELECT * FROM playlist_tracks WHERE playlistId = :playlistId ORDER BY sortOrder ASC")
+    suspend fun playlistTrackRows(playlistId: String): List<PlaylistTrackEntity>
+
+    @Query(
+        """
+        SELECT p.* FROM user_playlists p
+        INNER JOIN playlist_tracks pt ON pt.playlistId = p.id
+        WHERE pt.trackId = :trackId
+        ORDER BY p.createdAt DESC
+        """,
+    )
+    fun playlistsContaining(trackId: String): Flow<List<PlaylistEntity>>
+
+    @Query("UPDATE user_playlists SET name = :name, updatedAt = :now WHERE id = :id")
+    suspend fun renamePlaylist(id: String, name: String, now: Long)
 
     @Query(
         """
@@ -162,9 +198,42 @@ interface LibraryDao {
     @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun deletePlaylistTracks(playlistId: String)
 
+    /**
+     * Adds one track to a playlist as a single transaction: the cached track
+     * row and the cross row commit together, so a playlist can never point at
+     * a track that is not in the cache. The unique (playlistId, trackId) index
+     * is the invariant; the existence check turns it into a friendly result.
+     *
+     * @return true when the track was added, false when it was already there.
+     */
     @Transaction
-    suspend fun addToPlaylist(playlistId: String, trackId: String) {
-        insertPlaylistTrack(PlaylistTrackEntity(playlistId, nextSortOrder(playlistId), trackId))
+    suspend fun addToPlaylist(playlistId: String, track: TrackEntity): Boolean {
+        if (playlistContains(playlistId, track.id)) return false
+        insertTrack(track)
+        insertPlaylistTrack(PlaylistTrackEntity(playlistId, nextSortOrder(playlistId), track.id))
+        return true
+    }
+
+    /** Creates a playlist that starts with one track, in one transaction. */
+    @Transaction
+    suspend fun createPlaylistWithFirstTrack(playlist: PlaylistEntity, track: TrackEntity) {
+        upsertPlaylist(playlist)
+        insertTrack(track)
+        insertPlaylistTrack(PlaylistTrackEntity(playlist.id, 0, track.id))
+    }
+
+    /** Rewrites one playlist's order in one transaction (drag reorder). */
+    @Transaction
+    suspend fun replacePlaylistTracks(playlistId: String, rows: List<PlaylistTrackEntity>) {
+        deletePlaylistTracks(playlistId)
+        insertPlaylistTracks(rows)
+    }
+
+    /** Deletes a playlist and its rows in one transaction. */
+    @Transaction
+    suspend fun deletePlaylistCompletely(playlistId: String) {
+        deletePlaylistTracks(playlistId)
+        deletePlaylist(playlistId)
     }
 }
 

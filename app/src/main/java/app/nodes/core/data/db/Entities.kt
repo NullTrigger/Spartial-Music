@@ -6,6 +6,7 @@
 package app.nodes.core.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import app.nodes.core.model.SourceId
 import app.nodes.core.model.Track
@@ -53,7 +54,15 @@ data class PlaylistEntity(
     val updatedAt: Long,
 )
 
-@Entity(tableName = "playlist_tracks", primaryKeys = ["playlistId", "sortOrder"])
+/**
+ * A playlist row. One track appears at most once per playlist: the unique
+ * (playlistId, trackId) index is the invariant, added in schema v3.
+ */
+@Entity(
+    tableName = "playlist_tracks",
+    primaryKeys = ["playlistId", "sortOrder"],
+    indices = [Index(value = ["playlistId", "trackId"], unique = true)],
+)
 data class PlaylistTrackEntity(
     val playlistId: String,
     val sortOrder: Int,

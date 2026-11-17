@@ -5,6 +5,8 @@
 
 package app.nodes.ui.screens.playlist
 
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,29 +22,41 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +82,7 @@ import app.nodes.ui.components.MetaRow
 import app.nodes.ui.components.PillButton
 import app.nodes.ui.components.PillStyle
 import app.nodes.ui.components.PlayerBackdrop
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.runtimeLabel
@@ -84,6 +99,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.DateFormat
 import java.util.Date
 import javax.inject.Inject
@@ -93,6 +110,8 @@ data class PlaylistUiState(
     val tracks: List<Track> = emptyList(),
     val loading: Boolean = true,
     val error: SourceErrorType? = null,
+    /** True for local playlists, the only editable ones. */
+    val isLocal: Boolean = false,
 )
 
 @HiltViewModel
@@ -103,6 +122,9 @@ class PlaylistDetailViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(PlaylistUiState())
     val state: StateFlow<PlaylistUiState> = _state.asStateFlow()
+
+    // Serializes drag-reorder writes so rapid moves apply in order.
+    private val reorderMutex = Mutex()
 
     val likedIds: StateFlow<Set<String>> = library.likedTracks
         .map { tracks -> tracks.mapTo(HashSet()) { it.id } }
@@ -117,6 +139,7 @@ class PlaylistDetailViewModel @Inject constructor(
                     playlist = detail.playlist,
                     tracks = detail.tracks,
                     loading = false,
+                    isLocal = true,
                 )
                 return@launch
             }
@@ -158,6 +181,53 @@ class PlaylistDetailViewModel @Inject constructor(
             tracks.forEach { library.setLiked(it, liked) }
         }
     }
+
+    /** Removes one row; local playlists only. The cached track itself stays. */
+    fun removeTrack(track: Track) {
+        val playlistId = _state.value.playlist?.id ?: return
+        _state.value = _state.value.copy(
+            tracks = _state.value.tracks.filterNot { it.id == track.id },
+        )
+        viewModelScope.launch { library.removeFromPlaylist(playlistId, track.id) }
+    }
+
+    /**
+     * Moves one row up or down by [delta] steps - drag reorder. The list
+     * updates immediately and the store follows under a mutex, so rapid
+     * drags apply in the order they happened.
+     */
+    fun moveTrack(trackId: String, delta: Int) {
+        val playlistId = _state.value.playlist?.id ?: return
+        val tracks = _state.value.tracks
+        val from = tracks.indexOfFirst { it.id == trackId }
+        if (from < 0) return
+        val to = (from + delta).coerceIn(0, tracks.lastIndex)
+        if (from == to) return
+        _state.value = _state.value.copy(
+            tracks = tracks.toMutableList().apply { add(to, removeAt(from)) },
+        )
+        viewModelScope.launch {
+            reorderMutex.withLock { library.movePlaylistTrack(playlistId, from, to) }
+        }
+    }
+
+    fun renamePlaylist(name: String) {
+        val trimmed = name.trim()
+        val playlistId = _state.value.playlist?.id ?: return
+        if (trimmed.isEmpty()) return
+        _state.value = _state.value.copy(
+            playlist = _state.value.playlist?.copy(title = trimmed),
+        )
+        viewModelScope.launch { library.renamePlaylist(playlistId, trimmed) }
+    }
+
+    fun deletePlaylist(onDeleted: () -> Unit) {
+        val playlistId = _state.value.playlist?.id ?: return
+        viewModelScope.launch {
+            library.deletePlaylist(playlistId)
+            onDeleted()
+        }
+    }
 }
 
 /**
@@ -187,6 +257,8 @@ fun PlaylistDetailScreen(
     val heroTitleOffset = LocalConfiguration.current.screenHeightDp.dp * 0.54f
     val allLiked = tracks.isNotEmpty() && tracks.all { it.id in likedIds }
     var menuOpen by remember { mutableStateOf(false) }
+    var renameOpen by remember { mutableStateOf(false) }
+    var deleteOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(playlistId) { viewModel.load(playlistId) }
 
@@ -264,6 +336,25 @@ fun PlaylistDetailScreen(
                                 ) {
                                     menuOpen = false
                                     viewModel.setAllLiked(!allLiked)
+                                }
+                                if (state.isLocal) {
+                                    HorizontalDivider()
+                                    PlaylistMenuItem(
+                                        label = stringResource(R.string.playlist_rename),
+                                        icon = Icons.Rounded.Edit,
+                                        enabled = true,
+                                    ) {
+                                        menuOpen = false
+                                        renameOpen = true
+                                    }
+                                    PlaylistMenuItem(
+                                        label = stringResource(R.string.playlist_delete),
+                                        icon = Icons.Rounded.DeleteOutline,
+                                        enabled = true,
+                                    ) {
+                                        menuOpen = false
+                                        deleteOpen = true
+                                    }
                                 }
                             }
                         }
@@ -396,31 +487,73 @@ fun PlaylistDetailScreen(
                 }
 
                 itemsIndexed(items = tracks, key = { _, track -> track.id }) { index, track ->
-                    SongRow(
-                        track = track,
-                        onClick = { playerViewModel.play(track, tracks) },
-                        position = index + 1,
-                        isLiked = track.id in likedIds,
-                        onToggleLike = { viewModel.toggleLike(track) },
-                        showDownload = false,
-                        active = track.id == playerState.current?.id,
-                        activePlaying = track.id == playerState.current?.id &&
-                            playerState.isPlaying,
-                        menu = {
-                            TrackMenuButton(
-                                onPlayNext = { playerViewModel.playNext(track) },
-                                onAddToQueue = { playerViewModel.addToQueue(track) },
-                                onViewArtist = if (track.artist.isNotBlank()) {
-                                    { onOpenArtist(track.artist) }
-                                } else {
-                                    null
-                                },
-                                onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let { album ->
-                                    { onOpenAlbum(album, track.albumId) }
-                                },
+                    // Local playlists can be reordered: a handle drags the row
+                    // one slot at a time, and the store follows underneath.
+                    val rowHeightPx = with(LocalDensity.current) { 76.dp.toPx() }
+                    var dragOffset by remember(track.id) { mutableFloatStateOf(0f) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (state.isLocal) {
+                            Icon(
+                                imageVector = Icons.Rounded.DragHandle,
+                                contentDescription = stringResource(R.string.playlist_drag_handle),
+                                tint = SpartialGrey,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .padding(horizontal = 8.dp)
+                                    .pointerInput(track.id) {
+                                        detectDragGestures(
+                                            onDragEnd = { dragOffset = 0f },
+                                            onDragCancel = { dragOffset = 0f },
+                                        ) { _, dragAmount ->
+                                            dragOffset += dragAmount.y
+                                            if (dragOffset > rowHeightPx) {
+                                                dragOffset -= rowHeightPx
+                                                viewModel.moveTrack(track.id, 1)
+                                            } else if (dragOffset < -rowHeightPx) {
+                                                dragOffset += rowHeightPx
+                                                viewModel.moveTrack(track.id, -1)
+                                            }
+                                        }
+                                    },
                             )
-                        },
-                    )
+                        }
+                        SongRow(
+                            track = track,
+                            onClick = { playerViewModel.play(track, tracks) },
+                            onLongClick = { AddToPlaylistBus.request(track) },
+                            position = index + 1,
+                            isLiked = track.id in likedIds,
+                            onToggleLike = { viewModel.toggleLike(track) },
+                            showDownload = false,
+                            active = track.id == playerState.current?.id,
+                            activePlaying = track.id == playerState.current?.id &&
+                                playerState.isPlaying,
+                            modifier = Modifier.weight(1f),
+                            menu = {
+                                TrackMenuButton(
+                                    onPlayNext = { playerViewModel.playNext(track) },
+                                    onAddToQueue = { playerViewModel.addToQueue(track) },
+                                    onAddToPlaylist = { AddToPlaylistBus.request(track) },
+                                    onRemoveFromPlaylist = if (state.isLocal) {
+                                        { viewModel.removeTrack(track) }
+                                    } else {
+                                        null
+                                    },
+                                    onViewArtist = if (track.artist.isNotBlank()) {
+                                        { onOpenArtist(track.artist) }
+                                    } else {
+                                        null
+                                    },
+                                    onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let { album ->
+                                        { onOpenAlbum(album, track.albumId) }
+                                    },
+                                )
+                            },
+                        )
+                    }
                 }
             }
 
@@ -447,6 +580,81 @@ fun PlaylistDetailScreen(
             }
 
             item(key = "bottom") { Spacer(Modifier.height(8.dp)) }
+        }
+
+        // Rename and delete only exist for local playlists.
+        if (renameOpen) {
+            var name by remember { mutableStateOf(title) }
+            AlertDialog(
+                onDismissRequest = { renameOpen = false },
+                containerColor = Color(0xFF15171B),
+                title = {
+                    Text(stringResource(R.string.playlist_rename_title), color = SpartialWhite)
+                },
+                text = {
+                    TextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = { Text(stringResource(R.string.library_playlist_name)) },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = SpartialWhite,
+                            unfocusedTextColor = SpartialWhite,
+                            cursorColor = SpartialWhite,
+                        ),
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.renamePlaylist(name)
+                            renameOpen = false
+                        },
+                        enabled = name.isNotBlank(),
+                    ) {
+                        Text(stringResource(R.string.action_ok))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { renameOpen = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                },
+                shape = RoundedCornerShape(28.dp),
+            )
+        }
+        if (deleteOpen) {
+            AlertDialog(
+                onDismissRequest = { deleteOpen = false },
+                containerColor = Color(0xFF15171B),
+                title = {
+                    Text(stringResource(R.string.playlist_delete), color = SpartialWhite)
+                },
+                text = {
+                    Text(
+                        text = stringResource(R.string.playlist_delete_confirm, title),
+                        color = SpartialWhite,
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            deleteOpen = false
+                            viewModel.deletePlaylist(onBack)
+                        },
+                    ) {
+                        Text(stringResource(R.string.action_remove))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { deleteOpen = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                },
+                shape = RoundedCornerShape(28.dp),
+            )
         }
     }
 }

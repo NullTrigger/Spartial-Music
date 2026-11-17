@@ -206,6 +206,28 @@ ksp {
     arg("room.incremental", "true")
 }
 
+// ---- Robolectric runtime, resolved through Gradle -------------------------
+// Robolectric fetches its Android runtime ("android-all-instrumented") from
+// Maven Central inside the test JVM at run time. On CI runners where that
+// fetch is unreliable, every Robolectric test class dies at setup with a
+// ConnectException before a single assertion runs. Resolving the same jar
+// through Gradle and running Robolectric in offline mode makes the unit tests
+// hermetic: one dependency path, cacheable, no runtime networking.
+val robolectricSdk by configurations.creating
+
+val robolectricDepsDir = layout.buildDirectory.dir("robolectric-deps")
+
+val prepareRobolectricSdk = tasks.register<Copy>("prepareRobolectricSdk") {
+    from(robolectricSdk)
+    into(robolectricDepsDir)
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(prepareRobolectricSdk)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", robolectricDepsDir.get().asFile.absolutePath)
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
@@ -280,6 +302,9 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
+    // The SDK 34 sandbox Robolectric 4.16.1 loads for @Config(sdk = [34]);
+    // copied into build/robolectric-deps for Robolectric's offline mode.
+    add("robolectricSdk", "org.robolectric:android-all-instrumented:14-robolectric-10818077-i7")
     testImplementation(libs.androidx.test.junit)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)

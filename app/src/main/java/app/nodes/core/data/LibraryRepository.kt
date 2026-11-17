@@ -12,6 +12,7 @@ import app.nodes.core.data.db.PlaylistEntity
 import app.nodes.core.data.db.TrackDao
 import app.nodes.core.data.db.toEntity
 import app.nodes.core.data.db.toTrack
+import app.nodes.core.model.AddToPlaylistResult
 import app.nodes.core.model.ArtistStat
 import app.nodes.core.model.ListeningStats
 import app.nodes.core.model.Playlist
@@ -146,9 +147,76 @@ class LibraryRepository @Inject constructor(
         )
     }
 
-    suspend fun addToPlaylist(playlistId: String, track: Track) {
-        trackDao.upsert(track.toEntity())
-        libraryDao.addToPlaylist(playlistId, track.id)
+    /**
+     * Adds [track] to a local playlist as one transaction. The track is cached
+     * first inside the same transaction, so remote rows render offline too.
+     */
+    suspend fun addToPlaylist(playlistId: String, track: Track): AddToPlaylistResult = try {
+        if (libraryDao.addToPlaylist(playlistId, track.toEntity())) {
+            AddToPlaylistResult.Added
+        } else {
+            AddToPlaylistResult.AlreadyExists
+        }
+    } catch (error: Exception) {
+        AddToPlaylistResult.Error(error)
+    }
+
+    /** Removes one track from one playlist. The cached track itself stays. */
+    suspend fun removeFromPlaylist(playlistId: String, trackId: String) {
+        libraryDao.removeFromPlaylist(playlistId, trackId)
+    }
+
+    /** Which local playlists hold [trackId]; the picker's checkmarks. */
+    fun observePlaylistsContaining(trackId: String): Flow<List<Playlist>> =
+        libraryDao.playlistsContaining(trackId).map { rows ->
+            rows.map { entity ->
+                Playlist(
+                    id = entity.id,
+                    title = entity.name,
+                    description = entity.description,
+                    trackCount = libraryDao.trackCount(entity.id),
+                    sourceId = SourceId.LOCAL,
+                    createdAt = entity.createdAt,
+                )
+            }
+        }
+
+    /** Creates a playlist that starts with [track], in one transaction. */
+    suspend fun createPlaylistAndAdd(name: String, track: Track): Playlist {
+        val now = System.currentTimeMillis()
+        val entity = PlaylistEntity(
+            id = "local-playlist-${UUID.randomUUID()}",
+            name = name,
+            description = null,
+            createdAt = now,
+            updatedAt = now,
+        )
+        libraryDao.createPlaylistWithFirstTrack(entity, track.toEntity())
+        return Playlist(
+            id = entity.id,
+            title = entity.name,
+            trackCount = 1,
+            sourceId = SourceId.LOCAL,
+        )
+    }
+
+    suspend fun renamePlaylist(playlistId: String, name: String) {
+        libraryDao.renamePlaylist(playlistId, name, System.currentTimeMillis())
+    }
+
+    /**
+     * Moves one row of a playlist from [from] to [to], renumbering the
+     * positions so they stay a dense 0..n-1 sequence.
+     */
+    suspend fun movePlaylistTrack(playlistId: String, from: Int, to: Int) {
+        val rows = libraryDao.playlistTrackRows(playlistId).toMutableList()
+        if (from !in rows.indices || to !in rows.indices || from == to) return
+        val moved = rows.removeAt(from)
+        rows.add(to, moved)
+        libraryDao.replacePlaylistTracks(
+            playlistId,
+            rows.mapIndexed { index, row -> row.copy(sortOrder = index) },
+        )
     }
 
     suspend fun playlistDetail(playlistId: String): PlaylistDetail? {
@@ -158,7 +226,6 @@ class LibraryRepository @Inject constructor(
     }
 
     suspend fun deletePlaylist(playlistId: String) {
-        libraryDao.deletePlaylistTracks(playlistId)
-        libraryDao.deletePlaylist(playlistId)
+        libraryDao.deletePlaylistCompletely(playlistId)
     }
 }

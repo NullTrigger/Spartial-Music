@@ -25,11 +25,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import app.nodes.R
 import app.nodes.core.crash.AppSnapshot
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.BarCollapseBus
 import app.nodes.ui.components.FloatingTabBar
 import app.nodes.ui.components.MessageBanner
@@ -43,7 +46,11 @@ import app.nodes.ui.screens.home.HomeScreen
 import app.nodes.ui.screens.library.LibraryScreen
 import app.nodes.ui.screens.login.MusicLoginScreen
 import app.nodes.ui.screens.onboarding.OnboardingScreen
+import app.nodes.ui.screens.equalizer.EqualizerScreen
 import app.nodes.ui.screens.player.NowPlayingScreen
+import app.nodes.ui.screens.playlist.PlaylistNotice
+import app.nodes.ui.screens.playlist.PlaylistPickerDialog
+import app.nodes.ui.screens.playlist.PlaylistPickerViewModel
 import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.screens.playlist.PlaylistDetailScreen
 import app.nodes.ui.screens.search.SearchScreen
@@ -83,6 +90,19 @@ fun SpartialApp() {
         if (message != null) {
             delay(5_000)
             playerViewModel.clearMessage()
+        }
+    }
+
+    // Every "add to playlist" surface requests through the bus; the picker and
+    // the notice it leaves behind live here so they outlive the requesting screen.
+    val pickerViewModel: PlaylistPickerViewModel = hiltViewModel()
+    val addRequest by AddToPlaylistBus.track.collectAsStateWithLifecycle()
+    val playlistNotice by pickerViewModel.notice.collectAsStateWithLifecycle()
+    val notice = playlistNotice
+    if (notice != null) {
+        LaunchedEffect(notice) {
+            delay(5_000)
+            pickerViewModel.clearNotice()
         }
     }
 
@@ -208,12 +228,14 @@ fun SpartialApp() {
                     onOpenAlbum = { name, albumId ->
                         navController.navigate(Routes.album(name, albumId))
                     },
+                    onOpenEqualizer = { navController.navigate(Routes.SETTINGS_EQUALIZER) },
                 )
             }
 
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
+                    onOpenEqualizer = { navController.navigate(Routes.SETTINGS_EQUALIZER) },
                     onOpenLogin = { navController.navigate(Routes.LOGIN) },
                     onOpenDiagnostics = { navController.navigate(Routes.DIAGNOSTICS) },
                     onOpenPlayback = { navController.navigate(Routes.SETTINGS_PLAYBACK) },
@@ -227,6 +249,9 @@ fun SpartialApp() {
 
             composable(Routes.SETTINGS_PLAYBACK) {
                 PlaybackSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.SETTINGS_EQUALIZER) {
+                EqualizerScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.SETTINGS_APPEARANCE) {
@@ -361,6 +386,9 @@ fun SpartialApp() {
                             onNext = playerViewModel::next,
                             progress = playerState.progress,
                             hazeState = hazeState,
+                            onPlayNext = { playerViewModel.playNext(track) },
+                            onAddToQueue = { playerViewModel.addToQueue(track) },
+                            onAddToPlaylist = { AddToPlaylistBus.request(track) },
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
                     }
@@ -375,6 +403,36 @@ fun SpartialApp() {
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .statusBarsPadding(),
+            )
+        }
+
+        if (notice != null) {
+            MessageBanner(
+                message = when (notice) {
+                    is PlaylistNotice.Added ->
+                        stringResource(R.string.playlist_added_to, notice.playlistName)
+
+                    is PlaylistNotice.AlreadyExists ->
+                        stringResource(R.string.playlist_already_in, notice.playlistName)
+
+                    PlaylistNotice.Failed -> stringResource(R.string.playlist_add_failed)
+                },
+                onDismiss = pickerViewModel::clearNotice,
+                actionLabel = if (notice.canUndo) stringResource(R.string.action_undo) else null,
+                onAction = (notice as? PlaylistNotice.Added)?.let { added ->
+                    { pickerViewModel.undoAdd(added) }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding(),
+            )
+        }
+
+        addRequest?.let { requested ->
+            PlaylistPickerDialog(
+                track = requested,
+                onDismiss = { AddToPlaylistBus.clear() },
+                viewModel = pickerViewModel,
             )
         }
     }

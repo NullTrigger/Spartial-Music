@@ -7,6 +7,7 @@ package app.nodes.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +61,7 @@ fun SongRow(
     track: Track,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     position: Int? = null,
     isLiked: Boolean = false,
     onToggleLike: (() -> Unit)? = null,
@@ -86,7 +88,11 @@ fun SongRow(
                     Modifier
                 },
             )
-            .clickable(role = Role.Button, onClick = onClick)
+            .combinedClickable(
+                role = Role.Button,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
             .defaultMinSize(minHeight = 68.dp)
             .padding(start = 8.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,

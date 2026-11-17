@@ -26,6 +26,7 @@ import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.ErrorState
 import app.nodes.ui.components.LoadingRows
 import app.nodes.ui.components.PageHeader
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.trackSupportingLine
@@ -113,6 +114,7 @@ fun TrendingScreen(
                 SongRow(
                     track = track,
                     onClick = { playerViewModel.play(track, state.tracks) },
+                    onLongClick = { AddToPlaylistBus.request(track) },
                     position = index + 1,
                     supportingText = trackSupportingLine(track),
                     isLiked = track.id in likedIds,
@@ -125,6 +127,7 @@ fun TrendingScreen(
                         TrackMenuButton(
                             onPlayNext = { playerViewModel.playNext(track) },
                             onAddToQueue = { playerViewModel.addToQueue(track) },
+                            onAddToPlaylist = { AddToPlaylistBus.request(track) },
                             onViewArtist = if (track.artist.isNotBlank()) {
                                 { onOpenArtist(track.artist) }
                             } else {

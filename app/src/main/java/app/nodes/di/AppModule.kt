@@ -33,6 +33,27 @@ private val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+/**
+ * v3 makes (playlistId, trackId) unique: one track appears at most once per
+ * playlist. Rows written before the constraint existed are deduplicated -
+ * the earliest copy keeps its place - before the unique index is created.
+ */
+private val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            DELETE FROM playlist_tracks WHERE rowid NOT IN (
+                SELECT MIN(rowid) FROM playlist_tracks GROUP BY playlistId, trackId
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_playlist_tracks_playlistId_trackId` " +
+                "ON `playlist_tracks` (`playlistId`, `trackId`)",
+        )
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -54,11 +75,10 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): SpartialDatabase =
         Room.databaseBuilder(context, SpartialDatabase::class.java, SpartialDatabase.NAME)
-            // Explicit first: the cache may be wiped only when no migration
-            // exists, never to pick up a new column - likes and history live
-            // in the same database.
-            .addMigrations(MIGRATION_1_2)
-            .fallbackToDestructiveMigration(true)
+            // Every version has a real migration. The cache is never wiped to
+            // pick up a schema change: likes, history and playlists live in
+            // the same database (development_guide.md).
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     @Provides

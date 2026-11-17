@@ -5,9 +5,11 @@
 
 package app.nodes.ui.components
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +30,7 @@ import app.nodes.R
 import app.nodes.core.model.SourceErrorType
 import app.nodes.ui.theme.SpartialGrey
 import app.nodes.ui.theme.SpartialWhite
+import app.nodes.ui.theme.navAccent
 
 /** Shared, human-readable explanation for provider failures. */
 @Composable
@@ -45,6 +49,8 @@ fun MessageBanner(
     message: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -60,6 +66,20 @@ fun MessageBanner(
             color = SpartialWhite,
             modifier = Modifier.weight(1f),
         )
+        if (actionLabel != null && onAction != null) {
+            Spacer(Modifier.width(4.dp))
+            TextButton(
+                onClick = onAction,
+                modifier = Modifier.height(32.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+            ) {
+                Text(
+                    text = actionLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = navAccent,
+                )
+            }
+        }
         Spacer(Modifier.width(8.dp))
         IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
             Icon(

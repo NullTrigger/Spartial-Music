@@ -52,6 +52,7 @@ import app.nodes.ui.components.LoadingRows
 import app.nodes.ui.components.MetaRow
 import app.nodes.ui.components.PillButton
 import app.nodes.ui.components.PillStyle
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TintedBackdrop
 import app.nodes.ui.components.TrackMenuButton
@@ -323,6 +324,7 @@ fun CollectionScreen(
                     SongRow(
                         track = track,
                         onClick = { playerViewModel.play(track, tracks) },
+                        onLongClick = { AddToPlaylistBus.request(track) },
                         position = index + 1,
                         supportingText = if (viewModel.kind == CollectionKind.ARTIST) {
                             track.album ?: track.artist
@@ -339,6 +341,7 @@ fun CollectionScreen(
                             TrackMenuButton(
                                 onPlayNext = { playerViewModel.playNext(track) },
                                 onAddToQueue = { playerViewModel.addToQueue(track) },
+                                onAddToPlaylist = { AddToPlaylistBus.request(track) },
                                 onViewArtist = if (track.artist.isNotBlank() &&
                                     track.artist != viewModel.name
                                 ) {

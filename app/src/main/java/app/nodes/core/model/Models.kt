@@ -140,6 +140,13 @@ data class PlaylistDetail(
     val tracks: List<Track>,
 )
 
+/** The outcome of adding a track to a local playlist. */
+sealed interface AddToPlaylistResult {
+    data object Added : AddToPlaylistResult
+    data object AlreadyExists : AddToPlaylistResult
+    data class Error(val reason: Throwable? = null) : AddToPlaylistResult
+}
+
 /** What the playback layer should do with a track. */
 sealed interface PlaybackHandle {
     /** Stream or play a URL through Media3/ExoPlayer. */

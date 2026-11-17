@@ -50,6 +50,7 @@ import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.SearchField
 import app.nodes.ui.components.SectionHeader
 import app.nodes.ui.components.SegmentedFilter
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
@@ -424,6 +425,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.songItems(
         SongRow(
             track = track,
             onClick = { onPlay(track) },
+            onLongClick = { AddToPlaylistBus.request(track) },
             supportingText = trackSupportingLine(track),
             isLiked = track.id in likedIds,
             onToggleLike = { onToggleLike(track) },
@@ -433,6 +435,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.songItems(
                 TrackMenuButton(
                     onPlayNext = { onPlayNext(track) },
                     onAddToQueue = { onAddToQueue(track) },
+                    onAddToPlaylist = { AddToPlaylistBus.request(track) },
                     onViewArtist = if (track.artist.isNotBlank()) {
                         { onOpenArtist(track.artist) }
                     } else {

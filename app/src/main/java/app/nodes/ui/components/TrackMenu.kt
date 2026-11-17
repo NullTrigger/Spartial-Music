@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
@@ -47,6 +49,9 @@ import app.nodes.ui.theme.SpartialWhite
  * can navigate there; both are optional so list-only screens keep the same
  * two-queue-actions menu.
  *
+ * [onAddToPlaylist] opens the playlist picker; [onRemoveFromPlaylist] is only
+ * supplied by a local playlist's own track list.
+ *
  * [onRemoveFromQueue] is only supplied by the queue itself; [removeEnabled] is
  * false for the playing row because removing it would leave the player without
  * an item.
@@ -58,12 +63,14 @@ fun TrackMenuButton(
     modifier: Modifier = Modifier,
     onViewArtist: (() -> Unit)? = null,
     onViewAlbum: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
     onRemoveFromQueue: (() -> Unit)? = null,
     removeEnabled: Boolean = true,
     onMoveUp: (() -> Unit)? = null,
     onMoveDown: (() -> Unit)? = null,
     moveUpEnabled: Boolean = true,
     moveDownEnabled: Boolean = true,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -76,16 +83,56 @@ fun TrackMenuButton(
                 modifier = Modifier.size(20.dp),
             )
         }
-        DropdownMenu(
+        TrackMenuDropdown(
             expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
+            onDismiss = { expanded = false },
+            onPlayNext = onPlayNext,
+            onAddToQueue = onAddToQueue,
+            onViewArtist = onViewArtist,
+            onViewAlbum = onViewAlbum,
+            onAddToPlaylist = onAddToPlaylist,
+            onRemoveFromQueue = onRemoveFromQueue,
+            removeEnabled = removeEnabled,
+            onMoveUp = onMoveUp,
+            onMoveDown = onMoveDown,
+            moveUpEnabled = moveUpEnabled,
+            moveDownEnabled = moveDownEnabled,
+            onRemoveFromPlaylist = onRemoveFromPlaylist,
+        )
+    }
+}
+
+/**
+ * The menu itself, hostable without the trailing button - the mini player
+ * opens it from a long-press instead.
+ */
+@Composable
+fun TrackMenuDropdown(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onViewArtist: (() -> Unit)? = null,
+    onViewAlbum: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
+    onRemoveFromQueue: (() -> Unit)? = null,
+    removeEnabled: Boolean = true,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
+    moveUpEnabled: Boolean = true,
+    moveDownEnabled: Boolean = true,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+    ) {
             if (onViewArtist != null) {
                 QueueMenuItem(
                     label = stringResource(R.string.player_view_artist),
                     icon = Icons.Rounded.Person,
                 ) {
-                    expanded = false
+                    onDismiss()
                     onViewArtist()
                 }
             }
@@ -94,7 +141,7 @@ fun TrackMenuButton(
                     label = stringResource(R.string.player_view_album),
                     icon = Icons.Rounded.Album,
                 ) {
-                    expanded = false
+                    onDismiss()
                     onViewAlbum()
                 }
             }
@@ -102,15 +149,24 @@ fun TrackMenuButton(
                 label = stringResource(R.string.player_play_next),
                 icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             ) {
-                expanded = false
+                onDismiss()
                 onPlayNext()
             }
             QueueMenuItem(
                 label = stringResource(R.string.player_add_to_queue),
                 icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
             ) {
-                expanded = false
+                onDismiss()
                 onAddToQueue()
+            }
+            if (onAddToPlaylist != null) {
+                QueueMenuItem(
+                    label = stringResource(R.string.player_add_to_playlist),
+                    icon = Icons.AutoMirrored.Rounded.PlaylistAddCheck,
+                ) {
+                    onDismiss()
+                    onAddToPlaylist()
+                }
             }
             if (onMoveUp != null || onMoveDown != null) {
                 HorizontalDivider()
@@ -120,7 +176,7 @@ fun TrackMenuButton(
                         icon = Icons.Rounded.ArrowUpward,
                         enabled = moveUpEnabled,
                     ) {
-                        expanded = false
+                        onDismiss()
                         onMoveUp()
                     }
                 }
@@ -130,7 +186,7 @@ fun TrackMenuButton(
                         icon = Icons.Rounded.ArrowDownward,
                         enabled = moveDownEnabled,
                     ) {
-                        expanded = false
+                        onDismiss()
                         onMoveDown()
                     }
                 }
@@ -142,12 +198,21 @@ fun TrackMenuButton(
                     icon = Icons.Rounded.RemoveCircleOutline,
                     enabled = removeEnabled,
                 ) {
-                    expanded = false
+                    onDismiss()
                     onRemoveFromQueue()
                 }
             }
+            if (onRemoveFromPlaylist != null) {
+                HorizontalDivider()
+                QueueMenuItem(
+                    label = stringResource(R.string.playlist_remove_track),
+                    icon = Icons.Rounded.DeleteOutline,
+                ) {
+                    onDismiss()
+                    onRemoveFromPlaylist()
+                }
+            }
         }
-    }
 }
 
 @Composable

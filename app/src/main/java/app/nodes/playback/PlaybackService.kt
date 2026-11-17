@@ -52,6 +52,9 @@ class PlaybackService : MediaSessionService() {
     @Inject
     lateinit var playbackController: dagger.Lazy<PlaybackController>
 
+    @Inject
+    lateinit var equalizerController: dagger.Lazy<EqualizerController>
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var mediaSession: MediaSession? = null
     private var localPlayer: ExoPlayer? = null
@@ -82,6 +85,21 @@ class PlaybackService : MediaSessionService() {
             .build()
         localPlayer = exoPlayer
         val sessionPlayer = createSessionPlayer(this, exoPlayer)
+
+        // The equalizer follows the player's audio session: ExoPlayer assigns
+        // one at construction and re-announces it on routing changes, so the
+        // effects are recreated (and re-configured) on every announcement.
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                if (audioSessionId != C.AUDIO_SESSION_ID_UNSET) {
+                    scope.launch { equalizerController.get().onAudioSessionChanged(audioSessionId) }
+                }
+            }
+        })
+        val initialSessionId = exoPlayer.audioSessionId
+        if (initialSessionId != C.AUDIO_SESSION_ID_UNSET) {
+            scope.launch { equalizerController.get().onAudioSessionChanged(initialSessionId) }
+        }
 
         // Tapping the media notification re-opens the app. The intent must be
         // immutable on API 31+ and updatable, or Media3 re-fires a stale one.
@@ -213,6 +231,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         scope.cancel()
+        equalizerController.get().release()
         mediaSession?.run {
             player.release()
             release()

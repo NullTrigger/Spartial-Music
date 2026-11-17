@@ -105,11 +105,13 @@ only appears on the five tab roots.
 - [x] Artwork-tinted backgrounds with local palette extraction
 - [x] Search genres, filters and grouped results
 - [x] Playlists, pins, likes, recents, artists and local library search
+- [x] Add to playlist from any track surface, with undo and drag reorder
 - [x] Queue reorder, sleep timer, playback speed and skip-silence
 - [x] Media3/ExoPlayer playback through a `MediaSessionService`
 - [x] Official YouTube IFrame playback with a visible player
 - [x] Room-backed likes, playlists, history and provider cache
 - [x] Synced `.lrc` lyrics with configurable providers
+- [x] Device equalizer with presets, bass boost, virtualizer and system EQ fallback
 - [x] Crash reports written locally, never uploaded
 - [x] Optional Cast support in the `gms` flavour
 
