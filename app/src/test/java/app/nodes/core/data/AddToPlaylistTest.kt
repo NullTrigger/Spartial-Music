@@ -37,7 +37,7 @@ class AddToPlaylistTest {
         db = Room.inMemoryDatabaseBuilder(context, SpartialDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = LibraryRepository(db.trackDao(), db.libraryDao())
+        repository = LibraryRepository(db.trackDao(), db.libraryDao(), db.queueDao())
     }
 
     @After
