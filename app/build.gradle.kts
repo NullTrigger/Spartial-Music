@@ -34,9 +34,10 @@ fun secret(name: String): String = (localProperties.getProperty(name) ?: System.
 /**
  * Every APK says which build it came from. CI exports GITHUB_RUN_NUMBER and
  * GITHUB_SHA, so a nightly reads `0.1.0-debug.<run>.<sha>`; a local build falls
- * back to `local`. versionCode stays at 1 on purpose - moving it per build would
- * make a local build uninstallable over a CI one - so the stamp is the only way
- * to answer "which APK is this?" once a phone has held more than one of them.
+ * back to `local`. versionCode is derived from versionName
+ * (major*10000 + minor*100 + patch), so 0.1.0 is 100 and 1.2.3 is 10203; the
+ * stamp is the only way to answer "which APK is this?" once a phone has held
+ * more than one of them.
  */
 fun buildStamp(): String {
     val run = (System.getenv("GITHUB_RUN_NUMBER") ?: "").trim()
@@ -71,7 +72,12 @@ android {
         applicationId = "app.nodes"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        versionCode = run {
+            val parts = "0.1.0".split('.')
+            (parts.getOrNull(0)?.toIntOrNull() ?: 0) * 10_000 +
+                (parts.getOrNull(1)?.toIntOrNull() ?: 0) * 100 +
+                (parts.getOrNull(2)?.toIntOrNull() ?: 0)
+        }
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -269,12 +275,14 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(libs.youtube.player)
-    implementation(libs.play.services.auth)
+    // Google Sign-In is a Play services surface like Cast, so it only exists in
+    // the gms flavour: the FOSS build must never pull in a Google binary. The
+    // gms/foss YouTubeSignIn pair keeps the same public API either way.
+    "gmsImplementation"(libs.play.services.auth)
 
     // androidx.mediarouter shows the cast route chooser as a DialogFragment, and
     // it reaches the FragmentManager through the host activity: MediaRouteButton

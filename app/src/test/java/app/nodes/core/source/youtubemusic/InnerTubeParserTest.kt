@@ -36,13 +36,13 @@ class InnerTubeParserTest {
             {"url":"https://img.example/400.jpg","width":400}]}}},
           "playlistItemData":{"videoId":"abc123"},
           "flexColumns":[
-            {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"One Love"}]}}},
+            {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Neon Skyline"}]}}},
             {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[
-              {"text":"Shubh","navigationEndpoint":{"browseEndpoint":{
+              {"text":"Placeholder Trio","navigationEndpoint":{"browseEndpoint":{
                 "browseId":"UC1","browseEndpointContextSupportedConfigs":{
                   "browseEndpointContextMusicConfig":{"pageType":"MUSIC_PAGE_TYPE_ARTIST"}}}}},
               {"text":" • "},
-              {"text":"One Love","navigationEndpoint":{"browseEndpoint":{
+              {"text":"Neon Skyline","navigationEndpoint":{"browseEndpoint":{
                 "browseId":"MPRE1","browseEndpointContextSupportedConfigs":{
                   "browseEndpointContextMusicConfig":{"pageType":"MUSIC_PAGE_TYPE_ALBUM"}}}}},
               {"text":" • "},
@@ -55,11 +55,11 @@ class InnerTubeParserTest {
         {"musicTwoRowItemRenderer":{
           "thumbnailRenderer":{"musicThumbnailRenderer":{"thumbnail":{"thumbnails":[
             {"url":"https://img.example/playlist.jpg","width":226}]}}},
-          "title":{"runs":[{"text":"Punjabi Party","navigationEndpoint":{"browseEndpoint":{
+          "title":{"runs":[{"text":"Late Night Mix","navigationEndpoint":{"browseEndpoint":{
             "browseId":"VLPL123","browseEndpointContextSupportedConfigs":{
               "browseEndpointContextMusicConfig":{"pageType":"MUSIC_PAGE_TYPE_PLAYLIST"}}}}}]},
           "subtitle":{"runs":[
-            {"text":"Karan Aujla","navigationEndpoint":{"browseEndpoint":{
+            {"text":"Midnight Signals","navigationEndpoint":{"browseEndpoint":{
               "browseId":"UC2","browseEndpointContextSupportedConfigs":{
                 "browseEndpointContextMusicConfig":{"pageType":"MUSIC_PAGE_TYPE_ARTIST"}}}}},
             {"text":" • "},{"text":"Playlist"}]}
@@ -72,9 +72,9 @@ class InnerTubeParserTest {
         val track = InnerTubeParser.songRow(renderer)!!
 
         assertEquals("abc123", track.videoId)
-        assertEquals("One Love", track.title)
-        assertEquals("Shubh", track.artist)
-        assertEquals("One Love", track.album)
+        assertEquals("Neon Skyline", track.title)
+        assertEquals("Placeholder Trio", track.artist)
+        assertEquals("Neon Skyline", track.album)
         assertEquals("MPRE1", track.albumId)
         assertEquals(160_000L, track.durationMs)
         assertEquals("https://img.example/400.jpg", track.artworkUri)
@@ -85,7 +85,7 @@ class InnerTubeParserTest {
         val artistRow = """
             {"musicResponsiveListItemRenderer":{
               "flexColumns":[
-                {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Anirudh"}]}}},
+                {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Midnight Signals"}]}}},
                 {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Artist"}]}}}
               ]
             }}
@@ -101,8 +101,100 @@ class InnerTubeParserTest {
 
         assertNull(card.videoId)
         assertEquals("VLPL123", card.collectionId)
-        assertEquals("Punjabi Party", card.title)
-        assertEquals("Karan Aujla", card.artist)
+        assertEquals("Late Night Mix", card.title)
+        assertEquals("Midnight Signals", card.artist)
+    }
+
+    /**
+     * The album-page row shape: no thumbnail, no subtitle column, the
+     * duration in a fixed column, and the artist only in the play label.
+     */
+    private val albumRow = """
+        {"musicResponsiveListItemRenderer":{
+          "overlay":{"musicItemThumbnailOverlayRenderer":{"content":{"musicPlayButtonRenderer":{
+            "accessibilityPlayData":{"accessibilityData":{"label":"Play Neon Skyline - Placeholder Trio"}}}}}},
+          "playlistItemData":{"videoId":"abc123"},
+          "flexColumns":[
+            {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Neon Skyline"}]}}},
+            {"musicResponsiveListItemFlexColumnRenderer":{}},
+            {"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"83M plays"}]}}}
+          ],
+          "fixedColumns":[{"musicResponsiveListItemFixedColumnRenderer":{
+            "text":{"runs":[{"text":"2:40"}]}}}]
+        }}
+    """.trimIndent()
+
+    private val albumHeader = """
+        {"header":{"musicDetailHeaderRenderer":{
+          "title":{"runs":[{"text":"Signal Bloom"}]},
+          "thumbnail":{"musicThumbnailRenderer":{"thumbnail":{"thumbnails":[
+            {"url":"https://img.example/album60.jpg","width":60,"height":60},
+            {"url":"https://img.example/album600.jpg","width":600,"height":600}]}}}
+        }}}
+    """.trimIndent()
+
+    private val viewModelHeader = """
+        {"header":{"pageHeaderViewModel":{"header":{"pageHeaderContentViewModel":{
+          "title":{"dynamicTextViewModel":{"text":{"content":"Night Drive"}}},
+          "image":{"imageViewModel":{"image":{"sources":[
+            {"url":"https://img.example/cover226.jpg","width":226,"height":226},
+            {"url":"https://img.example/cover1200.jpg","width":1200,"height":1200}]}}}
+        }}}}}
+    """.trimIndent()
+
+    @Test
+    fun `album row takes its artist from the play label and its duration from the fixed column`() {
+        val renderer = json(albumRow)["musicResponsiveListItemRenderer"]!!.jsonObject
+        val track = InnerTubeParser.songRow(renderer)!!
+
+        assertEquals("Placeholder Trio", track.artist)
+        assertEquals(160_000L, track.durationMs)
+        assertNull(track.artworkUri)
+    }
+
+    @Test
+    fun `album rows borrow the page cover when they have none`() {
+        val root = buildJsonObject {
+            put("header", json(albumHeader)["header"]!!)
+            put("contents", nodes(albumRow))
+        }
+
+        val page = InnerTubeParser.collectionPage(root, 10)
+
+        assertEquals("https://img.example/album600.jpg", page.tracks.single().artworkUri)
+    }
+
+    @Test
+    fun `collection page keeps the album header title and cover`() {
+        val root = buildJsonObject {
+            put("header", json(albumHeader)["header"]!!)
+            put("contents", nodes(songRow))
+        }
+
+        val page = InnerTubeParser.collectionPage(root, 10)
+
+        assertEquals("Signal Bloom", page.title)
+        assertEquals("https://img.example/album600.jpg", page.artworkUri)
+        assertEquals(1, page.tracks.size)
+    }
+
+    @Test
+    fun `collection page reads the newest header layout`() {
+        val page = InnerTubeParser.collectionPage(json(viewModelHeader), 10)
+
+        assertEquals("Night Drive", page.title)
+        assertEquals("https://img.example/cover1200.jpg", page.artworkUri)
+    }
+
+    @Test
+    fun `a page without a header still returns its rows`() {
+        val root = buildJsonObject { put("contents", nodes(songRow)) }
+
+        val page = InnerTubeParser.collectionPage(root, 10)
+
+        assertNull(page.title)
+        assertNull(page.artworkUri)
+        assertEquals(1, page.tracks.size)
     }
 
     @Test

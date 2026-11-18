@@ -9,6 +9,9 @@ import app.nodes.core.data.db.LibraryDao
 import app.nodes.core.data.db.LikedTrackEntity
 import app.nodes.core.data.db.PlayHistoryEntity
 import app.nodes.core.data.db.PlaylistEntity
+import app.nodes.core.data.db.QueueDao
+import app.nodes.core.data.db.QueueItemEntity
+import app.nodes.core.data.db.QueueStateEntity
 import app.nodes.core.data.db.TrackDao
 import app.nodes.core.data.db.toEntity
 import app.nodes.core.data.db.toTrack
@@ -39,6 +42,7 @@ private const val STATS_RANK_LIMIT = 10
 class LibraryRepository @Inject constructor(
     private val trackDao: TrackDao,
     private val libraryDao: LibraryDao,
+    private val queueDao: QueueDao,
 ) {
     val likedTracks: Flow<List<Track>> = libraryDao.likedTracks().map { rows -> rows.map { it.toTrack() } }
 
@@ -46,6 +50,10 @@ class LibraryRepository @Inject constructor(
     val allTracks: Flow<List<Track>> = trackDao.allTracks().map { rows -> rows.map { it.toTrack() } }
 
     val recentlyPlayed: Flow<List<Track>> = libraryDao.recentlyPlayed(20).map { rows -> rows.map { it.toTrack() } }
+
+    /** Ids of the last [count] played tracks, newest first. */
+    suspend fun recentlyPlayedIds(count: Int): Set<String> =
+        libraryDao.recentlyPlayed(count).first().mapTo(HashSet()) { it.id }
 
     val playlists: Flow<List<Playlist>> = libraryDao.playlists().map { rows ->
         rows.map { entity ->
@@ -228,4 +236,227 @@ class LibraryRepository @Inject constructor(
     suspend fun deletePlaylist(playlistId: String) {
         libraryDao.deletePlaylistCompletely(playlistId)
     }
+
+    // ------------------------------------------------------------------
+    // Persisted queue
+    // ------------------------------------------------------------------
+
+    /**
+     * Saves the play queue exactly as it stands. [originalPositions] maps a
+     * queue index to its pre-shuffle index (identity when shuffle is off), so
+     * turning shuffle off after a restart still restores the chosen order.
+     * Tracks are upserted in the same transaction, so a restore can never meet
+     * a queue row whose track is missing.
+     */
+    suspend fun saveQueue(
+        tracks: List<Track>,
+        currentIndex: Int,
+        positionMs: Long,
+        shuffleEnabled: Boolean,
+        originalPositions: List<Int>,
+    ) {
+        if (tracks.isEmpty()) {
+            queueDao.clearQueue()
+            return
+        }
+        queueDao.replaceQueue(
+            tracks = tracks.map { it.toEntity() },
+            items = tracks.mapIndexed { index, track ->
+                QueueItemEntity(
+                    position = index,
+                    trackId = track.id,
+                    originalPosition = originalPositions.getOrNull(index) ?: index,
+                )
+            },
+            state = QueueStateEntity(
+                id = 0,
+                currentIndex = currentIndex,
+                positionMs = positionMs,
+                shuffleEnabled = shuffleEnabled,
+            ),
+        )
+    }
+
+    /**
+     * The saved queue, or null when there is nothing (or nothing usable) to
+     * restore. Tracks that no longer resolve - their row is gone from the
+     * cache - are skipped rather than breaking the restore.
+     */
+    suspend fun savedQueue(): SavedQueue? {
+        val items = queueDao.items()
+        if (items.isEmpty()) return null
+        val state = queueDao.state() ?: return null
+        val byId = trackDao.allTracks().first().associateBy { it.id }
+        val restored = items.mapNotNull { item ->
+            byId[item.trackId]?.toTrack()?.let { it to item.originalPosition }
+        }
+        if (restored.isEmpty()) return null
+        return SavedQueue(
+            tracks = restored.map { it.first },
+            originalPositions = restored.map { it.second },
+            currentIndex = state.currentIndex.coerceIn(0, restored.lastIndex),
+            positionMs = state.positionMs,
+            shuffleEnabled = state.shuffleEnabled,
+        )
+    }
+
+    /**
+     * Writes the queue and its state; see [saveQueue]. Skips a queue that was
+     * never saved instead of writing an empty one over the user's data.
+     */
+    suspend fun clearSavedQueue() {
+        queueDao.clearQueue()
+    }
+
+    // ------------------------------------------------------------------
+    // Backup / restore
+    // ------------------------------------------------------------------
+
+    /**
+     * Everything worth carrying to another device: playlists with their
+     * tracks, liked tracks, optionally recent play history, and non-secret
+     * settings. Credentials are not part of the model, so they cannot leak
+     * into the file even by accident.
+     */
+    suspend fun exportBackup(includeHistory: Boolean): LibraryBackup {
+        val playlistRows = libraryDao.playlists().first()
+        val playlists = playlistRows.map { entity ->
+            BackupPlaylist(
+                id = entity.id,
+                name = entity.name,
+                description = entity.description,
+                createdAt = entity.createdAt,
+                tracks = libraryDao.tracksInPlaylist(entity.id).map { it.toTrack() },
+            )
+        }
+        return LibraryBackup(
+            schemaVersion = LibraryBackup.SCHEMA_VERSION,
+            exportedAt = System.currentTimeMillis(),
+            playlists = playlists,
+            likedTracks = likedTracks.first(),
+            playHistory = if (includeHistory) {
+                libraryDao.recentHistory(HISTORY_EXPORT_LIMIT).map {
+                    BackupPlay(trackId = it.trackId, playedAt = it.playedAt)
+                }
+            } else {
+                emptyList()
+            },
+        )
+    }
+
+    /**
+     * Merges a backup into the library. Ids are the merge key: existing rows
+     * are never dropped, a playlist keeps its name and tracks and only gains
+     * what it did not have, and identical history rows are not duplicated.
+     */
+    suspend fun importBackup(backup: LibraryBackup): ImportResult {
+        var playlists = 0
+        var liked = 0
+        var tracks = 0
+        for (entry in backup.playlists) {
+            cacheTracks(entry.tracks)
+            tracks += entry.tracks.size
+            val existing = libraryDao.playlists().first().firstOrNull { it.id == entry.id }
+            if (existing == null) {
+                libraryDao.upsertPlaylist(
+                    PlaylistEntity(
+                        id = entry.id,
+                        name = entry.name,
+                        description = entry.description,
+                        createdAt = entry.createdAt,
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
+                for (track in entry.tracks) {
+                    addToPlaylist(entry.id, track)
+                }
+            } else {
+                for (track in entry.tracks) {
+                    addToPlaylist(entry.id, track)
+                }
+            }
+            playlists++
+        }
+        for (track in backup.likedTracks) {
+            cacheTracks(listOf(track))
+            if (libraryDao.isLiked(track.id).first()) continue
+            libraryDao.like(LikedTrackEntity(track.id, System.currentTimeMillis()))
+            liked++
+        }
+        for (play in backup.playHistory) {
+            if (libraryDao.historyRowExists(play.trackId, play.playedAt)) continue
+            libraryDao.recordPlay(
+                PlayHistoryEntity(trackId = play.trackId, playedAt = play.playedAt),
+            )
+        }
+        return ImportResult(playlists = playlists, liked = liked, tracks = tracks)
+    }
+
+    private companion object {
+        const val HISTORY_EXPORT_LIMIT = 500
+    }
 }
+
+/** A queue read back from the database; see [LibraryRepository.savedQueue]. */
+data class SavedQueue(
+    val tracks: List<Track>,
+    /** Pre-shuffle index per queue index; identity when shuffle was off. */
+    val originalPositions: List<Int>,
+    val currentIndex: Int,
+    val positionMs: Long,
+    val shuffleEnabled: Boolean,
+)
+
+// ----------------------------------------------------------------------
+// Backup / restore. One versioned JSON file. Credentials are not a field
+// here at all: no cookie, no token, no API key can ever be written.
+// ----------------------------------------------------------------------
+
+@kotlinx.serialization.Serializable
+data class LibraryBackup(
+    val schemaVersion: Int = 1,
+    val exportedAt: Long = 0L,
+    val playlists: List<BackupPlaylist> = emptyList(),
+    val likedTracks: List<Track> = emptyList(),
+    /** Optional: only written when the user includes it. */
+    val playHistory: List<BackupPlay> = emptyList(),
+    /** Non-secret settings only; see [BackupSettings]. */
+    val settings: BackupSettings? = null,
+) {
+    companion object {
+        const val SCHEMA_VERSION = 1
+    }
+}
+
+@kotlinx.serialization.Serializable
+data class BackupPlaylist(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val createdAt: Long = 0L,
+    val tracks: List<Track> = emptyList(),
+)
+
+@kotlinx.serialization.Serializable
+data class BackupPlay(val trackId: String, val playedAt: Long)
+
+/** The settings worth carrying to another device. Never anything secret. */
+@kotlinx.serialization.Serializable
+data class BackupSettings(
+    val dynamicColor: Boolean? = null,
+    val highQualityAudio: Boolean? = null,
+    val wifiOnlyStreaming: Boolean? = null,
+    val playbackSpeed: Float? = null,
+    val skipSilence: Boolean? = null,
+    val queuePreventDuplicates: Boolean? = null,
+    val rememberQueue: Boolean? = null,
+    val rememberShuffle: Boolean? = null,
+    val autoplaySimilar: Boolean? = null,
+)
+
+/** What an import did, for the message the user sees. */
+data class ImportResult(
+    val playlists: Int,
+    val liked: Int,
+    val tracks: Int,
+)

@@ -214,6 +214,7 @@ row in Settings → Content, and it is the only account write in the codebase.
 - The endpoint is YouTube Music's own `like/like` with the session cookie and
   the same SAPISIDHASH authorization as every other Mode 2 call. It carries the
   same instability and the same legal position as the rest of Mode 2 (above).
+- The infinite queue reads related tracks from YouTube Music's own `next` request (the radio / up-next list the site itself shows); it is read-only metadata, with no PoToken, cipher or additional client identity.
 
 ### The legal reality, stated plainly
 

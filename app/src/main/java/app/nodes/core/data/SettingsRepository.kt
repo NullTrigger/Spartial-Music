@@ -61,6 +61,12 @@ data class AppSettings(
     val crashReportsEnabled: Boolean = true,
     /** 0.5x to 2.0x. Applied by the player service as well as the UI. */
     val playbackSpeed: Float = 1f,
+    /** Persist the play queue across restarts and restore it paused. */
+    val rememberQueue: Boolean = true,
+    /** Persist the shuffle state with the queue. */
+    val rememberShuffle: Boolean = true,
+    /** Keep the queue going with related tracks when it runs low. */
+    val autoplaySimilar: Boolean = true,
     val skipSilence: Boolean = false,
     val keepScreenOn: Boolean = false,
     /**
@@ -100,6 +106,9 @@ class SettingsRepository @Inject constructor(
             quotaUnitsUsed = prefs[KEY_QUOTA_USED] ?: 0,
             crashReportsEnabled = prefs[KEY_CRASH_REPORTS] ?: true,
             playbackSpeed = prefs[KEY_PLAYBACK_SPEED] ?: 1f,
+            rememberQueue = prefs[KEY_REMEMBER_QUEUE] ?: true,
+            rememberShuffle = prefs[KEY_REMEMBER_SHUFFLE] ?: true,
+            autoplaySimilar = prefs[KEY_AUTOPLAY_SIMILAR] ?: true,
             skipSilence = prefs[KEY_SKIP_SILENCE] ?: false,
             keepScreenOn = prefs[KEY_KEEP_SCREEN_ON] ?: false,
             stopMusicOnTaskClear = prefs[KEY_STOP_MUSIC_ON_TASK_CLEAR] ?: false,
@@ -151,6 +160,49 @@ class SettingsRepository @Inject constructor(
     suspend fun setPlaybackSpeed(speed: Float) =
         dataStore.edit { it[KEY_PLAYBACK_SPEED] = speed.coerceIn(MIN_SPEED, MAX_SPEED) }
 
+    suspend fun setRememberQueue(enabled: Boolean) =
+        dataStore.edit { it[KEY_REMEMBER_QUEUE] = enabled }
+
+    suspend fun setRememberShuffle(enabled: Boolean) =
+        dataStore.edit { it[KEY_REMEMBER_SHUFFLE] = enabled }
+
+    suspend fun setAutoplaySimilar(enabled: Boolean) =
+        dataStore.edit { it[KEY_AUTOPLAY_SIMILAR] = enabled }
+
+    /** Whether the Listen Together privacy notice has been accepted once. */
+    val sessionsConsentShown: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SESSIONS_CONSENT] ?: false
+    }
+
+    suspend fun setSessionsConsentShown() =
+        dataStore.edit { it[KEY_SESSIONS_CONSENT] = true }
+
+    /** Whether the post-sign-in "also follow your local artists?" prompt ran. */
+    val followsImportPromptShown: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_FOLLOWS_IMPORT_PROMPT] ?: false
+    }
+
+    suspend fun setFollowsImportPromptShown() =
+        dataStore.edit { it[KEY_FOLLOWS_IMPORT_PROMPT] = true }
+
+    /**
+     * Applies the non-secret settings from a library backup. Null fields are
+     * left exactly as they are; nothing here touches credentials because the
+     * backup model has no field that could hold one.
+     */
+    suspend fun applyBackupSettings(backup: app.nodes.core.data.BackupSettings) =
+        dataStore.edit { prefs ->
+            backup.dynamicColor?.let { prefs[KEY_DYNAMIC_COLOR] = it }
+            backup.highQualityAudio?.let { prefs[KEY_HIGH_QUALITY] = it }
+            backup.wifiOnlyStreaming?.let { prefs[KEY_WIFI_ONLY] = it }
+            backup.playbackSpeed?.let { prefs[KEY_PLAYBACK_SPEED] = it.coerceIn(MIN_SPEED, MAX_SPEED) }
+            backup.skipSilence?.let { prefs[KEY_SKIP_SILENCE] = it }
+            backup.queuePreventDuplicates?.let { prefs[KEY_QUEUE_PREVENT_DUPLICATES] = it }
+            backup.rememberQueue?.let { prefs[KEY_REMEMBER_QUEUE] = it }
+            backup.rememberShuffle?.let { prefs[KEY_REMEMBER_SHUFFLE] = it }
+            backup.autoplaySimilar?.let { prefs[KEY_AUTOPLAY_SIMILAR] = it }
+        }
+
     suspend fun setSkipSilence(enabled: Boolean) =
         dataStore.edit { it[KEY_SKIP_SILENCE] = enabled }
 
@@ -199,6 +251,11 @@ class SettingsRepository @Inject constructor(
         val KEY_STOP_MUSIC_ON_TASK_CLEAR = booleanPreferencesKey("stop_music_on_task_clear")
         val KEY_SLEEP_TIMER_ENDS_AT = longPreferencesKey("sleep_timer_ends_at")
         val KEY_EQUALIZER = stringPreferencesKey("equalizer_settings")
+        val KEY_REMEMBER_QUEUE = booleanPreferencesKey("remember_queue")
+        val KEY_REMEMBER_SHUFFLE = booleanPreferencesKey("remember_shuffle")
+        val KEY_AUTOPLAY_SIMILAR = booleanPreferencesKey("autoplay_similar")
+        val KEY_SESSIONS_CONSENT = booleanPreferencesKey("sessions_consent_shown")
+        val KEY_FOLLOWS_IMPORT_PROMPT = booleanPreferencesKey("follows_import_prompt_shown")
 
         const val MIN_SPEED = 0.5f
         const val MAX_SPEED = 2.0f

@@ -62,4 +62,13 @@ interface MusicSource {
      * nothing.
      */
     suspend fun prefetch(track: Track) = Unit
+
+    /**
+     * Tracks related to [track] - radio, similar listening - for the infinite
+     * queue. Optional: the default answers "nothing known", so a source that
+     * has no such API keeps compiling and the queue falls back to local data.
+     * Must never throw.
+     */
+    suspend fun getRelated(track: Track, limit: Int): SourceResult<List<Track>> =
+        SourceResult.Success(emptyList())
 }

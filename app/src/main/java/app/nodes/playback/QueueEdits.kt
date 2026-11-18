@@ -5,6 +5,8 @@
 
 package app.nodes.playback
 
+import app.nodes.core.data.db.QueueItemEntity
+import app.nodes.core.data.db.QueueStateEntity
 import app.nodes.core.model.Track
 
 /**
@@ -72,5 +74,108 @@ internal object QueueEdits {
         candidate.artist.isNotBlank() &&
             candidate.artist.equals(seed.artist, ignoreCase = true) -> 2
         else -> 1
+    }
+
+    // ------------------------------------------------------------------
+    // Persistence (pure: entities in, entities out, no Android)
+    // ------------------------------------------------------------------
+
+    /**
+     * A queue as it is written to the database. [trackIds] is the play order;
+     * [originalPositions] holds the pre-shuffle index of each entry, so the
+     * chosen order survives a restart and can be restored when shuffle is
+     * turned off.
+     */
+    data class Snapshot(
+        val trackIds: List<String>,
+        val originalPositions: List<Int>,
+        val currentIndex: Int,
+        val positionMs: Long,
+        val shuffleEnabled: Boolean,
+    )
+
+    fun toRows(snapshot: Snapshot): Pair<List<QueueItemEntity>, QueueStateEntity> =
+        snapshot.trackIds.mapIndexed { index, id ->
+            QueueItemEntity(
+                position = index,
+                trackId = id,
+                originalPosition = snapshot.originalPositions.getOrNull(index) ?: index,
+            )
+        } to QueueStateEntity(
+            id = 0,
+            currentIndex = snapshot.currentIndex,
+            positionMs = snapshot.positionMs,
+            shuffleEnabled = snapshot.shuffleEnabled,
+        )
+
+    /**
+     * Reads rows back. Skips rows whose play slot collapsed (corrupt or
+     * hand-edited data) rather than throwing; the orders stay parallel lists.
+     */
+    fun fromRows(items: List<QueueItemEntity>, state: QueueStateEntity): Snapshot =
+        Snapshot(
+            trackIds = items.sortedBy { it.position }.map { it.trackId },
+            originalPositions = items.sortedBy { it.position }.map { it.originalPosition },
+            currentIndex = state.currentIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0)),
+            positionMs = state.positionMs,
+            shuffleEnabled = state.shuffleEnabled,
+        )
+
+    // ------------------------------------------------------------------
+    // Shuffle
+    // ------------------------------------------------------------------
+
+    /**
+     * A random order of [upcoming] that never repeats an entry before the
+     * whole list has played: it is a permutation, not independent picks.
+     */
+    fun shuffledOrder(upcoming: List<String>, random: kotlin.random.Random): List<String> =
+        upcoming.shuffled(random)
+
+    /**
+     * Reshuffles the upcoming tracks without touching what is playing.
+     * "Play next" entries ([playNextIds]) keep their slot right after the
+     * current track, in the order they were queued; everything after them is
+     * dealt out freshly.
+     */
+    fun reshuffled(
+        upcoming: List<String>,
+        playNextIds: Set<String>,
+        random: kotlin.random.Random,
+    ): List<String> {
+        val mustStay = upcoming.filter { it in playNextIds }
+        val rest = upcoming.filterNot { it in playNextIds }.shuffled(random)
+        return mustStay + rest
+    }
+
+    // ------------------------------------------------------------------
+    // Infinite queue
+    // ------------------------------------------------------------------
+
+    /**
+     * The next batch for an infinite queue, in preference order:
+     * source-related tracks first, then the local candidate pool. Anything
+     * already queued or played in the last [recentlyPlayedIds] is excluded,
+     * and nothing appears twice.
+     *
+     * Returns fewer than [limit] or none at all only when every step runs dry.
+     */
+    fun selectExtension(
+        related: List<Track>,
+        localPool: List<Track>,
+        queuedIds: Set<String>,
+        recentlyPlayedIds: Set<String>,
+        limit: Int,
+    ): List<Track> {
+        if (limit <= 0) return emptyList()
+        val excluded = queuedIds + recentlyPlayedIds
+        val out = mutableListOf<Track>()
+        val seen = HashSet<String>()
+        for (track in related + localPool) {
+            if (out.size >= limit) break
+            if (track.id in excluded || !seen.add(track.id)) continue
+            out += track
+        }
+        return out
     }
 }

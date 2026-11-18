@@ -43,9 +43,12 @@ data class PlayerUiState(
     val shuffleOn: Boolean = false,
     /**
      * Glossy's "infinite queue": as the queue runs out, more tracks from the
-     * listening history and likes are appended automatically. Session-only.
+     * listening history and likes are appended automatically. Restored from the
+     * saved "Autoplay similar songs" setting.
      */
     val infiniteQueue: Boolean = false,
+    /** Quiet queue indicator while the next infinite-queue batch is fetched. */
+    val isFindingMore: Boolean = false,
 ) {
     val progress: Float
         get() = if (durationMs > 0L) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f

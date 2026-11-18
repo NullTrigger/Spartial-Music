@@ -16,14 +16,17 @@ import androidx.room.RoomDatabase
         PlaylistEntity::class,
         PlaylistTrackEntity::class,
         RemoteCacheEntity::class,
+        QueueItemEntity::class,
+        QueueStateEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class SpartialDatabase : RoomDatabase() {
     abstract fun trackDao(): TrackDao
     abstract fun libraryDao(): LibraryDao
     abstract fun remoteCacheDao(): RemoteCacheDao
+    abstract fun queueDao(): QueueDao
 
     companion object {
         const val NAME = "nodes.db"

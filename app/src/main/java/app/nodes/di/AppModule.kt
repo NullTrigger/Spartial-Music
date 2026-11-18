@@ -13,6 +13,7 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.nodes.core.data.db.LibraryDao
+import app.nodes.core.data.db.QueueDao
 import app.nodes.core.data.db.SpartialDatabase
 import app.nodes.core.data.db.RemoteCacheDao
 import app.nodes.core.data.db.TrackDao
@@ -54,6 +55,37 @@ private val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
+/**
+ * v4 adds the persisted play queue: one row per queued track (with the
+ * pre-shuffle position so shuffle can be undone) and a single row of queue
+ * state. Nothing existing is touched.
+ */
+private val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `queue_items` (
+                `position` INTEGER NOT NULL,
+                `trackId` TEXT NOT NULL,
+                `originalPosition` INTEGER NOT NULL,
+                PRIMARY KEY(`position`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `queue_state` (
+                `id` INTEGER NOT NULL,
+                `currentIndex` INTEGER NOT NULL,
+                `positionMs` INTEGER NOT NULL,
+                `shuffleEnabled` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -78,7 +110,7 @@ object AppModule {
             // Every version has a real migration. The cache is never wiped to
             // pick up a schema change: likes, history and playlists live in
             // the same database (development_guide.md).
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
     @Provides
@@ -89,4 +121,7 @@ object AppModule {
 
     @Provides
     fun provideRemoteCacheDao(database: SpartialDatabase): RemoteCacheDao = database.remoteCacheDao()
+
+    @Provides
+    fun provideQueueDao(database: SpartialDatabase): QueueDao = database.queueDao()
 }

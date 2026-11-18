@@ -6,6 +6,8 @@
 package app.nodes.ui.screens.sessions
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import app.nodes.core.data.SettingsRepository
 import app.nodes.core.session.ListenTogetherManager
 import app.nodes.core.session.ListenTogetherServers
 import app.nodes.core.session.RoomUiState
@@ -14,6 +16,8 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * Holds the room state for [SessionsScreen] plus the two fields the user types.
@@ -25,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 @HiltViewModel
 class SessionsViewModel @Inject constructor(
     private val manager: ListenTogetherManager,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
 
     val state: StateFlow<RoomUiState> = manager.state
@@ -37,6 +42,14 @@ class SessionsViewModel @Inject constructor(
 
     private val _server = MutableStateFlow(ListenTogetherServers.DEFAULT)
     val server: StateFlow<String> = _server.asStateFlow()
+
+    /**
+     * The connection the user asked for while the one-time privacy dialog is
+     * still open. Null means no dialog; the connection only happens after the
+     * user confirms, and the question is asked only once per install.
+     */
+    private val _pendingConnect = MutableStateFlow<(() -> Unit)?>(null)
+    val pendingConnect: StateFlow<(() -> Unit)?> = _pendingConnect.asStateFlow()
 
     fun setName(value: String) {
         _name.value = value
@@ -54,7 +67,7 @@ class SessionsViewModel @Inject constructor(
         _server.value = ListenTogetherServers.normalise(value)
     }
 
-    fun create() = manager.create(_server.value, displayName())
+    fun create() = connect { manager.create(_server.value, displayName()) }
 
     fun join() {
         val typed = _code.value
@@ -62,7 +75,37 @@ class SessionsViewModel @Inject constructor(
             manager.reportNotice("Enter all $ROOM_CODE_LENGTH characters of the room code.")
             return
         }
-        manager.join(_server.value, typed, displayName())
+        connect { manager.join(_server.value, typed, displayName()) }
+    }
+
+    /**
+     * Shared listening is the one feature that talks to a third-party server,
+     * so the first connection asks once what is sent there. A blank server is
+     * refused outright: nothing ever connects without a deliberate choice.
+     */
+    private fun connect(block: () -> Unit) {
+        if (_server.value.isBlank()) {
+            manager.reportNotice("Pick a server first - nothing is sent until you do.")
+            return
+        }
+        viewModelScope.launch {
+            if (settings.sessionsConsentShown.first()) {
+                block()
+            } else {
+                _pendingConnect.value = block
+            }
+        }
+    }
+
+    /** The dialog's confirmation: remembers the answer and connects. */
+    fun confirmConnect() {
+        viewModelScope.launch { settings.setSessionsConsentShown() }
+        _pendingConnect.value?.invoke()
+        _pendingConnect.value = null
+    }
+
+    fun dismissConnect() {
+        _pendingConnect.value = null
     }
 
     fun approve(userId: String) = manager.approveJoin(userId)

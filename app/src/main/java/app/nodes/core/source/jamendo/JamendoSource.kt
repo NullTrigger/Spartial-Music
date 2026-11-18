@@ -223,6 +223,35 @@ class JamendoSource @Inject constructor(
             licenseNote = if (licenseUrl != null) "Creative Commons · $licenseUrl" else "Creative Commons · Jamendo",
         )
     }
+
+    /**
+     * Related listening for the infinite queue: more by the same artist,
+     * through the same catalogue endpoint every search uses.
+     */
+    override suspend fun getRelated(track: Track, limit: Int): SourceResult<List<Track>> {
+        if (clientId.isBlank()) return SourceResult.Failure(SourceErrorType.NO_CONFIGURATION)
+        if (limit <= 0 || track.artist.isBlank()) {
+            return SourceResult.Success(emptyList())
+        }
+        val key = "jamendo:related:${track.artist.lowercase()}:$limit"
+        val result = cachedTracks(key, limit) {
+            api.tracks(
+                clientId = clientId,
+                format = "json",
+                limit = limit + 1,
+                order = "popularity_total",
+                search = track.artist,
+                audioFormat = "mp31",
+            )
+        }
+        return when (result) {
+            is SourceResult.Success -> SourceResult.Success(
+                result.data.filter { it.id != track.id }.take(limit),
+            )
+
+            is SourceResult.Failure -> result
+        }
+    }
 }
 
 @kotlinx.serialization.Serializable

@@ -144,6 +144,30 @@ class LocalSource @Inject constructor(
         }
     }
 
+    /**
+     * More from the device, for the infinite queue: the same artist first,
+     * then the same album, then whatever else the library holds.
+     */
+    override suspend fun getRelated(track: Track, limit: Int): SourceResult<List<Track>> {
+        if (limit <= 0) return SourceResult.Success(emptyList())
+        val byArtist = if (track.artist.isNotBlank()) {
+            queryTracks("${MediaStore.Audio.Media.ARTIST} = ?", arrayOf(track.artist), limit)
+        } else {
+            emptyList()
+        }
+        val byAlbum = if (!track.album.isNullOrBlank()) {
+            queryTracks("${MediaStore.Audio.Media.ALBUM} = ?", arrayOf(track.album), limit)
+        } else {
+            emptyList()
+        }
+        val rest = queryTracks(null, null, limit)
+        val out = (byArtist + byAlbum + rest)
+            .filter { it.id != track.id }
+            .distinctBy { it.id }
+            .take(limit)
+        return SourceResult.Success(out)
+    }
+
     private suspend fun queryTracks(
         selection: String?,
         selectionArgs: Array<String>?,

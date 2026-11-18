@@ -172,16 +172,33 @@ class InnerTubeClient @Inject constructor(
             }.getOrDefault(emptyList()).take(limit)
         }
 
-    /** Tracks of an album, playlist or the liked-songs list ("LM"). */
-    suspend fun collection(collectionId: String, limit: Int): List<Track> =
+    /** Tracks and header of an album, playlist or the liked-songs list ("LM"). */
+    internal suspend fun collection(collectionId: String, limit: Int): InnerTubeParser.CollectionPage =
         withContext(Dispatchers.IO) {
             val payload = buildJsonObject {
                 put("context", contextFor(WEB_REMIX))
                 put("browseId", browseIdFor(collectionId))
             }
             val root = withRetry { post("browse", payload, WEB_REMIX, authenticated = true) }
-            InnerTubeParser.collectionTracks(root, limit.coerceIn(1, 200))
+            InnerTubeParser.collectionPage(root, limit.coerceIn(1, 200))
         }
+
+    /**
+     * The radio / "up next" answer for a video: YouTube Music's own related
+     * tracks, for the infinite queue. Same `next` request the music site makes
+     * when a song runs out; no PoToken, no cipher, no other client identity.
+     */
+    suspend fun next(videoId: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject {
+            put("context", contextFor(WEB_REMIX))
+            putJsonObject("playerEndpoint") {
+                putJsonObject("watchEndpoint") { put("videoId", videoId) }
+            }
+            put("videoId", videoId)
+        }
+        val root = withRetry { post("next", payload, WEB_REMIX, authenticated = true) }
+        InnerTubeParser.nextTracks(root, limit.coerceIn(1, 25))
+    }
 
     /**
      * The user's own albums and playlists. Empty when signed out (the endpoint

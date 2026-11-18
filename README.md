@@ -79,7 +79,8 @@ The redesign is built around five floating tabs and one persistent mini player:
 
 Other screens: **Now Playing** (controls, synced lyrics and queue modes),
 **Playlist**, **Album**, **Artist**, **Songs**, **Stats**, **Settings**,
-**Onboarding**, **Diagnostics** and the labelled **Sessions** UI stub.
+**Onboarding**, **Diagnostics** and **Sessions** (Listen Together, with a
+third-party server of your choosing and a one-time privacy notice).
 
 Every screen has loading, empty and error states; the app uses 44 dp minimum
 touch targets, content descriptions, dynamic type and responsive layouts. The
@@ -110,8 +111,14 @@ only appears on the five tab roots.
 - [x] Media3/ExoPlayer playback through a `MediaSessionService`
 - [x] Official YouTube IFrame playback with a visible player
 - [x] Room-backed likes, playlists, history and provider cache
-- [x] Synced `.lrc` lyrics with configurable providers
+- [x] Persistent queue: restored paused after a restart, with shuffle state
+- [x] Infinite queue ("Autoplay similar songs"): source related tracks first,
+  then the local library, deduped and trimmed
 - [x] Device equalizer with presets, bass boost, virtualizer and system EQ fallback
+- [x] Synced `.lrc` lyrics with nine configurable providers
+- [x] Library backup and restore to a versioned JSON file (no credentials)
+- [x] Listen Together: shared sessions over a room code, opt-in, with a
+  one-time third-party-server notice
 - [x] Crash reports written locally, never uploaded
 - [x] Optional Cast support in the `gms` flavour
 
@@ -195,7 +202,11 @@ missing. The default InnerTube source does not need an API key.
 
 No accounts, no analytics, no advertising and no tracking. Library data never
 leaves the device. Network requests only happen when you browse or play from a
-provider. Full detail: [PRIVACY.md](PRIVACY.md).
+provider - including one related-tracks request when the infinite queue looks
+for more music - or when you opt in to a shared Sessions room, which is the one
+feature that talks to a third-party server and says so before connecting. Lyrics
+lookups send only the current track's metadata to the provider you enabled. Full
+detail: [PRIVACY.md](PRIVACY.md).
 
 ## Credits and prior art
 

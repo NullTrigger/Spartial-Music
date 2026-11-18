@@ -106,6 +106,26 @@ class PlaybackController @Inject constructor(
     @Volatile
     private var seedingSuggestions = false
 
+    /** Debounce for writing the queue to the database. */
+    private var queueSaveJob: Job? = null
+
+    /** Ids queued with "Play next"; a reshuffle keeps them right after the current track. */
+    private val playNextIds = mutableSetOf<String>()
+
+    /** Mirrors "Remember queue" without a suspend read. */
+    @Volatile
+    private var rememberQueue = true
+
+    /** Position to resume from after a restore, consumed by the first play. */
+    private var restoredPositionMs = 0L
+
+    /** True once a restored queue is waiting for the user to press play. */
+    @Volatile
+    private var restoredPending = false
+
+    /** Last time the playing position was written to the database. */
+    private var lastPositionSaveMs = 0L
+
     private var sleepJob: Job? = null
 
     /**
@@ -166,8 +186,20 @@ class PlaybackController @Inject constructor(
         // Queue edits happen on the main thread; cache the preference so
         // playNext() and addToQueue() can honour it without suspending.
         scope.launch {
-            settings.settings.collect { preventDuplicates = it.queuePreventDuplicates }
+            settings.settings.collect { current ->
+                preventDuplicates = current.queuePreventDuplicates
+                rememberQueue = current.rememberQueue
+                if (!current.rememberQueue) {
+                    // Turning the setting off clears what was saved; the queue
+                    // on screen is untouched.
+                    runCatching { library.clearSavedQueue() }
+                }
+                _state.update { it.copy(infiniteQueue = current.autoplaySimilar) }
+            }
         }
+        // Restore the queue from the last session, paused. Nothing plays and no
+        // stream URL is fetched until the user presses play.
+        restoreQueue()
         // Copy the interesting parts of the player state somewhere the crash
         // handler can read them from a dying thread.
         scope.launch {
@@ -201,6 +233,16 @@ class PlaybackController @Inject constructor(
                             )
                         }
                         prefetchUpcoming()
+                        // The position is written about every 15 seconds while
+                        // playing, so a force-stop loses at most that much.
+                        if (System.currentTimeMillis() - lastPositionSaveMs >= POSITION_SAVE_INTERVAL_MS) {
+                            lastPositionSaveMs = System.currentTimeMillis()
+                            saveQueueNow()
+                        }
+                        // Infinite queue tops up in the background while the
+                        // music keeps playing; the end-of-queue path remains as
+                        // a safety net.
+                        maybeExtendQueueEarly()
                     }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -280,8 +322,22 @@ class PlaybackController @Inject constructor(
         return withTimeoutOrNull(CONTROLLER_WAIT_MS) { controllerReady.await() } ?: controller
     }
 
-    fun playNow(track: Track, playbackQueue: List<Track> = listOf(track), forceRefresh: Boolean = false) {
+    fun playNow(
+        track: Track,
+        playbackQueue: List<Track> = listOf(track),
+        forceRefresh: Boolean = false,
+        startPositionMs: Long = 0L,
+    ) {
         scope.launch {
+            // A restored queue resumes where the last session stopped, but
+            // only when the restored track is the one being started.
+            val resumeAt = if (restoredPending && track.id == _state.value.current?.id) {
+                restoredPositionMs
+            } else {
+                startPositionMs
+            }
+            restoredPending = false
+            restoredPositionMs = 0L
             // Minting a stream costs at least one network round trip, and the
             // tap that started it would otherwise appear to do nothing until
             // that answer arrives. Show the tapped track immediately with the
@@ -326,7 +382,7 @@ class PlaybackController @Inject constructor(
             val handle = (result as? SourceResult.Success)?.data
 
             try {
-                val reason = applyHandle(track, playbackQueue, handle)
+                val reason = applyHandle(track, playbackQueue, handle, resumeAt)
                 if (reason != null) {
                     fail(reason)
                 } else if (queue.size <= 1) {
@@ -357,6 +413,7 @@ class PlaybackController @Inject constructor(
         track: Track,
         playbackQueue: List<Track>,
         handle: PlaybackHandle?,
+        startPositionMs: Long = 0L,
     ): String? {
         return when (handle) {
             is PlaybackHandle.Stream -> {
@@ -388,7 +445,11 @@ class PlaybackController @Inject constructor(
                 val startIndex = playable.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
                 queue = withUrls
                 queuePosition = positionOf(track, withUrls)
-                player.setMediaItems(playable.map { it.toMediaItem() }, startIndex, 0L)
+                player.setMediaItems(
+                    playable.map { it.toMediaItem() },
+                    startIndex,
+                    startPositionMs.coerceAtLeast(0L),
+                )
                 player.prepare()
                 player.play()
                 _state.update {
@@ -504,6 +565,13 @@ class PlaybackController @Inject constructor(
             afterCurrent = afterCurrent,
             preventDuplicates = preventDuplicates,
         )
+        // "Play next" rows keep their slot on a reshuffle.
+        if (afterCurrent) {
+            playNextIds.add(track.id)
+            if (playNextIds.size > PLAY_NEXT_KEPT) {
+                playNextIds.remove(playNextIds.first())
+            }
+        }
         publishQueue(next)
         _state.update {
             it.copy(
@@ -525,6 +593,7 @@ class PlaybackController @Inject constructor(
         }
         _state.update { it.copy(queue = next, queueIndex = queuePosition) }
         reconcilePlayerQueue()
+        scheduleQueueSave()
     }
 
     /**
@@ -559,6 +628,7 @@ class PlaybackController @Inject constructor(
                 }
                 player.play()
                 syncFromController()
+                scheduleQueueSave()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -634,12 +704,37 @@ class PlaybackController @Inject constructor(
                 _state.update { it.copy(message = "Use the YouTube player controls for this track.") }
                 return
             }
+            // A restored queue starts on this press, at the saved position.
+            // Until now nothing was resolved and no URL was fetched.
+            if (restoredPending) {
+                val track = _state.value.current ?: queue.getOrNull(queuePosition)
+                if (track != null) {
+                    playNow(track, queue)
+                    return
+                }
+            }
             val player = controller ?: return
-            if (player.isPlaying) player.pause() else player.play()
+            if (player.isPlaying) {
+                player.pause()
+                // Position is saved on every pause, so a force-stop after this
+                // loses nothing.
+                saveQueueNow()
+            } else {
+                player.play()
+            }
             syncFromController()
         } catch (error: Exception) {
             AppLogger.e("Player", "Toggling playback failed", error)
         }
+    }
+
+    /**
+     * Called when playback stops for good (task removed, service stopping),
+     * while the position can still be read. Synchronous-safe: the write is
+     * fire-and-forget off the main thread.
+     */
+    fun persistOnStop() {
+        saveQueueNow()
     }
 
     fun next() {
@@ -707,6 +802,28 @@ class PlaybackController @Inject constructor(
             publishQueue(restored)
             _state.update { it.copy(shuffleOn = false, message = context.getString(R.string.player_shuffle_off)) }
         }
+        scheduleQueueSave()
+    }
+
+    /**
+     * Deals the upcoming tracks out again without interrupting the playing
+     * song. "Play next" entries keep their slot right after it, in the order
+     * they were queued. Turns shuffle on if it was off (the pre-shuffle order
+     * is kept, so turning shuffle off still restores what the user chose).
+     */
+    fun reshuffle() {
+        val upcoming = queue.drop(queuePosition + 1)
+        if (upcoming.isEmpty()) return
+        if (unshuffledQueue == null) unshuffledQueue = queue
+        val byId = HashMap<String, ArrayDeque<Track>>()
+        upcoming.forEach { byId.getOrPut(it.id) { ArrayDeque() }.addLast(it) }
+        val dealt = QueueEdits.reshuffled(upcoming.map { it.id }, playNextIds, kotlin.random.Random.Default)
+            .mapNotNull { id -> byId[id]?.removeFirstOrNull() }
+        publishQueue(queue.take(queuePosition + 1) + dealt)
+        _state.update {
+            it.copy(shuffleOn = true, message = context.getString(R.string.player_reshuffled))
+        }
+        scheduleQueueSave()
     }
 
     /** Infinite queue: a queue that fills itself again with related listening. */
@@ -720,10 +837,12 @@ class PlaybackController @Inject constructor(
                 ),
             )
         }
+        // The quick toggle and the saved setting are the same switch.
+        scope.launch { settings.setAutoplaySimilar(enabled) }
         // When switching it on, top the queue up straight away instead of
-        // waiting for the current track to end.
+        // waiting for the current track to end. Playback is never interrupted.
         if (enabled) {
-            extendQueueAndContinue()
+            extendQueue(playFirst = false)
         }
     }
 
@@ -747,7 +866,7 @@ class PlaybackController @Inject constructor(
             return
         }
         if (_state.value.infiniteQueue) {
-            extendQueueAndContinue()
+            extendQueue(playFirst = true)
             return
         }
         // Nothing follows: the ended track stays on screen, paused, so the
@@ -782,30 +901,187 @@ class PlaybackController @Inject constructor(
     }
 
     /**
-     * Appends the next handful of tracks to the queue and plays the first of
-     * them. The candidates are the user's own listens and likes, minus what the
-     * queue already holds - still only local data, nothing network-suggested.
+     * Appends the next handful of tracks to the queue. The candidates are the
+     * track's own related tracks from its source first, then the user's local
+     * listening pool - minus what is queued and what played in the last 50
+     * tracks, so nothing repeats before it has to. Nothing is ever invented:
+     * "queue ended" is only reported when every step comes back empty.
+     *
+     * @param playFirst when true (the end-of-queue safety net) the first new
+     *        track is started; otherwise playback continues untouched.
      */
-    private fun extendQueueAndContinue() {
+    private fun extendQueue(playFirst: Boolean) {
         if (extendingQueue) return
         extendingQueue = true
+        _state.update { it.copy(isFindingMore = true) }
         scope.launch {
             try {
-                val known = queue.map { it.id }.toSet()
-                val candidates = buildList {
-                    runCatching { library.recentlyPlayed.first() }.getOrNull()?.let(::addAll)
-                    runCatching { library.likedTracks.first() }.getOrNull()?.let(::addAll)
-                }.filter { it.id !in known }.distinctBy { it.id }
-                if (candidates.isEmpty()) {
-                    _state.update { it.copy(message = context.getString(R.string.player_queue_ended)) }
+                val extension = fetchMoreTracks()
+                if (extension.isEmpty()) {
+                    _state.update { it.copy(isFindingMore = false) }
+                    if (playFirst) {
+                        _state.update {
+                            it.copy(message = context.getString(R.string.player_queue_ended))
+                        }
+                    }
                     return@launch
                 }
-                val extension = candidates.take(EXTEND_COUNT)
+                trimPlayedHistory()
                 publishQueue(queue + extension)
-                _state.update { it.copy(message = context.getString(R.string.player_queue_extended, extension.size)) }
-                moveTo(queuePosition + 1)
+                _state.update { it.copy(isFindingMore = false) }
+                if (playFirst) {
+                    moveTo(queuePosition + 1)
+                }
             } finally {
                 extendingQueue = false
+            }
+        }
+    }
+
+    /** Early top-up so playback never pauses: at most two tracks still queued. */
+    private fun maybeExtendQueueEarly() {
+        if (!_state.value.infiniteQueue) return
+        if (queue.size - queuePosition - 1 > 2) return
+        extendQueue(playFirst = false)
+    }
+
+    /**
+     * The next batch, in preference order: source related tracks, then the
+     * local pool (recent, liked, all cached), then a shuffle of the whole local
+     * library. Already-queued and just-played tracks never come back.
+     */
+    private suspend fun fetchMoreTracks(): List<Track> {
+        val queuedIds = queue.mapTo(HashSet()) { it.id }
+        val recentlyPlayedIds = runCatching {
+            library.recentlyPlayedIds(RECENT_EXCLUDE_COUNT)
+        }.getOrDefault(emptySet())
+        val seed = _state.value.current ?: queue.lastOrNull()
+        val related = if (seed != null) {
+            runCatching {
+                (registry.forTrack(seed.sourceId)?.getRelated(seed, EXTEND_COUNT) as? SourceResult.Success)
+                    ?.data.orEmpty()
+            }.getOrDefault(emptyList())
+        } else {
+            emptyList()
+        }
+        val pool = buildList {
+            runCatching { library.recentlyPlayed.first() }.getOrNull()?.let(::addAll)
+            runCatching { library.likedTracks.first() }.getOrNull()?.let(::addAll)
+            runCatching { library.allTracks.first() }.getOrNull()?.let(::addAll)
+        }
+        val picked = QueueEdits.selectExtension(
+            related = related,
+            localPool = pool,
+            queuedIds = queuedIds,
+            recentlyPlayedIds = recentlyPlayedIds,
+            limit = EXTEND_COUNT,
+        )
+        if (picked.isNotEmpty()) return picked
+        // Last step: a shuffle of the whole local library, still minus what is
+        // queued or just played.
+        return pool.shuffled()
+            .filter { it.id !in queuedIds && it.id !in recentlyPlayedIds }
+            .distinctBy { it.id }
+            .take(EXTEND_COUNT)
+    }
+
+    /** The queue cannot grow forever: at most 100 played tracks stay behind. */
+    private fun trimPlayedHistory() {
+        val drop = queuePosition - MAX_PLAYED_BEHIND
+        if (drop <= 0) return
+        publishQueue(queue.drop(drop))
+    }
+
+    // ------------------------------------------------------------------
+    // Queue persistence
+    // ------------------------------------------------------------------
+
+    /** Debounced save: one write shortly after the last change. */
+    private fun scheduleQueueSave() {
+        queueSaveJob?.cancel()
+        queueSaveJob = scope.launch {
+            delay(QUEUE_SAVE_DEBOUNCE_MS)
+            saveQueueNow()
+        }
+    }
+
+    /**
+     * Writes the queue and its position now. Called on the debounce, on pause
+     * and stop, and periodically while playing - never on the UI thread's
+     * critical path, and never able to disturb playback.
+     */
+    fun saveQueueNow() {
+        if (!rememberQueue) return
+        val snapshot = QueueEdits.Snapshot(
+            trackIds = queue.map { it.id },
+            originalPositions = originalOrderPositions(),
+            currentIndex = queuePosition.coerceIn(0, (queue.size - 1).coerceAtLeast(0)),
+            positionMs = controller?.currentPosition?.takeIf { it > 0L }
+                ?: _state.value.positionMs,
+            shuffleEnabled = _state.value.shuffleOn,
+        )
+        scope.launch {
+            runCatching {
+                library.saveQueue(
+                    tracks = queue,
+                    currentIndex = snapshot.currentIndex,
+                    positionMs = snapshot.positionMs,
+                    shuffleEnabled = snapshot.shuffleEnabled,
+                    originalPositions = snapshot.originalPositions,
+                )
+            }.onFailure { error ->
+                AppLogger.w("Player", "Saving the queue failed", error)
+            }
+        }
+    }
+
+    /** Where each queue entry sat before shuffle; identity while shuffle is off. */
+    private fun originalOrderPositions(): List<Int> {
+        val original = unshuffledQueue ?: return queue.indices.toList()
+        val positions = HashMap<String, ArrayDeque<Int>>()
+        original.forEachIndexed { index, track ->
+            positions.getOrPut(track.id) { ArrayDeque() }.addLast(index)
+        }
+        return queue.map { track -> positions[track.id]?.removeFirstOrNull() ?: 0 }
+    }
+
+    /**
+     * Loads the saved queue back, paused. Nothing plays and no stream URL is
+     * fetched until the user presses play; a track that no longer resolves is
+     * skipped at load time instead of crashing later.
+     */
+    private fun restoreQueue() {
+        scope.launch {
+            val current = settings.current()
+            if (!current.rememberQueue) return@launch
+            val saved = runCatching { library.savedQueue() }.getOrNull() ?: return@launch
+            val tracks = saved.tracks
+            if (tracks.isEmpty()) return@launch
+            queue = tracks
+            queuePosition = saved.currentIndex.coerceIn(0, tracks.lastIndex)
+            restoredPositionMs = saved.positionMs
+            restoredPending = true
+            // Shuffle restores with the queue when the user asked for it; the
+            // pre-shuffle order travels along so turning shuffle off works.
+            val shuffle = saved.shuffleEnabled && current.rememberShuffle
+            unshuffledQueue = if (shuffle) {
+                tracks.indices
+                    .sortedBy { saved.originalPositions.getOrNull(it) ?: it }
+                    .map { tracks[it] }
+            } else {
+                null
+            }
+            _state.update {
+                it.copy(
+                    current = tracks.getOrNull(queuePosition),
+                    queue = tracks,
+                    queueIndex = queuePosition,
+                    isPlaying = false,
+                    isBuffering = false,
+                    positionMs = saved.positionMs,
+                    durationMs = tracks.getOrNull(queuePosition)?.durationMs ?: 0L,
+                    shuffleOn = shuffle,
+                )
             }
         }
     }
@@ -875,6 +1151,7 @@ class PlaybackController @Inject constructor(
 
     private fun finishSleepTimer() {
         runCatching { controller?.pause() }
+        saveQueueNow()
         scope.launch { settings.setSleepTimerEndsAt(0L) }
         _state.update {
             it.copy(
@@ -971,5 +1248,20 @@ class PlaybackController @Inject constructor(
 
         /** How long to wait for the session binding before giving up. */
         const val CONTROLLER_WAIT_MS = 2_000L
+
+        /** Queue writes are debounced this long after a burst of edits. */
+        const val QUEUE_SAVE_DEBOUNCE_MS = 500L
+
+        /** How often the playing position is written while playing. */
+        const val POSITION_SAVE_INTERVAL_MS = 15_000L
+
+        /** Recently played tracks that never re-enter the infinite queue. */
+        const val RECENT_EXCLUDE_COUNT = 50
+
+        /** How many played tracks stay behind the current one at most. */
+        const val MAX_PLAYED_BEHIND = 100
+
+        /** How many "Play next" ids are remembered for reshuffles. */
+        const val PLAY_NEXT_KEPT = 32
     }
 }

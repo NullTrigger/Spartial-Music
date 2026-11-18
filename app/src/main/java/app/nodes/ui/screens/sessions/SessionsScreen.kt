@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Logout
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -32,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -80,6 +83,36 @@ fun SessionsScreen(
     val name by viewModel.name.collectAsStateWithLifecycle()
     val code by viewModel.code.collectAsStateWithLifecycle()
     val server by viewModel.server.collectAsStateWithLifecycle()
+    val pendingConnect by viewModel.pendingConnect.collectAsStateWithLifecycle()
+
+    // One-time, before the first connection: what crosses the socket, and who
+    // runs the server. Asked again never; answered "not now", nothing connects.
+    if (pendingConnect != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissConnect,
+            containerColor = Color(0xFF15171B),
+            title = {
+                Text(stringResource(R.string.sessions_consent_title), color = SpartialWhite)
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.sessions_consent_body),
+                    color = SpartialGrey,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmConnect) {
+                    Text(stringResource(R.string.sessions_consent_accept), color = SpartialWhite)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissConnect) {
+                    Text(stringResource(R.string.sessions_consent_decline), color = SpartialGrey)
+                }
+            },
+            shape = RoundedCornerShape(28.dp),
+        )
+    }
 
     Column(
         Modifier

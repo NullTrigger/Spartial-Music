@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.ScreenLockPortrait
 import androidx.compose.material.icons.rounded.SpaceBar
@@ -108,6 +111,34 @@ fun PlaybackSettingsScreen(
                     value = speedText,
                     icon = Icons.Rounded.Speed,
                     onClick = { showSpeedPicker = true },
+                )
+            }
+        }
+
+        item(key = "queue") {
+            SettingsGroup(stringResource(R.string.settings_queue_group)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_remember_queue),
+                    subtitle = stringResource(R.string.settings_remember_queue_hint),
+                    icon = Icons.Rounded.QueueMusic,
+                    checked = settings.rememberQueue,
+                    onCheckedChange = viewModel::setRememberQueue,
+                )
+                SettingsDivider()
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_remember_shuffle),
+                    subtitle = stringResource(R.string.settings_remember_shuffle_hint),
+                    icon = Icons.Rounded.Shuffle,
+                    checked = settings.rememberShuffle,
+                    onCheckedChange = viewModel::setRememberShuffle,
+                )
+                SettingsDivider()
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_autoplay_similar),
+                    subtitle = stringResource(R.string.settings_autoplay_similar_hint),
+                    icon = Icons.Rounded.Repeat,
+                    checked = settings.autoplaySimilar,
+                    onCheckedChange = viewModel::setAutoplaySimilar,
                 )
             }
         }

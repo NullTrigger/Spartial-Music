@@ -26,7 +26,10 @@ Last updated: 2026-11-12.
 | Audio files on your device | Never copied or uploaded | No |
 
 Android's own backup may include the app database if you have device backup
-enabled; that is your OS-level choice, and cached responses are excluded.
+enabled; that is your OS-level choice, and cached responses are excluded. The
+encrypted YouTube Music session cookie is excluded from backup and device
+transfer too, so a restored or transferred device never carries an account
+session.
 
 ## Network requests Spartial Music makes
 
@@ -56,11 +59,14 @@ Spartial Music only talks to a provider when you browse or play something:
    web player's public JWT from Apple's own page bundle; no Apple account is
    involved and nothing is purchased or signed into. See
    [docs/LYRICS.md](docs/LYRICS.md).
-6. **Session relay** (the room server shown on the Sessions screen; by default
-   a Cloudflare Worker) — **only while you are hosting or listening in a room.**
-   A room message carries the room code, the display name you typed, and for the
-   host the track the room is playing (title, artist, album, duration, artwork
-   URL and, for YouTube Music tracks, the video id) plus a position in the song.
+6. **Session relay** (the room server shown on the Sessions screen; run by a
+   **third party** — Spartial Music runs no server of its own) — **only while
+   you are hosting or listening in a room, and only after you pick a server and
+   accept the one-time notice.** The app ships with no default server and
+   never connects until you choose one. A room message carries the room code,
+   the display name you typed, and for the host the track the room is playing
+   (title, artist, album, duration, artwork URL and, for YouTube Music tracks,
+   the video id) plus a position in the song.
    It carries no account cookie, no OAuth token, no e-mail, no device
    identifier and no play history, and it sends nothing about tracks you never
    start. The relay holds room state only for as long as the room has members;

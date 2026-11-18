@@ -96,6 +96,31 @@
     <string name="sessions_guest_hint">The host controls this room. Mute and volume stay yours.</string>
     <string name="sessions_dismiss">Dismiss</string>
     <string name="sessions_privacy_note">Shared listening is the one place this app talks to a server. Only the room code, your name and the track the host is playing cross the socket - never your account, your library or your listening history. See PRIVACY.md.</string>
+    <string name="sessions_consent_title">Connect to a third-party server?</string>
+    <string name="sessions_consent_body">Sessions are hosted on a server run by a third party, not by Spartial Music. When you connect, it receives the room code, the display name you typed, and the track the host is playing (title, artist, album, artwork and position). Nothing else - no account, no library, no listening history.</string>
+    <string name="sessions_consent_accept">I understand, connect</string>
+    <string name="sessions_consent_decline">Not now</string>
+    <string name="settings_queue_group">Queue</string>
+    <string name="settings_remember_queue">Remember queue</string>
+    <string name="settings_remember_queue_hint">Keep the play queue across app restarts and restore it paused</string>
+    <string name="settings_remember_shuffle">Remember shuffle</string>
+    <string name="settings_remember_shuffle_hint">Restore the shuffle state together with the queue</string>
+    <string name="settings_autoplay_similar">Autoplay similar songs</string>
+    <string name="settings_autoplay_similar_hint">When the queue runs low, keep going with related tracks</string>
+    <string name="player_reshuffled">Upcoming tracks reshuffled</string>
+    <string name="player_reshuffle">Reshuffle upcoming tracks</string>
+    <string name="player_finding_more">Finding more music…</string>
+    <string name="settings_backup_group">Backup</string>
+    <string name="settings_export_library">Export library</string>
+    <string name="settings_export_library_hint">Save playlists, likes, history and settings to a JSON file</string>
+    <string name="settings_import_library">Import library</string>
+    <string name="settings_import_library_hint">Merge a backup file into this device; nothing is replaced</string>
+    <string name="settings_export_done">Library exported</string>
+    <string name="settings_export_failed">Export failed: %1$s</string>
+    <string name="settings_import_done">Imported %1$d playlists and %2$d liked tracks</string>
+    <string name="settings_import_failed">That file could not be read</string>
+    <string name="settings_import_too_large">That file is over 20 MB</string>
+    <string name="settings_import_newer">That backup comes from a newer version of the app</string>
     <string name="session_now_playing">Now playing: %1$s</string>
 
     <!-- Library -->

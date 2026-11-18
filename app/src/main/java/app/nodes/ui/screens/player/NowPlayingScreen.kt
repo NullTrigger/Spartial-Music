@@ -393,6 +393,7 @@ fun NowPlayingScreen(
                         onOpenAlbum = onOpenAlbum,
                         onOpenControls = { mode = PlayerMode.CONTROLS },
                         onInfinite = playerViewModel::toggleInfiniteQueue,
+                        onReshuffle = playerViewModel::reshuffle,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -687,6 +688,7 @@ private fun QueueMode(
     onOpenAlbum: (String, String?) -> Unit,
     onOpenControls: () -> Unit,
     onInfinite: () -> Unit,
+    onReshuffle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (state.queue.isEmpty()) {
@@ -708,18 +710,26 @@ private fun QueueMode(
                 infiniteQueue = state.infiniteQueue,
                 onOpenControls = onOpenControls,
                 onInfinite = onInfinite,
+                onReshuffle = onReshuffle,
             )
-            Text(
-                text = stringResource(R.string.player_playing_next_label),
-                style = MaterialTheme.typography.titleMedium,
-                color = SpartialWhite.copy(alpha = 0.92f),
-                modifier = Modifier.padding(
-                    start = 24.dp,
-                    end = 24.dp,
-                    top = 8.dp,
-                    bottom = 6.dp,
-                ),
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 6.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.player_playing_next_label),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = SpartialWhite.copy(alpha = 0.92f),
+                    modifier = Modifier.weight(1f),
+                )
+                if (state.isFindingMore) {
+                    Text(
+                        text = stringResource(R.string.player_finding_more),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SpartialWhite.copy(alpha = 0.64f),
+                    )
+                }
+            }
         }
         itemsIndexed(
             items = state.queue,
@@ -768,6 +778,7 @@ private fun QueueHeader(
     infiniteQueue: Boolean,
     onOpenControls: () -> Unit,
     onInfinite: () -> Unit,
+    onReshuffle: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -810,6 +821,20 @@ private fun QueueHeader(
                 imageVector = Icons.Rounded.AllInclusive,
                 contentDescription = stringResource(R.string.player_infinite),
                 tint = if (infiniteQueue) SpartialWhite else SpartialWhite.copy(alpha = 0.52f),
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClick = onReshuffle),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Shuffle,
+                contentDescription = stringResource(R.string.player_reshuffle),
+                tint = SpartialWhite.copy(alpha = 0.72f),
                 modifier = Modifier.size(22.dp),
             )
         }

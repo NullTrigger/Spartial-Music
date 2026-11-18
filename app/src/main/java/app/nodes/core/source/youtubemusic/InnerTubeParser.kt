@@ -37,6 +37,17 @@ internal object InnerTubeParser {
         val bitrate: Int,
     )
 
+    /**
+     * An album or playlist page: its header plus the rows under it. The
+     * header carries the real title and cover; both are null when the page's
+     * layout does not name them, and the caller falls back.
+     */
+    data class CollectionPage(
+        val title: String?,
+        val artworkUri: String?,
+        val tracks: List<Track>,
+    )
+
     // ------------------------------------------------------------------
     // Home
     // ------------------------------------------------------------------
@@ -135,12 +146,20 @@ internal object InnerTubeParser {
         val parts = subtitleSections(
             columns.getOrNull(1)?.get("text")?.obj()?.get("runs") as? JsonArray,
         )
-        val artist = parts.filter { it.isArtist }.joinToString(", ") { it.text }.ifBlank {
-            parts.firstOrNull { !CLOCK.matches(it.text) }?.text ?: "YouTube Music"
-        }
         val album = parts.firstOrNull { it.isAlbum }
+        // Album pages leave the subtitle column empty and never link the
+        // artist in the row, so the play button's label ("Song - Artist") is
+        // the only place those rows name a performer. "YouTube Music" is not
+        // a performer and is never invented as one; a row that names nobody
+        // simply has no artist.
+        val artist = parts.filter { it.isArtist }.joinToString(", ") { it.text }.ifBlank {
+            parts.firstOrNull { !CLOCK.matches(it.text) }?.text
+                ?: playLabelArtist(row, title)
+                ?: ""
+        }
         val clock = parts.lastOrNull { CLOCK.matches(it.text) }?.text
             ?: row["lengthText"]?.text()?.takeIf { CLOCK.matches(it) }
+            ?: fixedColumnClock(row)
 
         return Track(
             id = "ytmusic-$videoId",
@@ -189,7 +208,7 @@ internal object InnerTubeParser {
             return Track(
                 id = "ytmusic-$videoId",
                 title = title,
-                artist = artists.ifBlank { "YouTube Music" },
+                artist = artists.ifBlank { playLabelArtist(row, title) ?: "" },
                 artworkUri = artwork,
                 durationMs = 0L,
                 sourceId = SourceId.YOUTUBE_MUSIC,
@@ -252,6 +271,99 @@ internal object InnerTubeParser {
         return out.take(limit.coerceAtLeast(0))
     }
 
+    /**
+     * Tracks of a `next` (radio / up-next) answer. The rows are the same song
+     * renderers as everywhere else; `playlistPanelVideoRenderer` rows are read
+     * too, since some radio layouts answer with them. Defensive throughout: a
+     * row without a video id is not a song.
+     */
+    fun nextTracks(root: JsonObject, limit: Int): List<Track> {
+        val out = mutableListOf<Track>()
+        val seen = mutableSetOf<String>()
+
+        walkRenderers(root, "musicResponsiveListItemRenderer") { renderer ->
+            songRow(renderer)?.let { track ->
+                if (seen.add(track.videoId ?: track.id)) out += track
+            }
+        }
+        walkRenderers(root, "playlistPanelVideoRenderer") { renderer ->
+            panelRow(renderer)?.let { track ->
+                if (seen.add(track.videoId ?: track.id)) out += track
+            }
+        }
+
+        return out.take(limit.coerceAtLeast(0))
+    }
+
+    /** One `playlistPanelVideoRenderer` radio row. */
+    private fun panelRow(row: JsonObject): Track? {
+        val videoId = row["videoId"]?.string() ?: return null
+        val title = row["title"]?.text()?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val parts = subtitleSections(row["longBylineText"]?.obj()?.get("runs") as? JsonArray)
+        val artist = parts.filter { it.isArtist }.joinToString(", ") { it.text }
+            .ifBlank { parts.firstOrNull { !CLOCK.matches(it.text) }?.text ?: "" }
+        val album = parts.firstOrNull { it.isAlbum }
+        return Track(
+            id = "ytmusic-$videoId",
+            title = title,
+            artist = artist,
+            album = album?.text,
+            albumId = album?.albumId,
+            artworkUri = musicThumbnail(row),
+            durationMs = parseClock(row["lengthText"]?.text()?.takeIf { CLOCK.matches(it) }),
+            sourceId = SourceId.YOUTUBE_MUSIC,
+            videoId = videoId,
+            externalUrl = "https://music.youtube.com/watch?v=$videoId",
+        )
+    }
+
+    /**
+     * An album or playlist page: the header (its real title and cover) and
+     * the tracks. The header has three known shapes - the classic detail
+     * header, the responsive header newer pages use, and the newest one that
+     * keeps everything in a view model - so all three are read, and a layout
+     * with none of them simply costs the title and cover, never the rows.
+     */
+    fun collectionPage(root: JsonObject, limit: Int): CollectionPage {
+        var title: String? = null
+        var artwork: String? = null
+
+        // The editable playlist header wraps the classic one, so the walk
+        // finds it nested too.
+        for (key in listOf("musicDetailHeaderRenderer", "musicResponsiveHeaderRenderer")) {
+            walkRenderers(root, key) { header ->
+                if (title == null) {
+                    title = header["title"]?.text()?.trim()?.takeIf { it.isNotEmpty() }
+                }
+                if (artwork == null) {
+                    artwork = musicThumbnail(header)
+                }
+            }
+        }
+
+        walkRenderers(root, "pageHeaderViewModel") { model ->
+            if (title == null) title = dynamicText(model)
+            if (artwork == null) artwork = largestImage(model)
+        }
+
+        // Album rows carry no thumbnails of their own; without the header's
+        // cover every row renders a generated placeholder and the page reads
+        // as "the music image never loads", so rows without artwork borrow
+        // the page's cover.
+        val tracks = collectionTracks(root, limit).map { track ->
+            if (track.artworkUri == null && artwork != null) {
+                track.copy(artworkUri = artwork)
+            } else {
+                track
+            }
+        }
+
+        return CollectionPage(
+            title = title,
+            artworkUri = artwork,
+            tracks = tracks,
+        )
+    }
     /** Album and playlist cards on a library page. */
     fun libraryPlaylists(root: JsonObject): List<Playlist> {
         val out = mutableListOf<Playlist>()
@@ -516,6 +628,38 @@ internal object InnerTubeParser {
         return sections
     }
 
+    /**
+     * The performer named in the play button's accessibility label
+     * ("Play Song - Artist"). Album rows carry no artist column and no artist
+     * link, so that label is the only place they name one. The known title is
+     * stripped from the front so a title containing " - " cannot swallow the
+     * artist.
+     */
+    private fun playLabelArtist(row: JsonObject, title: String): String? {
+        val button = (row["overlay"] as? JsonObject)
+            ?.get("musicItemThumbnailOverlayRenderer")?.obj()
+            ?.get("content")?.obj()
+            ?.get("musicPlayButtonRenderer")?.obj() ?: return null
+        val label = button["accessibilityPlayData"]?.obj()
+            ?.get("accessibilityData")?.obj()
+            ?.get("label")?.string() ?: return null
+        val tail = label.removePrefix("Play ").removePrefix("Pause ").trim()
+        val prefix = "$title - "
+        return tail.removePrefix(prefix).takeIf { it != tail && it.isNotBlank() }
+    }
+
+    /** The duration in the row's fixed column; album pages keep it there. */
+    private fun fixedColumnClock(row: JsonObject): String? {
+        val columns = (row["fixedColumns"] as? JsonArray).orEmpty()
+        for (column in columns) {
+            val text = (column as? JsonObject)
+                ?.get("musicResponsiveListItemFixedColumnRenderer")?.obj()
+                ?.get("text")?.text()
+            if (text != null && CLOCK.matches(text)) return text
+        }
+        return null
+    }
+
     private fun playButtonVideoId(row: JsonObject): String? {
         val overlay = (row["overlay"] as? JsonObject)
             ?.get("musicItemThumbnailOverlayRenderer")?.obj() ?: return null
@@ -561,6 +705,66 @@ internal object InnerTubeParser {
      * every cover look soft; the display layer then rewrites this URL to the
      * pixels the surface actually needs.
      */
+    /**
+     * First `dynamicTextViewModel.text.content` under [node]: the title in
+     * the newest page-header layout.
+     */
+    private fun dynamicText(node: JsonElement): String? {
+        when (node) {
+            is JsonObject -> {
+                val content = (node["dynamicTextViewModel"] as? JsonObject)
+                    ?.get("text")?.obj()?.get("content")?.string()
+                if (!content.isNullOrBlank()) return content.trim()
+                for (value in node.values) {
+                    dynamicText(value)?.let { return it }
+                }
+            }
+
+            is JsonArray -> for (value in node) {
+                dynamicText(value)?.let { return it }
+            }
+
+            else -> Unit
+        }
+        return null
+    }
+
+    /**
+     * Largest image under [node], whatever the layout calls its list - the
+     * classic `thumbnails` arrays and the view model's `sources` arrays are
+     * the same {url, width, height} shape.
+     */
+    private fun largestImage(node: JsonElement): String? {
+        var best: String? = null
+        var bestArea = -1
+
+        fun scan(current: JsonElement) {
+            when (current) {
+                is JsonObject -> {
+                    for (key in listOf("thumbnails", "sources")) {
+                        val list = current[key] as? JsonArray ?: continue
+                        for (element in list) {
+                            val obj = element as? JsonObject ?: continue
+                            val url = obj["url"]?.string() ?: continue
+                            val area = (obj["width"]?.int() ?: 0) * (obj["height"]?.int() ?: 0)
+                            if (area > bestArea) {
+                                best = url
+                                bestArea = area
+                            }
+                        }
+                    }
+                    current.values.forEach(::scan)
+                }
+
+                is JsonArray -> current.forEach(::scan)
+                else -> Unit
+            }
+        }
+
+        scan(node)
+        return best
+    }
+
     private fun musicThumbnail(row: JsonObject): String? {
         for (key in listOf("thumbnail", "thumbnailRenderer")) {
             val outer = row[key] as? JsonObject ?: continue

@@ -15,9 +15,10 @@ package app.nodes.core.session
  * the track the host is playing) and what never does (account cookies,
  * listening history, the audio itself).
  *
- * The default is the Cloudflare Worker + Durable Object deployment the protocol
- * was written against. It is a free-plan worker, and the room state is held in
- * SQLite-backed durable objects, so nothing is stored beyond the live room.
+ * The default is empty on purpose: shared listening is the one feature that
+ * talks to a third-party server, so the app must never connect to one until
+ * the user deliberately picks it. It is a free-plan worker, and the room state
+ * is held in SQLite-backed durable objects, so nothing is stored beyond the live room.
  */
 object ListenTogetherServers {
 
@@ -30,13 +31,16 @@ object ListenTogetherServers {
      */
     const val METROLIST = "wss://metroserverx.meowery.eu/ws"
 
-    /** What the app connects to when the user has not chosen a server. */
-    const val DEFAULT = CLOUDFLARE
+    /**
+     * What the app connects to when the user has not chosen a server: nothing.
+     * Connecting is a privacy decision the user makes, never a default.
+     */
+    const val DEFAULT = ""
 
-    /** Human labels for the server picker. */
+    /** Human labels for the server picker. Both are run by third parties. */
     val KNOWN = listOf(
-        CLOUDFLARE to "Cloudflare (default)",
-        METROLIST to "Metrolist community",
+        CLOUDFLARE to "Cloudflare (third-party server)",
+        METROLIST to "Metrolist community (third-party server)",
     )
 
     /**
@@ -46,6 +50,8 @@ object ListenTogetherServers {
      */
     fun normalise(input: String): String {
         val trimmed = input.trim()
+        // A blank field stays "no server chosen"; it must never fall back to
+        // someone else's deployment.
         if (trimmed.isBlank()) return DEFAULT
         if (trimmed.startsWith("ws://") || trimmed.startsWith("wss://")) return trimmed
         val host = trimmed.removePrefix("https://").removePrefix("http://").removeSuffix("/")

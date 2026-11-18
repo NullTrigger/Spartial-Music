@@ -214,6 +214,9 @@ class PlaybackService : MediaSessionService() {
 
     @androidx.annotation.OptIn(UnstableApi::class)
     override fun onTaskRemoved(rootIntent: Intent?) {
+        // The queue and position are written before anything stops, so the
+        // next start restores where this session left off.
+        runCatching { playbackController.get().persistOnStop() }
         if (stopOnTaskClear) {
             // Opted in: the swiped-away app must not keep a media session (or
             // its notification) alive in the background. Stop the player first
@@ -230,6 +233,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        runCatching { playbackController.get().persistOnStop() }
         scope.cancel()
         equalizerController.get().release()
         mediaSession?.run {

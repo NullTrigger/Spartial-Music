@@ -198,6 +198,19 @@ interface LibraryDao {
     @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun deletePlaylistTracks(playlistId: String)
 
+    @Query("SELECT * FROM play_history ORDER BY playedAt DESC LIMIT :limit")
+    suspend fun recentHistory(limit: Int): List<PlayHistoryEntity>
+
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM play_history
+            WHERE trackId = :trackId AND playedAt = :playedAt
+        )
+        """,
+    )
+    suspend fun historyRowExists(trackId: String, playedAt: Long): Boolean
+
     /**
      * Adds one track to a playlist as a single transaction: the cached track
      * row and the cross row commit together, so a playlist can never point at
@@ -251,4 +264,55 @@ interface RemoteCacheDao {
 
     @Query("DELETE FROM remote_cache WHERE fetchedAt < :olderThan")
     suspend fun clearOlderThan(olderThan: Long)
+}
+
+/** The persisted play queue: one row per queued track plus a single state row. */
+@Dao
+interface QueueDao {
+
+    @Query("SELECT * FROM queue_items ORDER BY position ASC")
+    suspend fun items(): List<QueueItemEntity>
+
+    @Query("SELECT * FROM queue_state WHERE id = 0")
+    suspend fun state(): QueueStateEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertTracks(tracks: List<TrackEntity>)
+
+    @Query("DELETE FROM queue_items")
+    suspend fun clearItems()
+
+    @Query("DELETE FROM queue_state")
+    suspend fun clearState()
+
+    /**
+     * Replaces the whole saved queue in one transaction. The queued tracks are
+     * upserted into `tracks` first, so a restored queue can never point at a
+     * row that is not there.
+     */
+    @Transaction
+    suspend fun replaceQueue(
+        tracks: List<TrackEntity>,
+        items: List<QueueItemEntity>,
+        state: QueueStateEntity,
+    ) {
+        upsertTracks(tracks)
+        clearItems()
+        clearState()
+        insertItems(items)
+        insertState(state)
+    }
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItems(items: List<QueueItemEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertState(state: QueueStateEntity)
+
+    /** Drops the saved queue without touching the tracks themselves. */
+    @Transaction
+    suspend fun clearQueue() {
+        clearItems()
+        clearState()
+    }
 }

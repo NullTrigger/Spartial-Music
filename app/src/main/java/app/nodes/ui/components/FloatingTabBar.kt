@@ -99,8 +99,8 @@ private val BubblePressedHeight = 68.dp
 /** Pressed, the bubble is only slightly wider; drag velocity adds the stretch. */
 private const val BubblePressedWidthScale = 1.08f
 
-/** A fast pull can stretch the lens across neighbouring destinations. */
-private const val BubbleMaxStretch = 0.65f
+/** A fast pull may widen the lens slightly; never enough to reach a neighbour. */
+private const val BubbleMaxStretch = 0.18f
 
 /** Keep the selected glyph legible rather than magnifying it excessively. */
 private const val TabPressScale = 0.06f
@@ -576,12 +576,12 @@ private fun TabPill(
                             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
 
-                        // Travel creates the broad liquid stretch in the
-                        // reference; velocity adds a little extra on a flick.
-                        // The available room limits it smoothly at either end
-                        // instead of switching the stretch off in one frame.
-                        val travel = abs(clamped - dragOrigin) / itemWidthPx * 0.48f
-                        val velocity = speed / (itemWidthPx * 1.8f)
+                        // Travel gives a small liquid stretch; velocity adds
+                        // a little extra on a flick. The available room limits
+                        // it smoothly at either end instead of switching the
+                        // stretch off in one frame.
+                        val travel = abs(clamped - dragOrigin) / itemWidthPx * 0.16f
+                        val velocity = speed / (itemWidthPx * 4f)
                         val candidate = (travel + velocity).coerceIn(0f, BubbleMaxStretch)
                         val baseWidth = itemWidthPx * BubblePressedWidthScale
                         val availableWidth = 2f * minOf(

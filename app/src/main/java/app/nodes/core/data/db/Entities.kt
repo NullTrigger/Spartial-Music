@@ -77,6 +77,27 @@ data class RemoteCacheEntity(
     val fetchedAt: Long,
 )
 
+/**
+ * One row of the persisted play queue. [position] is the play order;
+ * [originalPosition] is where the row sat before shuffle, so turning shuffle
+ * off can restore the order the user chose. Both are 0-based and dense.
+ */
+@Entity(tableName = "queue_items")
+data class QueueItemEntity(
+    @PrimaryKey val position: Int,
+    val trackId: String,
+    val originalPosition: Int,
+)
+
+/** The single row of queue state that travels with [QueueItemEntity]. */
+@Entity(tableName = "queue_state")
+data class QueueStateEntity(
+    @PrimaryKey val id: Int = 0,
+    val currentIndex: Int,
+    val positionMs: Long,
+    val shuffleEnabled: Boolean,
+)
+
 fun TrackEntity.toTrack(): Track = Track(
     id = id,
     title = title,
