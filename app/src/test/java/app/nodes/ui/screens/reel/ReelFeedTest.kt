@@ -28,7 +28,7 @@ class ReelFeedTest {
         val x = listOf(track("s1"), track("dup"), track("dup"))
         val y = listOf(track("dup"), track("s2"))
         val feed = ReelFeed.interleaveByArtist(listOf(x, y), setOf("s2"), 10)
-        assertEquals(2, feed.count { it.id == "dup" })
+        assertEquals(1, feed.count { it.id == "dup" })
         assertTrue("s2" !in feed.map { it.id })
         assertEquals(feed.size, feed.map { it.id }.distinct().size)
     }

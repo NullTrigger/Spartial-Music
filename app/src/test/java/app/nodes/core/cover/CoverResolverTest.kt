@@ -29,7 +29,7 @@ class CoverResolverTest {
 
     @Test
     fun `user loop wins over the youtube provider regardless of set order`() = runTest {
-        val user = FakeProvider(CoverProviderIds.USER_LOOP) { cover("file://loop", it.id) }
+        val user = FakeProvider(CoverProviderIds.USER_LOOP) { cover("file://loop", CoverProviderIds.USER_LOOP) }
         val youTube = FakeProvider(CoverProviderIds.YOUTUBE_MUSIC) { cover("https://x", it.id) }
         val resolver = CoverResolver(linkedSetOf(youTube, user))
         val found = resolver.find(Track(id = "t1", title = "Signal Bloom", artist = "A"))
