@@ -49,7 +49,6 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.FormatQuote
@@ -59,6 +58,7 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
@@ -71,10 +71,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -99,7 +98,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
@@ -122,18 +120,19 @@ import app.nodes.core.model.Track
 import app.nodes.core.util.formatDuration
 import app.nodes.playback.PlayerUiState
 import app.nodes.playback.RepeatMode
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.CastRouteButton
 import app.nodes.ui.components.CircleIconButton
 import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.KeepScreenOn
 import app.nodes.ui.components.LoadingRows
+import app.nodes.ui.components.LiquidGlassDefaults
 import app.nodes.ui.components.PlayerEdgeBackdrop
 import app.nodes.ui.components.liquidGlass
 import app.nodes.ui.components.liquidGlassPress
 import app.nodes.ui.components.liquidGlassTouch
 import app.nodes.ui.components.rememberLiquidTouch
-import app.nodes.ui.components.playerStageHeight
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.platform.LocalHapticFeedback
 import app.nodes.ui.components.TrackMenuButton
@@ -141,20 +140,29 @@ import app.nodes.ui.components.glass
 import app.nodes.ui.components.trackSupportingLine
 import app.nodes.ui.theme.SpartialBlack
 import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
 import app.nodes.ui.theme.SpartialSpacing
 import app.nodes.ui.theme.SpartialSurface
 import app.nodes.ui.theme.SpartialType
 import app.nodes.ui.theme.SpartialWhite
-import app.nodes.ui.theme.navAccent
-import app.nodes.ui.theme.rememberDynamicEdgeColour
+import app.nodes.ui.theme.ArtworkPalette
+import app.nodes.ui.theme.rememberArtworkPalette
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerCallback
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
+
+/**
+ * How long the close waits before deciding that the pop never happened. It is
+ * longer than the navigation's exit transition, so a normal pop is never
+ * mistaken for a refused one.
+ */
+private const val POP_GRACE_MS = 500L
 
 /**
  * Full Now Playing, built around the three views in the reference design:
@@ -175,14 +183,16 @@ private enum class PlayerMode { CONTROLS, LYRICS, QUEUE }
  * and drops the handle (YOUTUBE.md).
  *
  * The surface behind everything is a gradient built from the artwork's own
- * edge colour, sampled off the main thread by [rememberDynamicEdgeColour]; see
+ * colours: the palette is sampled off the main thread by
+ * [rememberArtworkPalette] and crossfades when the song changes; see
  * [PlayerEdgeBackdrop]. The wash is pure geometry, identical on every device.
  */
 @Composable
 fun NowPlayingScreen(
     onBack: () -> Unit,
     onOpenArtist: (String) -> Unit = {},
-    onOpenAlbum: (String) -> Unit = {},
+    onOpenAlbum: (String, String?) -> Unit = { _, _ -> },
+    onOpenEqualizer: () -> Unit = {},
     viewModel: NowPlayingViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -230,21 +240,12 @@ fun NowPlayingScreen(
 
     // The screen's own backdrop capture: the glass controls read it.
     val hazeState = remember { HazeState() }
-    // The artwork stage is what the sampler measures the visible region
-    // against, so both use the same height.
-    val stageHeight = playerStageHeight()
-    val density = LocalDensity.current
-    val stageWidthPx = with(density) {
-        LocalConfiguration.current.screenWidthDp.dp.toPx().toInt()
-    }
-    val stageHeightPx = with(density) { stageHeight.toPx().toInt() }
-    // The fade colour follows the artwork and changes with the song - never
-    // with a pause or a seek.
-    val edgeColour = rememberDynamicEdgeColour(
+    // The palette follows the artwork: the background, the seek bar and the
+    // control icons all take their colour from it, and it crossfades when the
+    // song changes.
+    val palette = rememberArtworkPalette(
         trackId = track.id,
         artworkUri = track.artworkUri,
-        stageWidthPx = stageWidthPx,
-        stageHeightPx = stageHeightPx,
     )
     val sourceName = playerSourceName(track.sourceId)
     val queueTitle = track.album?.takeIf { it.isNotBlank() }
@@ -261,44 +262,96 @@ fun NowPlayingScreen(
         LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
     val dismissScope = rememberCoroutineScope()
-    val dismissOffset = remember { Animatable(0f) }
+    // The dismissal offset is plain state, written straight from the pointer
+    // deltas: an Animatable here launched a coroutine per delta, which stuttered
+    // the follow on a slow device. Springs write the same state each frame.
+    var dismissOffset by remember { mutableFloatStateOf(0f) }
     var dismissed by rememberSaveable { mutableStateOf(false) }
+
+    /** Drives [dismissOffset] to [target] along [spec], then runs [onEnd]. */
+    fun settleDismiss(
+        target: Float,
+        spec: androidx.compose.animation.core.AnimationSpec<Float>,
+        onEnd: () -> Unit = {},
+    ) {
+        dismissScope.launch {
+            androidx.compose.animation.core.animate(
+                initialValue = dismissOffset,
+                targetValue = target,
+                animationSpec = spec,
+            ) { value, _ -> dismissOffset = value }
+            onEnd()
+        }
+    }
+
+    // The safety net for a refused pop: if the screen is still here a moment
+    // after the close, the pop never happened, so the player must come back
+    // instead of staying stuck half off screen.
+    LaunchedEffect(dismissed) {
+        if (dismissed) {
+            delay(POP_GRACE_MS)
+            if (dismissed) {
+                dismissed = false
+                settleDismiss(
+                    0f,
+                    spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+                )
+            }
+        }
+    }
     val dismissDragModifier = Modifier
         .draggable(
             state = rememberDraggableState { delta ->
-                if (delta > 0f || dismissOffset.value > 0f) {
-                    dismissScope.launch {
-                        dismissOffset.snapTo((dismissOffset.value + delta).coerceIn(0f, screenHeightPx))
-                    }
+                if (delta > 0f || dismissOffset > 0f) {
+                    dismissOffset = (dismissOffset + delta).coerceIn(0f, screenHeightPx)
                 }
             },
             orientation = Orientation.Vertical,
             enabled = mode == PlayerMode.CONTROLS && !dismissed,
-            startDragImmediately = dismissOffset.value > 0f,
+            startDragImmediately = dismissOffset > 0f,
             onDragStopped = { velocity ->
-                dismissScope.launch {
-                    val shouldClose = dismissOffset.value > screenHeightPx / 3f || velocity > 1_400f
-                    if (shouldClose) {
-                        dismissed = true
-                        dismissOffset.animateTo(screenHeightPx, tween(180))
-                        onBack()
-                        // The screen is leaving, but reset anyway: if the pop is
-                        // refused or the composition survives the transition, a
-                        // stuck flag would leave the player unable to swipe.
-                        dismissed = false
-                        dismissOffset.snapTo(0f)
-                    } else {
-                        dismissOffset.animateTo(0f, spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow))
-                    }
+                // A quarter of the screen or a firm flick closes it: the third
+                // of a screen the old threshold asked for made the sheet feel
+                // stuck when the user clearly meant to leave.
+                val shouldClose = dismissOffset > screenHeightPx / 4f || velocity > 1_000f
+                if (shouldClose) {
+                    dismissed = true
+                    // Hand the gesture over to the navigation's exit
+                    // transition: the player is already where the finger
+                    // left it, and the transition carries it the rest of
+                    // the way over the home screen behind it.
+                    //
+                    // It used to animate the player off screen first and
+                    // then reset the offset straight after the pop, which
+                    // did two wrong things: the black base background was
+                    // revealed for a moment, and the reset put the full
+                    // player back on screen while the exit transition was
+                    // still running - so the player appeared again just
+                    // after the swipe that was meant to close it.
+                    onBack()
+                } else {
+                    // A firm, non-bouncy return: the old low-bouncy spring
+                    // overshot and made the sheet wobble after a short drag.
+                    settleDismiss(
+                        0f,
+                        spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    )
+                    dismissed = false
                 }
             },
         )
         .graphicsLayer {
-            translationY = dismissOffset.value
-            val progress = (dismissOffset.value / screenHeightPx).coerceIn(0f, 1f)
+            translationY = dismissOffset
+            val progress = (dismissOffset / screenHeightPx).coerceIn(0f, 1f)
             scaleX = 1f - progress * 0.06f
             scaleY = 1f - progress * 0.06f
-            alpha = 1f - progress * 0.35f
+            // Eased rather than linear: the dim stays until the sheet is really
+            // leaving, so a half-dragged player keeps its body rather than
+            // washing out under the finger.
+            alpha = 1f - progress * progress * 0.35f
         }
 
     Box(
@@ -309,7 +362,7 @@ fun NowPlayingScreen(
         PlayerEdgeBackdrop(
             artworkUri = track.artworkUri,
             title = track.title,
-            edgeColour = edgeColour,
+            palette = palette,
             showArtwork = mode == PlayerMode.CONTROLS && playerState.embeddedVideoId == null,
             hazeState = hazeState,
         ) {
@@ -320,8 +373,6 @@ fun NowPlayingScreen(
             ) {
                 PlayerTopBar(
                     mode = mode,
-                    sourceName = sourceName,
-                    onBack = onBack,
                     onExitMode = { mode = PlayerMode.CONTROLS },
                 )
 
@@ -373,6 +424,7 @@ fun NowPlayingScreen(
                         onOpenAlbum = onOpenAlbum,
                         onOpenControls = { mode = PlayerMode.CONTROLS },
                         onInfinite = playerViewModel::toggleInfiniteQueue,
+                        onReshuffle = playerViewModel::reshuffle,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -382,6 +434,7 @@ fun NowPlayingScreen(
                     state = playerState,
                     track = track,
                     sourceName = sourceName,
+                    palette = palette,
                     liked = liked,
                     hazeState = hazeState,
                     onToggleLike = { viewModel.toggleLike(track) },
@@ -395,6 +448,7 @@ fun NowPlayingScreen(
                     onOpenQueue = { mode = PlayerMode.QUEUE },
                     onOpenControls = { mode = PlayerMode.CONTROLS },
                     onAddToQueue = { playerViewModel.addToQueue(track) },
+                    onAddToPlaylist = { AddToPlaylistBus.request(track) },
                     onMore = { showTrackOptions = true },
                 )
             }
@@ -406,13 +460,19 @@ fun NowPlayingScreen(
             track = track,
             liked = liked,
             onDismiss = { showTrackOptions = false },
+            onOpenEqualizer = {
+                showTrackOptions = false
+                onOpenEqualizer()
+            },
             onViewArtist = {
                 showTrackOptions = false
                 if (track.artist.isNotBlank()) onOpenArtist(track.artist)
             },
             onViewAlbum = {
                 showTrackOptions = false
-                track.album?.takeIf { it.isNotBlank() }?.let(onOpenAlbum)
+                track.album?.takeIf { it.isNotBlank() }?.let { album ->
+                    onOpenAlbum(album, track.albumId)
+                }
             },
             onToggleLibrary = {
                 showTrackOptions = false
@@ -430,13 +490,21 @@ fun NowPlayingScreen(
     }
 }
 
+/**
+ * The bar above the stage.
+ *
+ * The controls view has no button at all: the player is closed by the
+ * swipe-down gesture or the system back button, and the chevron that used to
+ * sit there was drawn on top of the artwork's own title. Lyrics and Queue
+ * keep their back arrow, because they are modes inside the player rather
+ * than the player itself.
+ */
 @Composable
 private fun PlayerTopBar(
     mode: PlayerMode,
-    sourceName: String,
-    onBack: () -> Unit,
     onExitMode: () -> Unit,
 ) {
+    if (mode == PlayerMode.CONTROLS) return
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -444,17 +512,9 @@ private fun PlayerTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CircleIconButton(
-            icon = if (mode == PlayerMode.CONTROLS) {
-                Icons.Rounded.KeyboardArrowDown
-            } else {
-                Icons.AutoMirrored.Rounded.ArrowBack
-            },
-            contentDescription = if (mode == PlayerMode.CONTROLS) {
-                stringResource(R.string.action_close)
-            } else {
-                stringResource(R.string.cd_back)
-            },
-            onClick = if (mode == PlayerMode.CONTROLS) onBack else onExitMode,
+            icon = Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = stringResource(R.string.cd_back),
+            onClick = onExitMode,
             filled = true,
             background = Color.Black.copy(alpha = 0.26f),
         )
@@ -579,6 +639,20 @@ private fun LyricsMode(
                     distance = index - activeIndex,
                 )
             }
+            // Credit: where the lyrics came from is always shown, never a
+            // toggle - the network sources are other people's work.
+            result.provider?.let { provider ->
+                item(key = "lyrics-credit") {
+                    Text(
+                        text = stringResource(R.string.player_lyrics_credit, provider),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SpartialGreyDim,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(
@@ -656,9 +730,10 @@ private fun QueueMode(
     onPlayNext: (Track) -> Unit,
     onAddToQueue: (Track) -> Unit,
     onOpenArtist: (String) -> Unit,
-    onOpenAlbum: (String) -> Unit,
+    onOpenAlbum: (String, String?) -> Unit,
     onOpenControls: () -> Unit,
     onInfinite: () -> Unit,
+    onReshuffle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (state.queue.isEmpty()) {
@@ -680,18 +755,26 @@ private fun QueueMode(
                 infiniteQueue = state.infiniteQueue,
                 onOpenControls = onOpenControls,
                 onInfinite = onInfinite,
+                onReshuffle = onReshuffle,
             )
-            Text(
-                text = stringResource(R.string.player_playing_next_label),
-                style = MaterialTheme.typography.titleMedium,
-                color = SpartialWhite.copy(alpha = 0.92f),
-                modifier = Modifier.padding(
-                    start = 24.dp,
-                    end = 24.dp,
-                    top = 8.dp,
-                    bottom = 6.dp,
-                ),
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 6.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.player_playing_next_label),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = SpartialWhite.copy(alpha = 0.92f),
+                    modifier = Modifier.weight(1f),
+                )
+                if (state.isFindingMore) {
+                    Text(
+                        text = stringResource(R.string.player_finding_more),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SpartialWhite.copy(alpha = 0.64f),
+                    )
+                }
+            }
         }
         itemsIndexed(
             items = state.queue,
@@ -712,7 +795,7 @@ private fun QueueMode(
                             null
                         },
                         onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let { album ->
-                            { onOpenAlbum(album) }
+                            { onOpenAlbum(album, track.albumId) }
                         },
                         onRemoveFromQueue = { onRemove(index) },
                         removeEnabled = index != state.queueIndex,
@@ -740,6 +823,7 @@ private fun QueueHeader(
     infiniteQueue: Boolean,
     onOpenControls: () -> Unit,
     onInfinite: () -> Unit,
+    onReshuffle: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -782,6 +866,20 @@ private fun QueueHeader(
                 imageVector = Icons.Rounded.AllInclusive,
                 contentDescription = stringResource(R.string.player_infinite),
                 tint = if (infiniteQueue) SpartialWhite else SpartialWhite.copy(alpha = 0.52f),
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClick = onReshuffle),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Shuffle,
+                contentDescription = stringResource(R.string.player_reshuffle),
+                tint = SpartialWhite.copy(alpha = 0.72f),
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -874,6 +972,7 @@ private fun PlayerDock(
     state: PlayerUiState,
     track: Track,
     sourceName: String,
+    palette: ArtworkPalette,
     liked: Boolean,
     hazeState: HazeState?,
     onToggleLike: () -> Unit,
@@ -887,6 +986,7 @@ private fun PlayerDock(
     onOpenQueue: () -> Unit,
     onOpenControls: () -> Unit,
     onAddToQueue: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onMore: () -> Unit,
 ) {
     Column(
@@ -907,6 +1007,7 @@ private fun PlayerDock(
                 liked = liked,
                 onToggleLike = onToggleLike,
                 onAddToQueue = onAddToQueue,
+                onAddToPlaylist = onAddToPlaylist,
                 onMore = onMore,
                 onOpenLyrics = onOpenLyrics,
                 onOpenQueue = onOpenQueue,
@@ -926,11 +1027,14 @@ private fun PlayerDock(
         PlayerProgress(
             state = state,
             sourceName = sourceName,
+            audioFormat = track.audioFormat,
+            accent = palette.accent,
             onSeek = onSeek,
         )
         Spacer(Modifier.height(24.dp))
         PlayerTransport(
             state = state,
+            accent = palette.accent,
             onPlayPause = onPlayPause,
             onPrevious = onPrevious,
             onNext = onNext,
@@ -945,6 +1049,7 @@ private fun ControlsActionRow(
     liked: Boolean,
     onToggleLike: () -> Unit,
     onAddToQueue: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onMore: () -> Unit,
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
@@ -969,7 +1074,18 @@ private fun ControlsActionRow(
             modifier = Modifier
                 .liquidGlassTouch(lyricsTouch)
                 .size(44.dp)
-                .liquidGlass(hazeState, CircleShape, lyricsTouch)
+                .liquidGlass(
+                    hazeState,
+                    CircleShape,
+                    lyricsTouch,
+                    // The controls sit on the artwork's edge colour, so the
+                    // overlay stays light enough for the hue to read through.
+                    whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                    // The reference draws these as a flat hairline.
+                    borderWidth = LiquidGlassDefaults.playerBorderWidth,
+                    borderBrush = LiquidGlassDefaults.playerBorder,
+                    chroma = false,
+                )
                 .liquidGlassPress(lyricsTouch, haptics)
                 .clickable(role = Role.Button, onClick = onOpenLyrics)
                 .semantics { this.contentDescription = lyricsLabel },
@@ -987,7 +1103,15 @@ private fun ControlsActionRow(
                 .liquidGlassTouch(capsuleTouch)
                 .width(180.dp)
                 .height(44.dp)
-                .liquidGlass(hazeState, CircleShape, capsuleTouch)
+                .liquidGlass(
+                    hazeState,
+                    CircleShape,
+                    capsuleTouch,
+                    whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                    borderWidth = LiquidGlassDefaults.playerBorderWidth,
+                    borderBrush = LiquidGlassDefaults.playerBorder,
+                    chroma = false,
+                )
                 .liquidGlassPress(capsuleTouch, haptics),
         ) {
             Row(
@@ -1000,6 +1124,12 @@ private fun ControlsActionRow(
                     contentDescription = stringResource(R.string.player_like),
                     tint = SpartialWhite,
                     onClick = onToggleLike,
+                )
+                DockAction(
+                    icon = Icons.AutoMirrored.Rounded.PlaylistAddCheck,
+                    contentDescription = stringResource(R.string.player_add_to_playlist),
+                    tint = SpartialWhite,
+                    onClick = onAddToPlaylist,
                 )
                 DockAction(
                     icon = Icons.Rounded.MusicNote,
@@ -1019,7 +1149,15 @@ private fun ControlsActionRow(
             modifier = Modifier
                 .liquidGlassTouch(queueTouch)
                 .size(44.dp)
-                .liquidGlass(hazeState, CircleShape, queueTouch)
+                .liquidGlass(
+                    hazeState,
+                    CircleShape,
+                    queueTouch,
+                    whiteOverlay = LiquidGlassDefaults.whiteOverlayColoured,
+                    borderWidth = LiquidGlassDefaults.playerBorderWidth,
+                    borderBrush = LiquidGlassDefaults.playerBorder,
+                    chroma = false,
+                )
                 .liquidGlassPress(queueTouch, haptics)
                 .clickable(role = Role.Button, onClick = onOpenQueue)
                 .semantics { this.contentDescription = queueLabel },
@@ -1142,12 +1280,13 @@ private fun DockAction(
 private fun PlayerProgress(
     state: PlayerUiState,
     sourceName: String,
+    audioFormat: String?,
+    accent: Color,
     onSeek: (Long) -> Unit,
 ) {
     val fraction = state.progress.coerceIn(0f, 1f)
-    // The accent is fixed, not taken from the artwork: the bar must read the
-    // same on every song.
-    val accent = navAccent
+    // The filled part takes the artwork's accent colour, so the bar belongs
+    // to the song; the rest stays a quiet white line.
     // A flat bar with no knob, as in the reference: the filled part is the
     // only marker. Scrubbing tracks the finger and seeks when it lifts, so the
     // music does not restart on every pixel.
@@ -1205,7 +1344,7 @@ private fun PlayerProgress(
                 .height(barHeight)
                 .align(Alignment.CenterStart)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color.White.copy(alpha = 0.20f)),
+                .background(Color.White.copy(alpha = 0.25f)),
         ) {
             Box(
                 Modifier
@@ -1221,37 +1360,63 @@ private fun PlayerProgress(
     ) {
         Text(
             text = formatDuration(state.positionMs.coerceAtLeast(0L)),
-            style = MaterialTheme.typography.labelMedium,
-            color = SpartialWhite.copy(alpha = 0.72f),
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+            color = SpartialWhite.copy(alpha = 0.70f),
         )
         Spacer(Modifier.weight(1f))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Rounded.GraphicEq,
-                contentDescription = null,
-                tint = SpartialWhite.copy(alpha = 0.64f),
-                modifier = Modifier.size(13.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = sourceName.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = SpartialWhite.copy(alpha = 0.60f),
-                maxLines = 1,
-            )
+        // The centre slot: the audio format when the source knows it, and the
+        // source's name otherwise, so the attribution never disappears.
+        if (!audioFormat.isNullOrBlank()) {
+            AudioFormatBadge(label = audioFormat)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.GraphicEq,
+                    contentDescription = null,
+                    tint = SpartialWhite.copy(alpha = 0.64f),
+                    modifier = Modifier.size(13.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = sourceName.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SpartialWhite.copy(alpha = 0.60f),
+                    maxLines = 1,
+                )
+            }
         }
         Spacer(Modifier.weight(1f))
         Text(
             text = formatDuration(state.durationMs.coerceAtLeast(0L)),
-            style = MaterialTheme.typography.labelMedium,
-            color = SpartialWhite.copy(alpha = 0.72f),
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+            color = SpartialWhite.copy(alpha = 0.70f),
         )
     }
+}
+
+/**
+ * The audio format badge in the middle of the times row: a small, quiet
+ * label for tracks whose format the source knows, such as a lossless local
+ * file. It is only drawn when there is something to say.
+ */
+@Composable
+private fun AudioFormatBadge(label: String) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+        ),
+        color = SpartialWhite.copy(alpha = 0.72f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable
 private fun PlayerTransport(
     state: PlayerUiState,
+    accent: Color,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -1259,7 +1424,6 @@ private fun PlayerTransport(
     onRepeat: () -> Unit,
 ) {
     val context = LocalContext.current
-    val accent = navAccent
     val haptics = LocalHapticFeedback.current
     val playTouch = rememberLiquidTouch()
     // Play/pause presses scale to ~0.9 on a spring and crossfade the glyph.
@@ -1275,13 +1439,18 @@ private fun PlayerTransport(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
             CastRouteButton(
                 unavailable = state.embeddedVideoId != null,
+                tint = accent,
                 onUnavailableTap = {
                     Toast.makeText(
                         context,
-                        R.string.player_cast_unavailable,
+                        if (state.embeddedVideoId != null) {
+                            R.string.player_cast_unavailable
+                        } else {
+                            R.string.player_cast_unsupported
+                        },
                         Toast.LENGTH_SHORT,
                     ).show()
                 },
@@ -1302,12 +1471,12 @@ private fun PlayerTransport(
             size = 52.dp,
             iconSize = 34.dp,
         )
-        // Play/pause: the largest control at ~56dp, press scales to ~0.9 on a
-        // spring, glyph crossfades with play state. 56dp is the touch target.
+        // Play/pause: the largest control at 64dp, press scales to ~0.9 on a
+        // spring, glyph crossfades with play state.
         Box(
             modifier = Modifier
                 .liquidGlassTouch(playTouch)
-                .size(56.dp)
+                .size(64.dp)
                 .scale(playScale)
                 .clickable(role = Role.Button, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
@@ -1322,7 +1491,7 @@ private fun PlayerTransport(
                     if (state.isPlaying) R.string.action_pause else R.string.action_play,
                 ),
                 tint = accent,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(46.dp),
             )
         }
         CircleIconButton(
@@ -1385,6 +1554,7 @@ private fun TrackOptionsSheet(
     onToggleLibrary: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
+    onOpenEqualizer: () -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1433,6 +1603,11 @@ private fun TrackOptionsSheet(
             label = stringResource(R.string.player_add_to_queue),
             icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
             onClick = onAddToQueue,
+        )
+        SheetAction(
+            label = stringResource(R.string.player_equalizer),
+            icon = Icons.Rounded.GraphicEq,
+            onClick = onOpenEqualizer,
         )
         if (link != null) {
             SheetAction(

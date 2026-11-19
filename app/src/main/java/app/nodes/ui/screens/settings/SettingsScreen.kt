@@ -9,6 +9,7 @@ import android.os.Build
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
@@ -45,6 +46,7 @@ fun SettingsScreen(
     onOpenLogin: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenPlayback: () -> Unit,
+    onOpenEqualizer: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenContent: () -> Unit,
     onOpenLyrics: () -> Unit,
@@ -115,6 +117,13 @@ fun SettingsScreen(
                     ),
                     icon = Icons.Rounded.Headphones,
                     onClick = onOpenPlayback,
+                )
+                SettingsDivider()
+                SettingsValueRow(
+                    title = stringResource(R.string.eq_title),
+                    subtitle = stringResource(R.string.eq_enable_summary),
+                    icon = Icons.Rounded.GraphicEq,
+                    onClick = onOpenEqualizer,
                 )
             }
         }

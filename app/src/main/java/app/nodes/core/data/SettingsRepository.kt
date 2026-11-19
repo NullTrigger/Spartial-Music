@@ -15,10 +15,17 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.nodes.core.lyrics.LyricsProviders
+import app.nodes.core.model.EqualizerSettings
 import app.nodes.core.model.SourceId
+import app.nodes.core.model.decodeEqualizerSettings
+import app.nodes.core.model.encode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,8 +42,12 @@ data class AppSettings(
     val highQualityAudio: Boolean = true,
     /** Lyrics providers, in the order the user arranged. */
     val lyricsProviderOrder: List<String> = LyricsProviders.DEFAULT_ORDER,
-    /** Providers the user switched off; kept separately so order survives. */
-    val lyricsDisabledProviders: Set<String> = emptySet(),
+    /**
+     * Providers the user switched off; kept separately so order survives.
+     * The third-party group ([LyricsProviders.ADDITIONAL_SOURCES]) is off
+     * unless the user explicitly switched it on.
+     */
+    val lyricsDisabledProviders: Set<String> = LyricsProviders.ADDITIONAL_SOURCES,
     val lyricsPreferSynced: Boolean = true,
     val lyricsShowSource: Boolean = true,
     /** Follow the current line while a track plays. Glossy's default. */
@@ -58,7 +69,23 @@ data class AppSettings(
     val crashReportsEnabled: Boolean = true,
     /** 0.5x to 2.0x. Applied by the player service as well as the UI. */
     val playbackSpeed: Float = 1f,
+    /** Persist the play queue across restarts and restore it paused. */
+    val rememberQueue: Boolean = true,
+    /** Persist the shuffle state with the queue. */
+    val rememberShuffle: Boolean = true,
+    /** Keep the queue going with related tracks when it runs low. */
+    val autoplaySimilar: Boolean = true,
     val skipSilence: Boolean = false,
+    /** Animated Reel covers: user loops and provider videos. On by default. */
+    val animatedCovers: Boolean = true,
+    /** Whether an animated cover may stream over mobile data. Off by default. */
+    val animatedCoversOnMobile: Boolean = false,
+    /** The built-in "Saved" playlist's id, created on first use. */
+    val savedPlaylistId: String? = null,
+    /** Blend into the next track instead of cutting between songs. */
+    val automix: Boolean = false,
+    /** Fade length in seconds used by Automix. */
+    val crossfadeSeconds: Int = 5,
     val keepScreenOn: Boolean = false,
     /**
      * Stop playback and take the media service down when the app is swiped out
@@ -84,7 +111,7 @@ class SettingsRepository @Inject constructor(
             wifiOnlyStreaming = prefs[KEY_WIFI_ONLY] ?: false,
             highQualityAudio = prefs[KEY_HIGH_QUALITY] ?: true,
             lyricsProviderOrder = parseLyricsOrder(prefs[KEY_LYRICS_ORDER]),
-            lyricsDisabledProviders = prefs[KEY_LYRICS_DISABLED] ?: emptySet(),
+            lyricsDisabledProviders = effectiveDisabled(prefs),
             lyricsPreferSynced = prefs[KEY_LYRICS_PREFER_SYNCED] ?: true,
             lyricsShowSource = prefs[KEY_LYRICS_SHOW_SOURCE] ?: true,
             lyricsAutoScroll = prefs[KEY_LYRICS_AUTO_SCROLL] ?: true,
@@ -97,7 +124,15 @@ class SettingsRepository @Inject constructor(
             quotaUnitsUsed = prefs[KEY_QUOTA_USED] ?: 0,
             crashReportsEnabled = prefs[KEY_CRASH_REPORTS] ?: true,
             playbackSpeed = prefs[KEY_PLAYBACK_SPEED] ?: 1f,
+            rememberQueue = prefs[KEY_REMEMBER_QUEUE] ?: true,
+            rememberShuffle = prefs[KEY_REMEMBER_SHUFFLE] ?: true,
+            autoplaySimilar = prefs[KEY_AUTOPLAY_SIMILAR] ?: true,
             skipSilence = prefs[KEY_SKIP_SILENCE] ?: false,
+            animatedCovers = prefs[KEY_ANIMATED_COVERS] ?: true,
+            animatedCoversOnMobile = prefs[KEY_ANIMATED_COVERS_MOBILE] ?: false,
+            savedPlaylistId = prefs[KEY_SAVED_PLAYLIST],
+            automix = prefs[KEY_AUTOMIX] ?: false,
+            crossfadeSeconds = prefs[KEY_CROSSFADE_SECONDS] ?: 5,
             keepScreenOn = prefs[KEY_KEEP_SCREEN_ON] ?: false,
             stopMusicOnTaskClear = prefs[KEY_STOP_MUSIC_ON_TASK_CLEAR] ?: false,
             sleepTimerEndsAt = prefs[KEY_SLEEP_TIMER_ENDS_AT] ?: 0L,
@@ -105,6 +140,29 @@ class SettingsRepository @Inject constructor(
     }
 
     suspend fun current(): AppSettings = settings.first()
+
+    private val migrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        // One-time settings migration: installs that predate the "Additional
+        // lyric sources" disclosure had every provider on. Turn the third-party
+        // group off once. Idempotent, and reads fall back to the same default
+        // before it lands.
+        migrationScope.launch {
+            runCatching { migrateLyricsSourcesOnce() }
+        }
+    }
+
+    /**
+     * Writes the third-party lyric sources into the disabled set exactly once,
+     * so an updated install matches a fresh one (the group off by default).
+     */
+    suspend fun migrateLyricsSourcesOnce() = dataStore.edit { prefs ->
+        if (prefs[KEY_LYRICS_EXTRA_MIGRATED] != true) {
+            prefs[KEY_LYRICS_DISABLED] = effectiveDisabled(prefs)
+            prefs[KEY_LYRICS_EXTRA_MIGRATED] = true
+        }
+    }
 
     suspend fun setDynamicColor(enabled: Boolean) = dataStore.edit { it[KEY_DYNAMIC_COLOR] = enabled }
 
@@ -116,8 +174,11 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it[KEY_LYRICS_ORDER] = order.joinToString(",") }
 
     suspend fun setLyricsProviderEnabled(id: String, enabled: Boolean) = dataStore.edit { prefs ->
-        val disabled = prefs[KEY_LYRICS_DISABLED] ?: emptySet()
+        // Materialise the one-time default first, so switching one source on
+        // cannot silently switch the whole third-party group on with it.
+        val disabled = effectiveDisabled(prefs)
         prefs[KEY_LYRICS_DISABLED] = if (enabled) disabled - id else disabled + id
+        prefs[KEY_LYRICS_EXTRA_MIGRATED] = true
     }
 
     suspend fun setLyricsPreferSynced(enabled: Boolean) =
@@ -148,8 +209,66 @@ class SettingsRepository @Inject constructor(
     suspend fun setPlaybackSpeed(speed: Float) =
         dataStore.edit { it[KEY_PLAYBACK_SPEED] = speed.coerceIn(MIN_SPEED, MAX_SPEED) }
 
+    suspend fun setRememberQueue(enabled: Boolean) =
+        dataStore.edit { it[KEY_REMEMBER_QUEUE] = enabled }
+
+    suspend fun setRememberShuffle(enabled: Boolean) =
+        dataStore.edit { it[KEY_REMEMBER_SHUFFLE] = enabled }
+
+    suspend fun setAutoplaySimilar(enabled: Boolean) =
+        dataStore.edit { it[KEY_AUTOPLAY_SIMILAR] = enabled }
+
+    /** Whether the Listen Together privacy notice has been accepted once. */
+    val sessionsConsentShown: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SESSIONS_CONSENT] ?: false
+    }
+
+    suspend fun setSessionsConsentShown() =
+        dataStore.edit { it[KEY_SESSIONS_CONSENT] = true }
+
+    /** Whether the post-sign-in "also follow your local artists?" prompt ran. */
+    val followsImportPromptShown: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_FOLLOWS_IMPORT_PROMPT] ?: false
+    }
+
+    suspend fun setFollowsImportPromptShown() =
+        dataStore.edit { it[KEY_FOLLOWS_IMPORT_PROMPT] = true }
+
+    /**
+     * Applies the non-secret settings from a library backup. Null fields are
+     * left exactly as they are; nothing here touches credentials because the
+     * backup model has no field that could hold one.
+     */
+    suspend fun applyBackupSettings(backup: app.nodes.core.data.BackupSettings) =
+        dataStore.edit { prefs ->
+            backup.dynamicColor?.let { prefs[KEY_DYNAMIC_COLOR] = it }
+            backup.highQualityAudio?.let { prefs[KEY_HIGH_QUALITY] = it }
+            backup.wifiOnlyStreaming?.let { prefs[KEY_WIFI_ONLY] = it }
+            backup.playbackSpeed?.let { prefs[KEY_PLAYBACK_SPEED] = it.coerceIn(MIN_SPEED, MAX_SPEED) }
+            backup.skipSilence?.let { prefs[KEY_SKIP_SILENCE] = it }
+            backup.queuePreventDuplicates?.let { prefs[KEY_QUEUE_PREVENT_DUPLICATES] = it }
+            backup.rememberQueue?.let { prefs[KEY_REMEMBER_QUEUE] = it }
+            backup.rememberShuffle?.let { prefs[KEY_REMEMBER_SHUFFLE] = it }
+            backup.autoplaySimilar?.let { prefs[KEY_AUTOPLAY_SIMILAR] = it }
+        }
+
     suspend fun setSkipSilence(enabled: Boolean) =
         dataStore.edit { it[KEY_SKIP_SILENCE] = enabled }
+
+    suspend fun setAutomix(enabled: Boolean) =
+        dataStore.edit { it[KEY_AUTOMIX] = enabled }
+
+    suspend fun setAnimatedCovers(enabled: Boolean) =
+        dataStore.edit { it[KEY_ANIMATED_COVERS] = enabled }
+
+    suspend fun setAnimatedCoversOnMobile(enabled: Boolean) =
+        dataStore.edit { it[KEY_ANIMATED_COVERS_MOBILE] = enabled }
+
+    suspend fun setSavedPlaylistId(id: String) =
+        dataStore.edit { it[KEY_SAVED_PLAYLIST] = id }
+
+    suspend fun setCrossfadeSeconds(seconds: Int) =
+        dataStore.edit { it[KEY_CROSSFADE_SECONDS] = seconds.coerceIn(1, 12) }
 
     suspend fun setKeepScreenOn(enabled: Boolean) =
         dataStore.edit { it[KEY_KEEP_SCREEN_ON] = enabled }
@@ -165,6 +284,14 @@ class SettingsRepository @Inject constructor(
         prefs[KEY_QUOTA_USED] = used
     }
 
+    /** Equalizer state as one JSON blob; see [EqualizerSettings]. */
+    val equalizerSettings: Flow<EqualizerSettings> = dataStore.data.map { prefs ->
+        decodeEqualizerSettings(prefs[KEY_EQUALIZER])
+    }
+
+    suspend fun setEqualizerSettings(equalizer: EqualizerSettings) =
+        dataStore.edit { it[KEY_EQUALIZER] = equalizer.encode() }
+
     private companion object {
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
@@ -177,6 +304,7 @@ class SettingsRepository @Inject constructor(
         val KEY_QUOTA_USED = intPreferencesKey("quota_units_used")
         val KEY_LYRICS_ORDER = stringPreferencesKey("lyrics_provider_order")
         val KEY_LYRICS_DISABLED = stringSetPreferencesKey("lyrics_disabled_providers")
+        val KEY_LYRICS_EXTRA_MIGRATED = booleanPreferencesKey("lyrics_extra_sources_migrated")
         val KEY_LYRICS_PREFER_SYNCED = booleanPreferencesKey("lyrics_prefer_synced")
         val KEY_LYRICS_SHOW_SOURCE = booleanPreferencesKey("lyrics_show_source")
         val KEY_LYRICS_AUTO_SCROLL = booleanPreferencesKey("lyrics_auto_scroll")
@@ -184,12 +312,37 @@ class SettingsRepository @Inject constructor(
         val KEY_CRASH_REPORTS = booleanPreferencesKey("crash_reports_enabled")
         val KEY_PLAYBACK_SPEED = floatPreferencesKey("playback_speed")
         val KEY_SKIP_SILENCE = booleanPreferencesKey("skip_silence")
+        val KEY_AUTOMIX = booleanPreferencesKey("automix")
+        val KEY_ANIMATED_COVERS = booleanPreferencesKey("animated_covers")
+        val KEY_ANIMATED_COVERS_MOBILE = booleanPreferencesKey("animated_covers_mobile")
+        val KEY_SAVED_PLAYLIST = stringPreferencesKey("saved_playlist_id")
+        val KEY_CROSSFADE_SECONDS = intPreferencesKey("crossfade_seconds")
         val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val KEY_STOP_MUSIC_ON_TASK_CLEAR = booleanPreferencesKey("stop_music_on_task_clear")
         val KEY_SLEEP_TIMER_ENDS_AT = longPreferencesKey("sleep_timer_ends_at")
+        val KEY_EQUALIZER = stringPreferencesKey("equalizer_settings")
+        val KEY_REMEMBER_QUEUE = booleanPreferencesKey("remember_queue")
+        val KEY_REMEMBER_SHUFFLE = booleanPreferencesKey("remember_shuffle")
+        val KEY_AUTOPLAY_SIMILAR = booleanPreferencesKey("autoplay_similar")
+        val KEY_SESSIONS_CONSENT = booleanPreferencesKey("sessions_consent_shown")
+        val KEY_FOLLOWS_IMPORT_PROMPT = booleanPreferencesKey("follows_import_prompt_shown")
 
         const val MIN_SPEED = 0.5f
         const val MAX_SPEED = 2.0f
+    }
+
+    /**
+     * The disabled set as the app applies it: the stored choices plus the
+     * third-party sources until the one-time migration (or the user's first
+     * toggle) has recorded that the default was applied.
+     */
+    private fun effectiveDisabled(prefs: Preferences): Set<String> {
+        val stored = prefs[KEY_LYRICS_DISABLED] ?: emptySet()
+        return if (prefs[KEY_LYRICS_EXTRA_MIGRATED] == true) {
+            stored
+        } else {
+            stored + LyricsProviders.ADDITIONAL_SOURCES
+        }
     }
 
     /**

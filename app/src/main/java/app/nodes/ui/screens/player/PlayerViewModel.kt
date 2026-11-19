@@ -51,6 +51,8 @@ class PlayerViewModel @Inject constructor(
 
     fun toggleShuffle() = player.toggleShuffle()
 
+    fun reshuffle() = player.reshuffle()
+
     fun toggleInfiniteQueue() = player.toggleInfiniteQueue()
 
     fun next() = player.next()

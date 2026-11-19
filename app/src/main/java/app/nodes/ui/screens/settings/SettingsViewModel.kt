@@ -10,10 +10,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.nodes.R
 import app.nodes.core.data.AppSettings
+import app.nodes.core.data.LibraryBackup
 import app.nodes.core.data.LibraryRepository
 import app.nodes.core.data.RemoteCache
 import app.nodes.core.data.SearchHistoryRepository
 import app.nodes.core.data.SettingsRepository
+import app.nodes.core.lyrics.LyricsProviders
 import app.nodes.core.source.youtubemusic.InnerTubeAccount
 import app.nodes.core.source.youtubemusic.InnerTubeAuth
 import app.nodes.core.source.youtubemusic.YouTubeMusicSource
@@ -69,6 +71,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settings.setDynamicColor(enabled) }
     }
 
+    fun setAnimatedCovers(enabled: Boolean) {
+        viewModelScope.launch { settings.setAnimatedCovers(enabled) }
+    }
+
+    fun setAnimatedCoversOnMobile(enabled: Boolean) {
+        viewModelScope.launch { settings.setAnimatedCoversOnMobile(enabled) }
+    }
+
     fun setWifiOnly(enabled: Boolean) {
         viewModelScope.launch { settings.setWifiOnly(enabled) }
     }
@@ -83,6 +93,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setSkipSilence(enabled: Boolean) {
         viewModelScope.launch { settings.setSkipSilence(enabled) }
+    }
+
+    fun setAutomix(enabled: Boolean) {
+        viewModelScope.launch { settings.setAutomix(enabled) }
+    }
+
+    fun setCrossfadeSeconds(seconds: Int) {
+        viewModelScope.launch { settings.setCrossfadeSeconds(seconds) }
     }
 
     fun setKeepScreenOn(enabled: Boolean) {
@@ -121,20 +139,44 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settings.setQueuePreventDuplicates(enabled) }
     }
 
+    fun setRememberQueue(enabled: Boolean) {
+        viewModelScope.launch {
+            settings.setRememberQueue(enabled)
+            if (!enabled) library.clearSavedQueue()
+        }
+    }
+
+    fun setRememberShuffle(enabled: Boolean) {
+        viewModelScope.launch { settings.setRememberShuffle(enabled) }
+    }
+
+    fun setAutoplaySimilar(enabled: Boolean) {
+        viewModelScope.launch { settings.setAutoplaySimilar(enabled) }
+    }
+
     fun setLyricsProviderEnabled(id: String, enabled: Boolean) {
         viewModelScope.launch { settings.setLyricsProviderEnabled(id, enabled) }
     }
 
-    /** Swaps [id] with its neighbour; the ends of the list do nothing. */
+    /**
+     * Swaps [id] with its neighbour of the same group; the ends of the list do
+     * nothing. The community sources and the third-party group are shown in
+     * separate sections, so a row must never jump across the group boundary.
+     */
     fun moveLyricsProvider(id: String, delta: Int) {
         viewModelScope.launch {
-            val order = appSettings.value.lyricsProviderOrder.toMutableList()
-            val from = order.indexOf(id)
+            val order = appSettings.value.lyricsProviderOrder
+            val thirdParty = LyricsProviders.ADDITIONAL_SOURCES
+            val sameGroup = order.filter { (it in thirdParty) == (id in thirdParty) }
+            val from = sameGroup.indexOf(id)
             val to = from + delta
-            if (from < 0 || to !in order.indices) return@launch
-            val moved = order.removeAt(from)
-            order.add(to, moved)
-            settings.setLyricsProviderOrder(order)
+            if (from < 0 || to !in sameGroup.indices) return@launch
+            val reordered = order.toMutableList()
+            val a = reordered.indexOf(id)
+            val b = reordered.indexOf(sameGroup[to])
+            reordered[a] = sameGroup[to]
+            reordered[b] = id
+            settings.setLyricsProviderOrder(reordered)
         }
     }
 
@@ -202,5 +244,73 @@ class SettingsViewModel @Inject constructor(
                 _likesSyncRunning.value = false
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Backup and restore. One versioned JSON file; see LibraryBackup. No
+    // credential is part of the model, so none can be written or read.
+    // ------------------------------------------------------------------
+
+    private val backupJson = kotlinx.serialization.json.Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
+    /** Writes the library backup to [uri] (a `CreateDocument` result). */
+    fun exportLibrary(uri: android.net.Uri, includeHistory: Boolean) {
+        viewModelScope.launch {
+            runCatching {
+                val backup = library.exportBackup(includeHistory)
+                val json = backupJson.encodeToString(LibraryBackup.serializer(), backup)
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    out.write(json.toByteArray(Charsets.UTF_8))
+                } ?: error("Could not open the file for writing.")
+            }.onSuccess {
+                _message.value = context.getString(R.string.settings_export_done)
+            }.onFailure { error ->
+                _message.value = context.getString(
+                    R.string.settings_export_failed,
+                    error.message ?: "unknown error",
+                )
+            }
+        }
+    }
+
+    /**
+     * Reads a library backup from [uri] (an `OpenDocument` result) and merges
+     * it. Existing data is never dropped, unknown fields are ignored, and a
+     * file over 20 MB or from a newer schema is refused with a clear message.
+     */
+    fun importLibrary(uri: android.net.Uri) {
+        viewModelScope.launch {
+            runCatching {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                    input.readBytes()
+                } ?: error("Could not open the file.")
+                if (bytes.size > MAX_BACKUP_BYTES) {
+                    error(context.getString(R.string.settings_import_too_large))
+                }
+                val backup = backupJson.decodeFromString(LibraryBackup.serializer(), bytes.decodeToString())
+                if (backup.schemaVersion > LibraryBackup.SCHEMA_VERSION) {
+                    error(context.getString(R.string.settings_import_newer))
+                }
+                val result = library.importBackup(backup)
+                backup.settings?.let { settings.applyBackupSettings(it) }
+                result
+            }.onSuccess { result ->
+                _message.value = context.getString(
+                    R.string.settings_import_done,
+                    result.playlists,
+                    result.liked,
+                )
+            }.onFailure { error ->
+                _message.value = error.message?.takeIf { it.isNotBlank() }
+                    ?: context.getString(R.string.settings_import_failed)
+            }
+        }
+    }
+
+    private companion object {
+        const val MAX_BACKUP_BYTES = 20L * 1024L * 1024L
     }
 }

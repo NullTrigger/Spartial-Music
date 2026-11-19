@@ -144,6 +144,30 @@ class LocalSource @Inject constructor(
         }
     }
 
+    /**
+     * More from the device, for the infinite queue: the same artist first,
+     * then the same album, then whatever else the library holds.
+     */
+    override suspend fun getRelated(track: Track, limit: Int): SourceResult<List<Track>> {
+        if (limit <= 0) return SourceResult.Success(emptyList())
+        val byArtist = if (track.artist.isNotBlank()) {
+            queryTracks("${MediaStore.Audio.Media.ARTIST} = ?", arrayOf(track.artist), limit)
+        } else {
+            emptyList()
+        }
+        val byAlbum = if (!track.album.isNullOrBlank()) {
+            queryTracks("${MediaStore.Audio.Media.ALBUM} = ?", arrayOf(track.album), limit)
+        } else {
+            emptyList()
+        }
+        val rest = queryTracks(null, null, limit)
+        val out = (byArtist + byAlbum + rest)
+            .filter { it.id != track.id }
+            .distinctBy { it.id }
+            .take(limit)
+        return SourceResult.Success(out)
+    }
+
     private suspend fun queryTracks(
         selection: String?,
         selectionArgs: Array<String>?,
@@ -164,6 +188,7 @@ class LocalSource @Inject constructor(
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.MIME_TYPE,
         )
 
         val tracks = mutableListOf<Track>()
@@ -181,6 +206,7 @@ class LocalSource @Inject constructor(
                 val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
                 val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
                 val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val mimeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
 
                 while (cursor.moveToNext() && tracks.size < limit) {
                     val mediaId = cursor.getLong(idColumn)
@@ -194,6 +220,7 @@ class LocalSource @Inject constructor(
                         mediaUri = ContentUris.withAppendedId(collection, mediaId).toString(),
                         durationMs = cursor.getLong(durationColumn),
                         sourceId = SourceId.LOCAL,
+                        audioFormat = audioFormatLabel(cursor.getString(mimeColumn)),
                     )
                 }
             }
@@ -218,4 +245,18 @@ class LocalSource @Inject constructor(
     private companion object {
         val ALBUM_ART_URI: Uri = Uri.parse("content://media/external/audio/albumart")
     }
+}
+
+/**
+ * The badge label for a local file's audio format, taken from its MIME type.
+ *
+ * Only the formats worth naming are named: a player that says "Hi-Res" on a
+ * plain MP3 would be lying. Everything else stays null and the badge is
+ * hidden.
+ */
+private fun audioFormatLabel(mimeType: String?): String? = when {
+    mimeType == null -> null
+    mimeType.contains("flac", ignoreCase = true) -> "Hi-Res"
+    mimeType.contains("wav", ignoreCase = true) -> "Lossless"
+    else -> null
 }

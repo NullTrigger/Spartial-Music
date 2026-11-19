@@ -45,6 +45,11 @@ plugin behind one contract, so the player never knows where a track came from.
     */
    ```
 
+6. **Animated covers.** An animated cover provider may only use a public or
+   official API, or files the user supplies. Never add a provider that relies
+   on reverse-engineered private endpoints, another service's login cookie or
+   token, or scraped pages.
+
 ## Layout
 
 ```

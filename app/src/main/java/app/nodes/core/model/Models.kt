@@ -40,6 +40,12 @@ data class Track(
     val title: String,
     val artist: String,
     val album: String? = null,
+    /**
+     * The provider's own id for the album this track is on, when it names one:
+     * the YouTube Music browse id ("MPRE…"). "View album" uses it to open the
+     * real album page; without it the UI can only fall back to the name.
+     */
+    val albumId: String? = null,
     val artworkUri: String? = null,
     val mediaUri: String? = null,
     val durationMs: Long = 0L,
@@ -57,6 +63,12 @@ data class Track(
     /** Licence line for CC content, e.g. "CC BY 4.0 · Jamendo". */
     val licenseNote: String? = null,
     val isExplicit: Boolean = false,
+    /**
+     * The audio format shown on the player's badge, when the source knows it:
+     * a lossless or otherwise named format. Null means "nothing to say", and
+     * the badge is hidden then.
+     */
+    val audioFormat: String? = null,
 ) {
     val isYoutube: Boolean get() = sourceId == SourceId.YOUTUBE
 }
@@ -119,6 +131,8 @@ data class Playlist(
     val externalUrl: String? = null,
     /** Local playlists carry their creation time; provider collections may not. */
     val createdAt: Long? = null,
+    /** Pinned to the library's Pins row. Remote cards are never pinned. */
+    val isPinned: Boolean = false,
 ) {
     val isLocal: Boolean get() = sourceId == SourceId.LOCAL
 }
@@ -127,6 +141,13 @@ data class PlaylistDetail(
     val playlist: Playlist,
     val tracks: List<Track>,
 )
+
+/** The outcome of adding a track to a local playlist. */
+sealed interface AddToPlaylistResult {
+    data object Added : AddToPlaylistResult
+    data object AlreadyExists : AddToPlaylistResult
+    data class Error(val reason: Throwable? = null) : AddToPlaylistResult
+}
 
 /** What the playback layer should do with a track. */
 sealed interface PlaybackHandle {

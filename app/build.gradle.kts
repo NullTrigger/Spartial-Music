@@ -32,6 +32,24 @@ fun secret(name: String): String = (localProperties.getProperty(name) ?: System.
     .replace("\"", "\\\"")
 
 /**
+ * Every APK says which build it came from. CI exports GITHUB_RUN_NUMBER and
+ * GITHUB_SHA, so a nightly reads `0.1.0-debug.<run>.<sha>`; a local build falls
+ * back to `local`. versionCode is derived from versionName
+ * (major*10000 + minor*100 + patch), so 0.1.0 is 100 and 1.2.3 is 10203; the
+ * stamp is the only way to answer "which APK is this?" once a phone has held
+ * more than one of them.
+ */
+fun buildStamp(): String {
+    val run = (System.getenv("GITHUB_RUN_NUMBER") ?: "").trim()
+    val sha = (System.getenv("GITHUB_SHA") ?: "").trim().take(7)
+    return when {
+        run.isNotEmpty() && sha.isNotEmpty() -> "$run.$sha"
+        sha.isNotEmpty() -> sha
+        else -> "local"
+    }
+}
+
+/**
  * Release signing lives in a git-ignored keystore.properties (see
  * keystore.properties.example and BUILDING.md). Without it the release build
  * falls back to the debug key so forks can still build; never distribute an APK
@@ -54,7 +72,12 @@ android {
         applicationId = "app.nodes"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        versionCode = run {
+            val parts = "0.1.0".split('.')
+            (parts.getOrNull(0)?.toIntOrNull() ?: 0) * 10_000 +
+                (parts.getOrNull(1)?.toIntOrNull() ?: 0) * 100 +
+                (parts.getOrNull(2)?.toIntOrNull() ?: 0)
+        }
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -115,7 +138,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+            versionNameSuffix = "-debug.${buildStamp()}"
             // Not the per-machine debug key: the committed one, so every build
             // - here or on CI - is an in-place update of every other.
             signingConfig = signingConfigs.getByName("stableDebug")
@@ -189,6 +212,28 @@ ksp {
     arg("room.incremental", "true")
 }
 
+// ---- Robolectric runtime, resolved through Gradle -------------------------
+// Robolectric fetches its Android runtime ("android-all-instrumented") from
+// Maven Central inside the test JVM at run time. On CI runners where that
+// fetch is unreliable, every Robolectric test class dies at setup with a
+// ConnectException before a single assertion runs. Resolving the same jar
+// through Gradle and running Robolectric in offline mode makes the unit tests
+// hermetic: one dependency path, cacheable, no runtime networking.
+val robolectricSdk by configurations.creating
+
+val robolectricDepsDir = layout.buildDirectory.dir("robolectric-deps")
+
+val prepareRobolectricSdk = tasks.register<Copy>("prepareRobolectricSdk") {
+    from(robolectricSdk)
+    into(robolectricDepsDir)
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(prepareRobolectricSdk)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", robolectricDepsDir.get().asFile.absolutePath)
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
@@ -230,12 +275,14 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(libs.youtube.player)
-    implementation(libs.play.services.auth)
+    // Google Sign-In is a Play services surface like Cast, so it only exists in
+    // the gms flavour: the FOSS build must never pull in a Google binary. The
+    // gms/foss YouTubeSignIn pair keeps the same public API either way.
+    "gmsImplementation"(libs.play.services.auth)
 
     // androidx.mediarouter shows the cast route chooser as a DialogFragment, and
     // it reaches the FragmentManager through the host activity: MediaRouteButton
@@ -263,6 +310,9 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
+    // The SDK 34 sandbox Robolectric 4.16.1 loads for @Config(sdk = [34]);
+    // copied into build/robolectric-deps for Robolectric's offline mode.
+    add("robolectricSdk", "org.robolectric:android-all-instrumented:14-robolectric-10818077-i7")
     testImplementation(libs.androidx.test.junit)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)

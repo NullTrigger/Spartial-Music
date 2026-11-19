@@ -179,6 +179,10 @@ fun MusicLoginScreen(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
+                // The bridge must only ever be fed by the pages this login
+                // actually uses; any other page loaded in the WebView could
+                // otherwise push visitor/session ids into the app.
+                var pageHost: String? = null
                 WebView(context).apply {
                     webView = this
                     settings.javaScriptEnabled = true
@@ -192,13 +196,27 @@ fun MusicLoginScreen(
                         setAcceptThirdPartyCookies(web, true)
                     }
                     addJavascriptInterface(
-                        SessionBridge { visitor, syncId ->
+                        SessionBridge(
+                            hostAllowed = {
+                                val host = pageHost.orEmpty()
+                                host.endsWith("music.youtube.com") ||
+                                    host.endsWith("accounts.google.com")
+                            },
+                        ) { visitor, syncId ->
                             if (!visitor.isNullOrBlank()) visitorData = visitor
                             if (!syncId.isNullOrBlank()) dataSyncId = syncId
                         },
                         "Android",
                     )
                     webViewClient = object : WebViewClient() {
+                        override fun onPageStarted(
+                            view: WebView,
+                            url: String?,
+                            favicon: android.graphics.Bitmap?,
+                        ) {
+                            super.onPageStarted(view, url, favicon)
+                            pageHost = url?.let { Uri.parse(it).host }
+                        }
                         override fun onPageFinished(view: WebView, url: String?) {
                             super.onPageFinished(view, url)
                             // The music site keeps the visitor id and the account
@@ -232,12 +250,19 @@ fun MusicLoginScreen(
     }
 }
 
-/** Receives the values the page reads from `window.yt.config_`. */
+/**
+ * Receives the values the page reads from `window.yt.config_`.
+ *
+ * [hostAllowed] gates every call: the bridge is a global JavaScript object, so
+ * without it any page the WebView ever loads could push values into the app.
+ */
 private class SessionBridge(
+    private val hostAllowed: () -> Boolean,
     private val callback: (visitorData: String?, dataSyncId: String?) -> Unit,
 ) {
     @JavascriptInterface
     fun onSession(visitorData: String?, dataSyncId: String?) {
+        if (!hostAllowed()) return
         callback.invoke(visitorData, dataSyncId)
     }
 }

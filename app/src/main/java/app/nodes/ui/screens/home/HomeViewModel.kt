@@ -101,6 +101,7 @@ class HomeViewModel @Inject constructor(
         when (val result = source.getHome()) {
             is SourceResult.Success -> {
                 val feed = result.data
+                val bannerTracks = banners(feed, recent)
                 _state.update {
                     it.copy(
                         loading = false,
@@ -109,10 +110,17 @@ class HomeViewModel @Inject constructor(
                         feed = feed.copy(
                             continuePlaying = recent.ifEmpty { feed.continuePlaying },
                         ),
-                        banners = banners(feed, recent),
+                        banners = bannerTracks,
                         newSongs = newSongs(feed, recent),
                     )
                 }
+                // Record what was fetched: album and artist pages are a Room
+                // query over music the app has already seen.
+                runCatching {
+                    library.cacheTracks(feed.hero.map { it.track } + feed.sections.flatMap { it.tracks })
+                }
+                // And warm the streams the next tap is most likely to ask for.
+                prefetchLikelyTaps(bannerTracks, feed)
             }
 
             is SourceResult.Failure -> {
@@ -123,6 +131,26 @@ class HomeViewModel @Inject constructor(
                         sourceName = source.displayName,
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Warms the stream URL of the few tracks the next tap is most likely to
+     * play: the head of the banner carousel and the first row of the first
+     * shelves. A tap pays one network round trip before it can make a sound -
+     * this is that same round trip, done ahead of the tap, into the source's
+     * own URL cache. The budget is capped and the calls are sequential, so a
+     * Home load stays a handful of requests.
+     */
+    private fun prefetchLikelyTaps(banners: List<Track>, feed: HomeFeed) {
+        val likely = (banners.take(3) + feed.sections.mapNotNull { it.tracks.firstOrNull() }.take(2))
+            .filter { it.videoId != null }
+            .distinctBy { it.id }
+        if (likely.isEmpty()) return
+        viewModelScope.launch {
+            likely.forEach { track ->
+                runCatching { registry.forTrack(track.sourceId)?.prefetch(track) }
             }
         }
     }

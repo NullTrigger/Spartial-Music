@@ -8,7 +8,9 @@ package app.nodes.ui.screens.settings
 import android.os.Build
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.MovieFilter
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
@@ -58,6 +60,28 @@ fun AppearanceSettingsScreen(
                 )
                 SettingsDivider()
                 SettingsNote(stringResource(R.string.settings_dynamic_color_note))
+            }
+        }
+
+        item(key = "covers") {
+            SettingsGroup(stringResource(R.string.settings_animated_covers_group)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_animated_covers),
+                    subtitle = stringResource(R.string.settings_animated_covers_hint),
+                    icon = Icons.Rounded.MovieFilter,
+                    checked = settings.animatedCovers,
+                    onCheckedChange = viewModel::setAnimatedCovers,
+                )
+                SettingsDivider()
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_animated_covers_mobile),
+                    subtitle = stringResource(R.string.settings_animated_covers_mobile_hint),
+                    icon = Icons.Rounded.Wifi,
+                    checked = settings.animatedCoversOnMobile,
+                    onCheckedChange = viewModel::setAnimatedCoversOnMobile,
+                )
+                SettingsDivider()
+                SettingsNote(stringResource(R.string.settings_animated_covers_note))
             }
         }
     }

@@ -50,6 +50,7 @@ import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.SearchField
 import app.nodes.ui.components.SectionHeader
 import app.nodes.ui.components.SegmentedFilter
+import app.nodes.ui.components.AddToPlaylistBus
 import app.nodes.ui.components.SongRow
 import app.nodes.ui.components.TrackMenuButton
 import app.nodes.ui.components.glass
@@ -76,7 +77,8 @@ private data class BrowseEntry(
 fun SearchScreen(
     onBack: (() -> Unit)? = null,
     onOpenArtist: (String) -> Unit = {},
-    onOpenAlbum: (String) -> Unit = {},
+    onOpenAlbum: (String, String?) -> Unit = { _, _ -> },
+    onOpenTrending: () -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -159,7 +161,9 @@ fun SearchScreen(
                     SectionHeader(title = stringResource(R.string.search_browse_music))
                 }
                 genreRows(browse) { entry ->
-                    viewModel.useRecent(entry.query)
+                    // Charts is the Trending page, reached from here now that
+                    // the tab bar carries the Reel instead.
+                    if (entry.query == "charts") onOpenTrending() else viewModel.useRecent(entry.query)
                 }
                 return@LazyColumn
             }
@@ -243,7 +247,7 @@ fun SearchScreen(
                                     items(state.albums, key = { "album-${it.name}" }) { album ->
                                         AlbumResultCard(
                                             album = album,
-                                            onClick = { onOpenAlbum(album.name) },
+                                            onClick = { onOpenAlbum(album.name, album.albumId) },
                                             modifier = Modifier.width(144.dp),
                                         )
                                     }
@@ -306,7 +310,7 @@ fun SearchScreen(
                                     row.forEach { album ->
                                         AlbumResultCard(
                                             album = album,
-                                            onClick = { onOpenAlbum(album.name) },
+                                            onClick = { onOpenAlbum(album.name, album.albumId) },
                                             modifier = Modifier.weight(1f),
                                         )
                                     }
@@ -418,12 +422,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.songItems(
     onPlayNext: (app.nodes.core.model.Track) -> Unit,
     onAddToQueue: (app.nodes.core.model.Track) -> Unit,
     onOpenArtist: (String) -> Unit,
-    onOpenAlbum: (String) -> Unit,
+    onOpenAlbum: (String, String?) -> Unit,
 ) {
     items(items = state.results, key = { "song-${it.id}" }) { track ->
         SongRow(
             track = track,
             onClick = { onPlay(track) },
+            onLongClick = { AddToPlaylistBus.request(track) },
             supportingText = trackSupportingLine(track),
             isLiked = track.id in likedIds,
             onToggleLike = { onToggleLike(track) },
@@ -433,13 +438,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.songItems(
                 TrackMenuButton(
                     onPlayNext = { onPlayNext(track) },
                     onAddToQueue = { onAddToQueue(track) },
+                    onAddToPlaylist = { AddToPlaylistBus.request(track) },
                     onViewArtist = if (track.artist.isNotBlank()) {
                         { onOpenArtist(track.artist) }
                     } else {
                         null
                     },
                     onViewAlbum = track.album?.takeIf { it.isNotBlank() }?.let { album ->
-                        { onOpenAlbum(album) }
+                        { onOpenAlbum(album, track.albumId) }
                     },
                 )
             },

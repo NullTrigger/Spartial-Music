@@ -172,16 +172,33 @@ class InnerTubeClient @Inject constructor(
             }.getOrDefault(emptyList()).take(limit)
         }
 
-    /** Tracks of an album, playlist or the liked-songs list ("LM"). */
-    suspend fun collection(collectionId: String, limit: Int): List<Track> =
+    /** Tracks and header of an album, playlist or the liked-songs list ("LM"). */
+    internal suspend fun collection(collectionId: String, limit: Int): InnerTubeParser.CollectionPage =
         withContext(Dispatchers.IO) {
             val payload = buildJsonObject {
                 put("context", contextFor(WEB_REMIX))
                 put("browseId", browseIdFor(collectionId))
             }
             val root = withRetry { post("browse", payload, WEB_REMIX, authenticated = true) }
-            InnerTubeParser.collectionTracks(root, limit.coerceIn(1, 200))
+            InnerTubeParser.collectionPage(root, limit.coerceIn(1, 200))
         }
+
+    /**
+     * The radio / "up next" answer for a video: YouTube Music's own related
+     * tracks, for the infinite queue. Same `next` request the music site makes
+     * when a song runs out; no PoToken, no cipher, no other client identity.
+     */
+    suspend fun next(videoId: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject {
+            put("context", contextFor(WEB_REMIX))
+            putJsonObject("playerEndpoint") {
+                putJsonObject("watchEndpoint") { put("videoId", videoId) }
+            }
+            put("videoId", videoId)
+        }
+        val root = withRetry { post("next", payload, WEB_REMIX, authenticated = true) }
+        InnerTubeParser.nextTracks(root, limit.coerceIn(1, 25))
+    }
 
     /**
      * The user's own albums and playlists. Empty when signed out (the endpoint
@@ -194,6 +211,9 @@ class InnerTubeClient @Inject constructor(
         }
         InnerTubeParser.libraryPlaylists(root)
     }
+
+    /** Whether an authenticated InnerTube session is available. */
+    val isSignedIn: Boolean get() = auth.isSignedIn
 
     /** Confirms a captured cookie is a real session, and names its account. */
     suspend fun account(): InnerTubeAccount? = withContext(Dispatchers.IO) {
@@ -334,6 +354,60 @@ class InnerTubeClient @Inject constructor(
         }
         runCatching { postEmptyOk("like/like", payload, WEB_REMIX, authenticated = true) }
             .getOrDefault(false)
+    }
+
+    /**
+     * Creates a playlist owned by the signed-in account and fills it with
+     * [videoIds], returned by YouTube or null when signed out / rejected.
+     *
+     * Two narrow InnerTube writes, both the same shape the music site makes:
+     * `playlist/create` names the list, then `browse/edit_playlist` appends the
+     * rows in chunks. Only video ids cross the wire - no media, no cookies
+     * beyond the session the user signed in with. This is an account write, so
+     * YOUTUBE.md documents it next to the likes push.
+     */
+    suspend fun createPlaylist(title: String, description: String?, videoIds: List<String>): String? =
+        withContext(Dispatchers.IO) {
+            if (!auth.isSignedIn || videoIds.isEmpty()) return@withContext null
+            val created = runCatching {
+                val payload = buildJsonObject {
+                    put("context", contextFor(WEB_REMIX))
+                    put("title", title.take(140))
+                    put("description", description.orEmpty().take(900))
+                    put("privacyStatus", "PRIVATE")
+                }
+                post("playlist/create", payload, WEB_REMIX, authenticated = true)
+            }.getOrNull() ?: return@withContext null
+
+            val playlistId = InnerTubeParser.createdPlaylistId(created) ?: return@withContext null
+            appendToPlaylist(playlistId, videoIds)
+            playlistId
+        }
+
+    /** Appends videos to one of the account's playlists, 50 at a time. */
+    private suspend fun appendToPlaylist(playlistId: String, videoIds: List<String>): Boolean {
+        var allOk = true
+        for (chunk in videoIds.chunked(50)) {
+            val payload = buildJsonObject {
+                put("context", contextFor(WEB_REMIX))
+                put("playlistId", playlistId)
+                putJsonArray("actions") {
+                    chunk.forEach { videoId ->
+                        add(
+                            buildJsonObject {
+                                put("action", "ACTION_ADD_VIDEO")
+                                put("addedVideoId", videoId)
+                            },
+                        )
+                    }
+                }
+            }
+            val ok = runCatching {
+                postEmptyOk("browse/edit_playlist", payload, WEB_REMIX, authenticated = true)
+            }.getOrDefault(false)
+            if (!ok) allOk = false
+        }
+        return allOk
     }
 
     /**

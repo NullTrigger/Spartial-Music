@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +51,6 @@ import app.nodes.core.model.ListeningStats
 import app.nodes.core.model.TrackStat
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.EmptyState
-import app.nodes.ui.components.GeneratedArt
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.glass
 import app.nodes.ui.theme.SpartialBlack
@@ -337,8 +337,9 @@ private fun ArtistRail(stats: List<ArtistStat>) {
 }
 
 /**
- * A ranked artist card: seeded gradient cover, oversized rank number over a
- * left-side scrim, name and play count underneath. No real artwork anywhere.
+ * A ranked artist card: the artist's cover when one is known, otherwise a
+ * seeded gradient placeholder, oversized rank number over a left-side scrim,
+ * name and play count underneath.
  */
 @Composable
 private fun ArtistCard(rank: Int, stat: ArtistStat) {
@@ -353,10 +354,12 @@ private fun ArtistCard(rank: Int, stat: ArtistStat) {
                     .fillMaxWidth()
                     .height(118.dp),
             ) {
-                GeneratedArt(
+                Artwork(
+                    artworkUri = stat.artworkUri,
                     title = stat.artist,
-                    modifier = Modifier.matchParentSize(),
+                    shape = RectangleShape,
                     showInitial = false,
+                    modifier = Modifier.matchParentSize(),
                 )
                 Box(
                     Modifier

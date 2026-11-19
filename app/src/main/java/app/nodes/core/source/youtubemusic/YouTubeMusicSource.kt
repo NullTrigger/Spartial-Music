@@ -132,23 +132,27 @@ class YouTubeMusicSource @Inject constructor(
     override suspend fun getPlaylist(playlistId: String): SourceResult<PlaylistDetail> {
         return runCatching { innerTube.collection(playlistId, 200) }
             .fold(
-                onSuccess = { tracks ->
-                    if (tracks.isEmpty()) {
+                onSuccess = { page ->
+                    if (page.tracks.isEmpty()) {
                         SourceResult.Failure(
                             SourceErrorType.NOT_FOUND,
                             "That album or playlist is empty or private.",
                         )
                     } else {
+                        // The page header names the real album or playlist;
+                        // the synthetic name only survives when the layout
+                        // does not carry one.
                         SourceResult.Success(
                             PlaylistDetail(
                                 playlist = Playlist(
                                     id = playlistId,
-                                    title = playlistTitle(playlistId),
-                                    trackCount = tracks.size,
+                                    title = page.title ?: playlistTitle(playlistId),
+                                    trackCount = page.tracks.size,
                                     sourceId = SourceId.YOUTUBE_MUSIC,
+                                    artworkUri = page.artworkUri,
                                     externalUrl = "https://music.youtube.com/browse/$playlistId",
                                 ),
-                                tracks = tracks,
+                                tracks = page.tracks,
                             ),
                         )
                     }
@@ -162,8 +166,9 @@ class YouTubeMusicSource @Inject constructor(
         .getOrDefault(emptyList())
 
     /** The signed-in user's liked songs; empty when signed out. */
-    suspend fun likedSongs(): List<Track> = runCatching { innerTube.collection(LIKED_SONGS_ID, 200) }
-        .getOrDefault(emptyList())
+    suspend fun likedSongs(): List<Track> =
+        runCatching { innerTube.collection(LIKED_SONGS_ID, 200) }
+            .getOrNull()?.tracks.orEmpty()
 
     /** How a likes push went: what was accepted, what YouTube refused. */
     data class LikeSync(val pushed: Int, val failed: Int)
@@ -184,6 +189,37 @@ class YouTubeMusicSource @Inject constructor(
             }
         }
         return LikeSync(pushed = pushed, failed = failed)
+    }
+
+    /** What a playlist push managed: the new playlist, or what went wrong. */
+    sealed interface PlaylistPush {
+        data class Done(val playlistId: String, val added: Int, val missed: Int) : PlaylistPush
+        data object SignedOut : PlaylistPush
+        data object Failed : PlaylistPush
+    }
+
+    /**
+     * Copies a local playlist to the account: every local track is matched to
+     * a YouTube video by its title and artist, and a private playlist holding
+     * those videos is created. Tracks that cannot be matched are counted, never
+     * guessed - a wrong song in someone's playlist is worse than a missing one.
+     */
+    suspend fun pushPlaylist(name: String, tracks: List<Track>): PlaylistPush {
+        if (!innerTube.isSignedIn) return PlaylistPush.SignedOut
+        val videoIds = mutableListOf<String>()
+        var missed = 0
+        for (track in tracks) {
+            val query = listOf(track.title, track.artist).filter { it.isNotBlank() }
+                .joinToString(" ")
+            val match = runCatching { innerTube.search(query, 3) }.getOrDefault(emptyList())
+                .firstOrNull { it.videoId != null }
+                ?.videoId
+            if (match != null) videoIds += match else missed++
+        }
+        if (videoIds.isEmpty()) return PlaylistPush.Failed
+        val id = runCatching { innerTube.createPlaylist(name, null, videoIds) }.getOrNull()
+            ?: return PlaylistPush.Failed
+        return PlaylistPush.Done(playlistId = id, added = videoIds.size, missed = missed)
     }
 
     override suspend fun play(track: Track): SourceResult<PlaybackHandle> {
@@ -216,6 +252,20 @@ class YouTubeMusicSource @Inject constructor(
         track.videoId?.let(innerTube::invalidateStream)
     }
 
+    /**
+     * Radio / up-next tracks for the infinite queue: the same `next` request
+     * the music site makes when a song runs out. Metadata only; playback still
+     * goes through [play] like every other track.
+     */
+    override suspend fun getRelated(track: Track, limit: Int): SourceResult<List<Track>> {
+        val videoId = track.videoId ?: return SourceResult.Success(emptyList())
+        return runCatching { innerTube.next(videoId, limit) }
+            .fold(
+                onSuccess = { SourceResult.Success(it.filter { candidate -> candidate.videoId != videoId }) },
+                onFailure = { it.asFailure() },
+            )
+    }
+
     override suspend fun prefetch(track: Track) {
         val videoId = track.videoId ?: return
         val preferHighQuality = settings.current().highQualityAudio
@@ -223,10 +273,15 @@ class YouTubeMusicSource @Inject constructor(
         runCatching { innerTube.audioUrl(videoId, preferHighQuality) }
     }
 
+    /**
+     * The name shown when a page's own header did not carry one. Never the
+     * provider's own name: the page is an album or playlist the app could not
+     * name, not a thing called "YouTube Music".
+     */
     private fun playlistTitle(playlistId: String): String = when {
         playlistId == LIKED_SONGS_ID -> "Liked songs"
-        playlistId.startsWith("MPRE") -> "YouTube Music album"
-        else -> "YouTube Music playlist"
+        playlistId.startsWith("MPRE") -> "Untitled album"
+        else -> "Untitled playlist"
     }
 
     private fun Throwable.asFailure(): SourceResult.Failure =

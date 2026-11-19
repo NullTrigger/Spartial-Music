@@ -15,28 +15,25 @@ package app.nodes.core.session
  * the track the host is playing) and what never does (account cookies,
  * listening history, the audio itself).
  *
- * The default is the Cloudflare Worker + Durable Object deployment the protocol
- * was written against. It is a free-plan worker, and the room state is held in
- * SQLite-backed durable objects, so nothing is stored beyond the live room.
+ * The default is empty on purpose: shared listening is the one feature that
+ * talks to a third-party server, so the app must never connect to one until
+ * the user deliberately picks it. It is a free-plan worker, and the room state
+ * is held in SQLite-backed durable objects, so nothing is stored beyond the live room.
  */
 object ListenTogetherServers {
 
-    /** The Spartial/Glossy Cloudflare deployment. `GET` on it lists live rooms. */
-    const val CLOUDFLARE = "wss://glossy-listen-together.izybro110.workers.dev/ws"
+    /** The Cloudflare deployment. `GET` on it lists live rooms. */
+    const val SERVER_1 = "wss://glossy-listen-together.izybro110.workers.dev/ws"
 
     /**
-     * The Metrolist community server, kept as a fallback: it speaks the same
-     * protocol, so a room created here can be joined there and vice versa.
+     * What the app connects to when the user has not chosen a server: nothing.
+     * Connecting is a privacy decision the user makes, never a default.
      */
-    const val METROLIST = "wss://metroserverx.meowery.eu/ws"
+    const val DEFAULT = ""
 
-    /** What the app connects to when the user has not chosen a server. */
-    const val DEFAULT = CLOUDFLARE
-
-    /** Human labels for the server picker. */
+    /** Human labels for the server picker. It is run by a third party. */
     val KNOWN = listOf(
-        CLOUDFLARE to "Cloudflare (default)",
-        METROLIST to "Metrolist community",
+        SERVER_1 to "Server 1 (third-party server)",
     )
 
     /**
@@ -46,6 +43,8 @@ object ListenTogetherServers {
      */
     fun normalise(input: String): String {
         val trimmed = input.trim()
+        // A blank field stays "no server chosen"; it must never fall back to
+        // someone else's deployment.
         if (trimmed.isBlank()) return DEFAULT
         if (trimmed.startsWith("ws://") || trimmed.startsWith("wss://")) return trimmed
         val host = trimmed.removePrefix("https://").removePrefix("http://").removeSuffix("/")

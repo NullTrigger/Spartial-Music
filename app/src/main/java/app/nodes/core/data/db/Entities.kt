@@ -5,7 +5,9 @@
 
 package app.nodes.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import app.nodes.core.model.SourceId
 import app.nodes.core.model.Track
@@ -21,6 +23,7 @@ data class TrackEntity(
     val title: String,
     val artist: String,
     val album: String?,
+    val albumId: String?,
     val artworkUri: String?,
     val mediaUri: String?,
     val durationMs: Long,
@@ -50,13 +53,55 @@ data class PlaylistEntity(
     val description: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    /** When the user pinned this playlist; null means unpinned. */
+    @ColumnInfo(defaultValue = "NULL")
+    val pinnedAt: Long? = null,
 )
 
-@Entity(tableName = "playlist_tracks", primaryKeys = ["playlistId", "sortOrder"])
+/**
+ * A playlist row. One track appears at most once per playlist: the unique
+ * (playlistId, trackId) index is the invariant, added in schema v3.
+ */
+@Entity(
+    tableName = "playlist_tracks",
+    primaryKeys = ["playlistId", "sortOrder"],
+    indices = [Index(value = ["playlistId", "trackId"], unique = true)],
+)
 data class PlaylistTrackEntity(
     val playlistId: String,
     val sortOrder: Int,
     val trackId: String,
+)
+
+/**
+ * An artist the user follows. The composite primary key is the unique
+ * (artistId, sourceId) index: one follow per artist per source. Local-first -
+ * a follow is only ever a row in this table.
+ */
+@Entity(
+    tableName = "followed_artists",
+    primaryKeys = ["artistId", "sourceId"],
+    indices = [Index("followedAt")],
+)
+data class FollowedArtistEntity(
+    val artistId: String,
+    val sourceId: String,
+    val name: String,
+    val imageUrl: String?,
+    val followedAt: Long,
+)
+
+/**
+ * A like the user saved locally that YouTube Music has not accepted yet.
+ * Retried on app start and when the Reel opens, with an attempt cap so a
+ * refused track cannot loop forever.
+ */
+@Entity(tableName = "pending_like_ops", primaryKeys = ["trackId"])
+data class PendingLikeEntity(
+    val trackId: String,
+    val videoId: String,
+    val attempts: Int,
+    val updatedAt: Long,
 )
 
 /** Raw provider payloads, with a timestamp so we can respect a TTL. */
@@ -67,11 +112,33 @@ data class RemoteCacheEntity(
     val fetchedAt: Long,
 )
 
+/**
+ * One row of the persisted play queue. [position] is the play order;
+ * [originalPosition] is where the row sat before shuffle, so turning shuffle
+ * off can restore the order the user chose. Both are 0-based and dense.
+ */
+@Entity(tableName = "queue_items")
+data class QueueItemEntity(
+    @PrimaryKey val position: Int,
+    val trackId: String,
+    val originalPosition: Int,
+)
+
+/** The single row of queue state that travels with [QueueItemEntity]. */
+@Entity(tableName = "queue_state")
+data class QueueStateEntity(
+    @PrimaryKey val id: Int = 0,
+    val currentIndex: Int,
+    val positionMs: Long,
+    val shuffleEnabled: Boolean,
+)
+
 fun TrackEntity.toTrack(): Track = Track(
     id = id,
     title = title,
     artist = artist,
     album = album,
+    albumId = albumId,
     artworkUri = artworkUri,
     mediaUri = mediaUri,
     durationMs = durationMs,
@@ -87,6 +154,7 @@ fun Track.toEntity(now: Long = System.currentTimeMillis()): TrackEntity = TrackE
     title = title,
     artist = artist,
     album = album,
+    albumId = albumId,
     artworkUri = artworkUri,
     mediaUri = mediaUri,
     durationMs = durationMs,

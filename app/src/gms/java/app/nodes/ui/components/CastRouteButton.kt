@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -43,19 +44,20 @@ fun CastRouteButton(
     unavailable: Boolean = false,
     onUnavailableTap: () -> Unit = {},
     onChooserFailure: () -> Unit = {},
+    tint: Color = Color.Unspecified,
 ) {
     if (unavailable) {
         Box(
             modifier = modifier
-                .size(40.dp)
+                .size(52.dp)
                 .clickable(onClick = onUnavailableTap),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Cast,
                 contentDescription = stringResource(R.string.player_cast),
-                tint = SpartialGrey,
-                modifier = Modifier.size(24.dp),
+                tint = tint,
+                modifier = Modifier.size(34.dp),
             )
         }
         return
@@ -88,7 +90,7 @@ fun CastRouteButton(
                 View(castContext).apply { visibility = View.GONE }
             }
         },
-        modifier = modifier.size(40.dp),
+        modifier = modifier.size(52.dp),
     )
 }
 

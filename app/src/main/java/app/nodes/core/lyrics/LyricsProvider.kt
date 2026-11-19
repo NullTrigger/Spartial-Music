@@ -94,4 +94,15 @@ object LyricsProviders {
 
     /** Providers that need no account or key, so the UI can list them all. */
     val KNOWN: List<String> = DEFAULT_ORDER
+
+    /**
+     * The "additional" group: sources reached through a commercial service's
+     * own web-player endpoints or tokens - KuGou's and NetEase's lyric APIs and
+     * Paxsenix's Apple web-player token scrape. What they return is copyrighted
+     * lyrics this project does not license, so the group is OFF by default
+     * behind "Additional lyric sources (third-party, unlicensed)" in Settings
+     * and is only asked when the user switches a source on. Local files and the
+     * open community APIs stay on by default.
+     */
+    val ADDITIONAL_SOURCES: Set<String> = setOf(NETEASE, KUGOU, PAXSENIX)
 }

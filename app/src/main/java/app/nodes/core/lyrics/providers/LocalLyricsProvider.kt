@@ -27,13 +27,16 @@ class LocalLyricsProvider(
     override val displayName: String = "Local file"
 
     override suspend fun fetch(query: LyricsQuery): LyricsPayload = withContext(Dispatchers.IO) {
-        val file = File(File(context.filesDir, "lyrics"), "${query.trackId}.lrc")
-        if (!file.isFile) return@withContext LyricsPayload.NotFound
+        val file = fileFor(query.trackId).takeIf { it.isFile }
+            ?: File(File(context.filesDir, "lyrics"), "${query.trackId}.txt").takeIf { it.isFile }
+            ?: return@withContext LyricsPayload.NotFound
         val raw = runCatching { file.readText() }.getOrNull()
         if (raw.isNullOrBlank()) {
             LyricsPayload.NotFound
         } else {
-            LyricsPayload.Found(raw = raw, syncedHint = true)
+            // A sidecar the user placed there always wins over any network
+            // source; the parser decides whether it is timed or plain text.
+            LyricsPayload.Found(raw = raw, syncedHint = file.name.endsWith(".lrc"))
         }
     }
 

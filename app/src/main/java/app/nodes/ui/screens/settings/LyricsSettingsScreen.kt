@@ -48,6 +48,8 @@ fun LyricsSettingsScreen(
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
     val movable = settings.lyricsProviderOrder.filter { it != LyricsProviders.LOCAL }
     val known = movable.filter { id -> LyricsSourceRows.any { it.first == id } }
+    val community = known.filter { it !in LyricsProviders.ADDITIONAL_SOURCES }
+    val extra = known.filter { it in LyricsProviders.ADDITIONAL_SOURCES }
 
     SettingsScaffold(
         title = stringResource(R.string.settings_lyrics_title),
@@ -60,17 +62,37 @@ fun LyricsSettingsScreen(
                     subtitle = stringResource(R.string.settings_lyrics_local_hint),
                     value = stringResource(R.string.settings_lyrics_local_value),
                 )
-                known.forEachIndexed { index, id ->
+                community.forEachIndexed { index, id ->
                     SettingsDivider()
                     LyricsProviderRow(
                         name = providerLabel(id),
                         enabled = id !in settings.lyricsDisabledProviders,
                         canMoveUp = index > 0,
-                        canMoveDown = index < known.lastIndex,
+                        canMoveDown = index < community.lastIndex,
                         onToggle = { enabled -> viewModel.setLyricsProviderEnabled(id, enabled) },
                         onMoveUp = { viewModel.moveLyricsProvider(id, -1) },
                         onMoveDown = { viewModel.moveLyricsProvider(id, 1) },
                     )
+                }
+            }
+        }
+
+        if (extra.isNotEmpty()) {
+            item(key = "extra_sources") {
+                SettingsGroup(stringResource(R.string.settings_lyrics_extra_title)) {
+                    SettingsNote(stringResource(R.string.settings_lyrics_extra_note))
+                    extra.forEachIndexed { index, id ->
+                        SettingsDivider()
+                        LyricsProviderRow(
+                            name = providerLabel(id),
+                            enabled = id !in settings.lyricsDisabledProviders,
+                            canMoveUp = index > 0,
+                            canMoveDown = index < extra.lastIndex,
+                            onToggle = { enabled -> viewModel.setLyricsProviderEnabled(id, enabled) },
+                            onMoveUp = { viewModel.moveLyricsProvider(id, -1) },
+                            onMoveDown = { viewModel.moveLyricsProvider(id, 1) },
+                        )
+                    }
                 }
             }
         }
@@ -90,13 +112,6 @@ fun LyricsSettingsScreen(
                     subtitle = stringResource(R.string.settings_lyrics_prefer_synced_hint),
                     checked = settings.lyricsPreferSynced,
                     onCheckedChange = viewModel::setLyricsPreferSynced,
-                )
-                SettingsDivider()
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_lyrics_show_source),
-                    subtitle = stringResource(R.string.settings_lyrics_show_source_hint),
-                    checked = settings.lyricsShowSource,
-                    onCheckedChange = viewModel::setLyricsShowSource,
                 )
             }
         }

@@ -10,6 +10,7 @@ import android.net.Uri
 object Routes {
     const val HOME = "home"
     const val TRENDING = "trending"
+    const val REEL = "reel"
     const val SUGGESTIONS = "suggestions"
     const val SESSIONS = "sessions"
     const val LIBRARY = "library"
@@ -19,6 +20,7 @@ object Routes {
     const val PLAYER = "player"
     const val SETTINGS = "settings"
     const val SETTINGS_PLAYBACK = "settings/playback"
+    const val SETTINGS_EQUALIZER = "settings/equalizer"
     const val SETTINGS_APPEARANCE = "settings/appearance"
     const val SETTINGS_CONTENT = "settings/content"
     const val SETTINGS_LYRICS = "settings/lyrics"
@@ -46,4 +48,12 @@ object Routes {
         "collection/$kind/${Uri.encode(name)}"
 
     fun playlist(id: String): String = "playlist/$id"
+
+    /**
+     * An album page. With the provider's own album id the real album loads
+     * through the collection route; without one, the name-keyed cache page is
+     * the best the app can do.
+     */
+    fun album(name: String, albumId: String?): String =
+        albumId?.let { playlist(it) } ?: collection(COLLECTION_ALBUM, name)
 }
