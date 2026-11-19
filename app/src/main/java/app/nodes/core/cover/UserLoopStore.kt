@@ -18,6 +18,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 /**
@@ -83,7 +84,7 @@ class UserLoopStore @Inject constructor(
     }
 
     suspend fun removeCover(trackId: String) = withContext(Dispatchers.IO) {
-        val index = readIndex()
+        val index = readIndex().toMutableMap()
         val name = index.remove(trackId) ?: return@withContext
         File(dir, name).delete()
         writeIndex(index)
@@ -112,25 +113,21 @@ class UserLoopStore @Inject constructor(
 
     private fun readIndex(): Map<String, String> = runCatching {
         val root = json.parseToJsonElement(indexFile.readText()) as? JsonObject ?: return emptyMap()
-        root.mapNotNull { (key, value) ->
+        val out = LinkedHashMap<String, String>()
+        for ((key, value) in root) {
             val name = (value as? JsonPrimitive)?.contentOrNull
-            name?.let { key to it }
-        }.toMap()
+            if (name != null) out[key] = name
+        }
+        out
     }.getOrDefault(emptyMap())
 
     private fun writeIndex(index: Map<String, String>) {
         runCatching {
             dir.mkdirs()
-            indexFile.writeText(
-                json.encodeToString(
-                    kotlinx.serialization.json.JsonObject.serializer(),
-                    buildJsonObject {
-                        putJsonObject("tracks") {
-                            index.forEach { (trackId, name) -> put(trackId, name) }
-                        }
-                    }.getJsonObject("tracks") ?: buildJsonObject { },
-                ),
-            )
+            val root = buildJsonObject {
+                for ((trackId, name) in index) put(trackId, name)
+            }
+            indexFile.writeText(json.encodeToString(JsonObject.serializer(), root))
         }
     }
 
@@ -151,6 +148,3 @@ class UserLoopStore @Inject constructor(
         const val MAX_TOTAL_BYTES = 200L * 1024 * 1024
     }
 }
-
-private fun kotlinx.serialization.json.JsonObject.getJsonObject(key: String) =
-    this[key] as? kotlinx.serialization.json.JsonObject

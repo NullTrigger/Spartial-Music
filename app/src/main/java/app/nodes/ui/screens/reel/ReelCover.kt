@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -186,29 +187,51 @@ fun GeneratedCover(
         ),
     ) {
         val transition = rememberInfiniteTransition(label = "blobs")
-        fun drift(seed: Int, range: Float): Float {
-            if (!animate) return seed * 13f
-            val anim by transition.animateFloat(
-                initialValue = 0f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 16_000 + seed * 4_000, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-                label = "blob$seed",
-            )
-            return (anim * 2f - 1f) * range + seed * 13f
-        }
+        // The three drifts are read here, at composable level; the offsets are
+        // plain arithmetic afterwards, so nothing composes inside a loop or a
+        // nested function.
+        val drift0 by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 16_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "blob0",
+        )
+        val drift1 by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 20_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "blob1",
+        )
+        val drift2 by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 24_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "blob2",
+        )
+
+        /** Signed drift in -range..range, or the static seed when frozen. */
+        fun offset(anim: Float, seed: Int, range: Float): Float =
+            if (animate) (anim * 2f - 1f) * range + seed * 13f else seed * 13f
+
         val shifted = remember(tint) {
             val hsv = FloatArray(3)
-            android.graphics.Color.colorToHSV(tint.toArgb(), hsv)
+            android.graphics.Color.colorToHSV(tint.toArgbInt(), hsv)
             hsv[0] = (hsv[0] + 40f) % 360f
             Color(android.graphics.Color.HSVToColor(hsv))
         }
         val blobs = listOf(
-            tint to drift(0, 0.22f),
-            shifted to drift(1, 0.3f),
-            Color.White to drift(2, 0.18f),
+            tint to offset(drift0, 0, 0.22f),
+            shifted to offset(drift1, 1, 0.3f),
+            Color.White to offset(drift2, 2, 0.18f),
         )
         blobs.forEachIndexed { index, (color, offset) ->
             Box(
@@ -233,4 +256,4 @@ fun GeneratedCover(
     }
 }
 
-private fun Color.toArgb(): Int = androidx.compose.ui.graphics.ColorUtils.toArgb(this, 1f)
+private fun Color.toArgbInt(): Int = this.toArgb()

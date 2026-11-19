@@ -26,7 +26,6 @@ import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
 import app.nodes.playback.PlaybackController
 import app.nodes.playback.PlayerUiState
-import android.net.Uri
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -177,7 +176,8 @@ class ReelViewModel @Inject constructor(
 
         if (_state.value.tab == ReelTab.FOLLOWING) {
             candidates += followingCandidates(exclude, BATCH)
-        }        if (candidates.isEmpty()) {
+        }
+        if (candidates.isEmpty()) {
             // 1. related tracks from the track's own source.
             val source = registry.byId(current.sourceId)
             if (source != null) {
@@ -197,15 +197,18 @@ class ReelViewModel @Inject constructor(
         return ReelFeed.batch(candidates, exclude, BATCH)
     }
 
-    /** More songs from the followed artists, for the Following refill. */
-    private suspend fun followingCandidates(exclude: Set<String>, limit: Int): List<Track> {
+    /** One cached track list per followed artist, newest follow first. */
+    private suspend fun followingPools(): List<List<Track>> {
         val artists = follows.mostRecent(FOLLOWING_ARTISTS)
         if (artists.isEmpty()) return emptyList()
-        val byArtist = artists.map { followed ->
+        return artists.map { followed ->
             runCatching { library.artistTracks(followed.name).first() }.getOrDefault(emptyList())
         }
-        return ReelFeed.interleaveByArtist(byArtist, exclude, limit)
     }
+
+    /** More songs from the followed artists, for the Following refill. */
+    private suspend fun followingCandidates(exclude: Set<String>, limit: Int): List<Track> =
+        ReelFeed.interleaveByArtist(followingPools(), exclude, limit)
 
     /** Switch the pager between For you (the live queue) and Following. */
     fun selectTab(tab: ReelTab) {
@@ -228,27 +231,17 @@ class ReelViewModel @Inject constructor(
             return
         }
         _state.update { it.copy(followingEmpty = false) }
-        val feed = followingCandidates(
+        // Every followed artist's song may already be queued or just played.
+        var feed = followingCandidates(
             playerState.value.queue.mapTo(HashSet()) { it.id } +
                 library.recentlyPlayedIds(RECENT_EXCLUDE),
             FOLLOWING_FEED_SIZE,
         )
-            .ifEmpty {
-                // Every followed artist's song is already queued or just
-                // played: rebuild the pool without the exclusion so the tab
-                // still has content, and let the batch step dedupe later.
-                ReelFeed.interleaveByArtist(
-                    runCatching {
-                        follows.mostRecent(FOLLOWING_ARTISTS).map { followed ->
-                            runCatching {
-                                library.artistTracks(followed.name).first()
-                            }.getOrDefault(emptyList())
-                        }
-                    }.getOrDefault(emptyList()),
-                    emptySet(),
-                    FOLLOWING_FEED_SIZE,
-                )
-            }
+        if (feed.isEmpty()) {
+            // Rebuild without the exclusion so the tab still has content; the
+            // refill step dedupes against the live queue anyway.
+            feed = ReelFeed.interleaveByArtist(followingPools(), emptySet(), FOLLOWING_FEED_SIZE)
+        }
         if (feed.isEmpty()) {
             // Followed artists whose music the device has never seen.
             _state.update { it.copy(followingEmpty = true) }

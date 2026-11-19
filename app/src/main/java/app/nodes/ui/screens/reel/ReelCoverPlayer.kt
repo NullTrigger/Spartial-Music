@@ -11,11 +11,9 @@ import android.view.TextureView
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.source.MediaSource
 import app.nodes.core.cover.AnimatedCover
 import app.nodes.core.crash.AppLogger
 import java.io.File
@@ -64,7 +62,8 @@ class ReelCoverPlayer private constructor(
                     // or duck the music player.
                     .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
                     .apply {
-                        if (side > 0) videoMaxSize = VideoSize(side, side)
+                        // Decode no larger than the screen.
+                        if (side > 0) setMaxVideoSize(side, side)
                     }
                     .build()
                 repeatMode = Player.REPEAT_MODE_ONE
@@ -83,18 +82,13 @@ class ReelCoverPlayer private constructor(
     }
 
     private fun attachListeners() {
-        player.addAnalyticsListener(object : AnalyticsListener {
-            override fun onRenderedFirstFrame(
-                eventSource: MediaSource?,
-                eventTime: AnalyticsListener.EventTime,
-                renderTimeMs: Long,
-            ) {
+        player.addListener(object : Player.Listener {
+            override fun onRenderedFirstFrame() {
                 isReady = true
                 onFirstFrame?.invoke()
             }
-        })
-        player.addListener(object : Player.Listener {
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+
+            override fun onPlayerError(error: PlaybackException) {
                 AppLogger.w(TAG, "Cover video failed: ${error.errorCodeName}")
                 onError?.invoke()
             }
