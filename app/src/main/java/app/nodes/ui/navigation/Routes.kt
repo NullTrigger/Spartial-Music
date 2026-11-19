@@ -10,6 +10,7 @@ import android.net.Uri
 object Routes {
     const val HOME = "home"
     const val TRENDING = "trending"
+    const val REEL = "reel"
     const val SUGGESTIONS = "suggestions"
     const val SESSIONS = "sessions"
     const val LIBRARY = "library"

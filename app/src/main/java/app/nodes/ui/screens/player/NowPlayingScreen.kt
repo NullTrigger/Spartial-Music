@@ -49,7 +49,6 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.FormatQuote
@@ -72,10 +71,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -142,6 +140,7 @@ import app.nodes.ui.components.glass
 import app.nodes.ui.components.trackSupportingLine
 import app.nodes.ui.theme.SpartialBlack
 import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialGreyDim
 import app.nodes.ui.theme.SpartialSpacing
 import app.nodes.ui.theme.SpartialSurface
 import app.nodes.ui.theme.SpartialType
@@ -263,8 +262,27 @@ fun NowPlayingScreen(
         LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
     val dismissScope = rememberCoroutineScope()
-    val dismissOffset = remember { Animatable(0f) }
+    // The dismissal offset is plain state, written straight from the pointer
+    // deltas: an Animatable here launched a coroutine per delta, which stuttered
+    // the follow on a slow device. Springs write the same state each frame.
+    var dismissOffset by remember { mutableFloatStateOf(0f) }
     var dismissed by rememberSaveable { mutableStateOf(false) }
+
+    /** Drives [dismissOffset] to [target] along [spec], then runs [onEnd]. */
+    fun settleDismiss(
+        target: Float,
+        spec: androidx.compose.animation.core.AnimationSpec<Float>,
+        onEnd: () -> Unit = {},
+    ) {
+        dismissScope.launch {
+            androidx.compose.animation.core.animate(
+                initialValue = dismissOffset,
+                targetValue = target,
+                animationSpec = spec,
+            ) { value, _ -> dismissOffset = value }
+            onEnd()
+        }
+    }
 
     // The safety net for a refused pop: if the screen is still here a moment
     // after the close, the pop never happened, so the player must come back
@@ -274,53 +292,66 @@ fun NowPlayingScreen(
             delay(POP_GRACE_MS)
             if (dismissed) {
                 dismissed = false
-                dismissOffset.animateTo(0f, tween(200))
+                settleDismiss(
+                    0f,
+                    spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+                )
             }
         }
     }
     val dismissDragModifier = Modifier
         .draggable(
             state = rememberDraggableState { delta ->
-                if (delta > 0f || dismissOffset.value > 0f) {
-                    dismissScope.launch {
-                        dismissOffset.snapTo((dismissOffset.value + delta).coerceIn(0f, screenHeightPx))
-                    }
+                if (delta > 0f || dismissOffset > 0f) {
+                    dismissOffset = (dismissOffset + delta).coerceIn(0f, screenHeightPx)
                 }
             },
             orientation = Orientation.Vertical,
             enabled = mode == PlayerMode.CONTROLS && !dismissed,
-            startDragImmediately = dismissOffset.value > 0f,
+            startDragImmediately = dismissOffset > 0f,
             onDragStopped = { velocity ->
-                dismissScope.launch {
-                    val shouldClose = dismissOffset.value > screenHeightPx / 3f || velocity > 1_400f
-                    if (shouldClose) {
-                        dismissed = true
-                        // Hand the gesture over to the navigation's exit
-                        // transition: the player is already where the finger
-                        // left it, and the transition carries it the rest of
-                        // the way over the home screen behind it.
-                        //
-                        // It used to animate the player off screen first and
-                        // then reset the offset straight after the pop, which
-                        // did two wrong things: the black base background was
-                        // revealed for a moment, and the reset put the full
-                        // player back on screen while the exit transition was
-                        // still running - so the player appeared again just
-                        // after the swipe that was meant to close it.
-                        onBack()
-                    } else {
-                        dismissOffset.animateTo(0f, spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow))
-                        dismissed = false
-                    }
+                // A quarter of the screen or a firm flick closes it: the third
+                // of a screen the old threshold asked for made the sheet feel
+                // stuck when the user clearly meant to leave.
+                val shouldClose = dismissOffset > screenHeightPx / 4f || velocity > 1_000f
+                if (shouldClose) {
+                    dismissed = true
+                    // Hand the gesture over to the navigation's exit
+                    // transition: the player is already where the finger
+                    // left it, and the transition carries it the rest of
+                    // the way over the home screen behind it.
+                    //
+                    // It used to animate the player off screen first and
+                    // then reset the offset straight after the pop, which
+                    // did two wrong things: the black base background was
+                    // revealed for a moment, and the reset put the full
+                    // player back on screen while the exit transition was
+                    // still running - so the player appeared again just
+                    // after the swipe that was meant to close it.
+                    onBack()
+                } else {
+                    // A firm, non-bouncy return: the old low-bouncy spring
+                    // overshot and made the sheet wobble after a short drag.
+                    settleDismiss(
+                        0f,
+                        spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    )
+                    dismissed = false
                 }
             },
         )
         .graphicsLayer {
-            translationY = dismissOffset.value
-            val progress = (dismissOffset.value / screenHeightPx).coerceIn(0f, 1f)
+            translationY = dismissOffset
+            val progress = (dismissOffset / screenHeightPx).coerceIn(0f, 1f)
             scaleX = 1f - progress * 0.06f
             scaleY = 1f - progress * 0.06f
-            alpha = 1f - progress * 0.35f
+            // Eased rather than linear: the dim stays until the sheet is really
+            // leaving, so a half-dragged player keeps its body rather than
+            // washing out under the finger.
+            alpha = 1f - progress * progress * 0.35f
         }
 
     Box(
@@ -607,6 +638,20 @@ private fun LyricsMode(
                     active = index == activeIndex,
                     distance = index - activeIndex,
                 )
+            }
+            // Credit: where the lyrics came from is always shown, never a
+            // toggle - the network sources are other people's work.
+            result.provider?.let { provider ->
+                item(key = "lyrics-credit") {
+                    Text(
+                        text = stringResource(R.string.player_lyrics_credit, provider),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SpartialGreyDim,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    )
+                }
             }
         }
 
@@ -1394,7 +1439,7 @@ private fun PlayerTransport(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
             CastRouteButton(
                 unavailable = state.embeddedVideoId != null,
                 tint = accent,

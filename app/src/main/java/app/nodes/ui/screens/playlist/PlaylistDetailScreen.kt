@@ -26,12 +26,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
@@ -73,11 +76,13 @@ import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
+import app.nodes.core.source.youtubemusic.YouTubeMusicSource
 import app.nodes.ui.components.CircleIconButton
 import app.nodes.ui.components.DetailTopBar
 import app.nodes.ui.components.EmptyState
 import app.nodes.ui.components.ErrorState
 import app.nodes.ui.components.LoadingRows
+import app.nodes.ui.components.MessageBanner
 import app.nodes.ui.components.MetaRow
 import app.nodes.ui.components.PillButton
 import app.nodes.ui.components.PillStyle
@@ -112,6 +117,10 @@ data class PlaylistUiState(
     val error: SourceErrorType? = null,
     /** True for local playlists, the only editable ones. */
     val isLocal: Boolean = false,
+    /** A YouTube Music copy of this playlist is being made right now. */
+    val syncing: Boolean = false,
+    /** Result of the last push, as a small state the screen renders. */
+    val syncMessage: String? = null,
 )
 
 @HiltViewModel
@@ -180,6 +189,44 @@ class PlaylistDetailViewModel @Inject constructor(
         viewModelScope.launch {
             tracks.forEach { library.setLiked(it, liked) }
         }
+    }
+
+    /** Pins or unpins the playlist; only local playlists are pinnable. */
+    fun togglePin() {
+        val playlist = _state.value.playlist ?: return
+        if (!playlist.isLocal) return
+        val target = !playlist.isPinned
+        _state.value = _state.value.copy(playlist = playlist.copy(isPinned = target))
+        viewModelScope.launch { library.setPinned(playlist.id, target) }
+    }
+
+    /**
+     * Copies this local playlist to the signed-in YouTube Music account. The
+     * option is offered for local playlists only, and the result is reported
+     * as a banner instead of a silent write.
+     */
+    fun pushToYouTubeMusic() {
+        val state = _state.value
+        val playlist = state.playlist ?: return
+        if (!playlist.isLocal || state.tracks.isEmpty() || state.syncing) return
+        val source = registry.byId(SourceId.YOUTUBE_MUSIC) as? YouTubeMusicSource ?: return
+        _state.value = state.copy(syncing = true, syncMessage = null)
+        viewModelScope.launch {
+            val result = runCatching { source.pushPlaylist(playlist.title, state.tracks) }
+                .getOrElse { YouTubeMusicSource.PlaylistPush.Failed }
+            _state.value = _state.value.copy(
+                syncing = false,
+                syncMessage = when (result) {
+                    is YouTubeMusicSource.PlaylistPush.Done -> "playlist-sync:${result.added}:${result.missed}"
+                    YouTubeMusicSource.PlaylistPush.SignedOut -> "playlist-sync:signed-out"
+                    YouTubeMusicSource.PlaylistPush.Failed -> "playlist-sync:failed"
+                },
+            )
+        }
+    }
+
+    fun dismissSyncMessage() {
+        _state.value = _state.value.copy(syncMessage = null)
     }
 
     /** Removes one row; local playlists only. The cached track itself stays. */
@@ -299,6 +346,16 @@ fun PlaylistDetailScreen(
                                 expanded = menuOpen,
                                 onDismissRequest = { menuOpen = false },
                             ) {
+                                if (state.isLocal) {
+                                    PlaylistMenuItem(
+                                        label = stringResource(R.string.playlist_sync_youtube),
+                                        icon = Icons.Rounded.FileUpload,
+                                        enabled = !state.syncing && tracks.isNotEmpty(),
+                                    ) {
+                                        menuOpen = false
+                                        viewModel.pushToYouTubeMusic()
+                                    }
+                                }
                                 PlaylistMenuItem(
                                     label = stringResource(R.string.playlist_play_all),
                                     icon = Icons.Rounded.PlayArrow,
@@ -440,13 +497,22 @@ fun PlaylistDetailScreen(
                             style = PillStyle.Glass,
                         )
                         CircleIconButton(
-                            icon = if (allLiked) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                            icon = if (playlist?.isPinned == true) {
+                                Icons.Rounded.PushPin
+                            } else {
+                                Icons.Outlined.PushPin
+                            },
                             contentDescription = stringResource(
-                                if (allLiked) R.string.action_unstar else R.string.action_star,
+                                if (playlist?.isPinned == true) {
+                                    R.string.action_unpin
+                                } else {
+                                    R.string.action_pin
+                                },
                             ),
-                            onClick = { viewModel.setAllLiked(!allLiked) },
-                            tint = if (allLiked) SpartialWhite else SpartialGrey,
-                            filled = true,
+                            onClick = { viewModel.togglePin() },
+                            tint = if (playlist?.isPinned == true) SpartialWhite else SpartialGrey,
+                            filled = playlist?.isPinned == true,
+                            enabled = playlist?.isLocal == true,
                         )
                         CircleIconButton(
                             icon = Icons.Rounded.Download,
@@ -654,6 +720,29 @@ fun PlaylistDetailScreen(
                     }
                 },
                 shape = RoundedCornerShape(28.dp),
+            )
+        }
+
+        state.syncMessage?.let { code ->
+            MessageBanner(
+                message = when {
+                    code == "playlist-sync:signed-out" ->
+                        stringResource(R.string.playlist_sync_signed_out)
+                    code == "playlist-sync:failed" ->
+                        stringResource(R.string.playlist_sync_failed)
+                    else -> {
+                        val parts = code.removePrefix("playlist-sync:").split(":")
+                        stringResource(
+                            R.string.playlist_sync_done,
+                            parts.getOrNull(0)?.toIntOrNull() ?: 0,
+                            parts.getOrNull(1)?.toIntOrNull() ?: 0,
+                        )
+                    }
+                },
+                onDismiss = viewModel::dismissSyncMessage,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 96.dp),
             )
         }
     }

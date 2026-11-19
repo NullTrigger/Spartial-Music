@@ -8,7 +8,9 @@ package app.nodes.ui.screens.settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.ClearAll
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Repeat
@@ -38,6 +40,7 @@ import kotlinx.coroutines.delay
 /** Speed steps offered in the picker. */
 private val SpeedOptions = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
 private val SleepOptions = listOf(0, 15, 30, 45, 60)
+private val CrossfadeOptions = listOf(2, 3, 5, 8, 12)
 
 /**
  * Playback settings.
@@ -58,6 +61,7 @@ fun PlaybackSettingsScreen(
     val sleepEndsAt by viewModel.sleepTimerEndsAt.collectAsStateWithLifecycle()
 
     var showSpeedPicker by remember { mutableStateOf(false) }
+    var showCrossfadePicker by remember { mutableStateOf(false) }
     var showSleepPicker by remember { mutableStateOf(false) }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
 
@@ -69,6 +73,7 @@ fun PlaybackSettingsScreen(
     }
 
     val speedText = stringResource(R.string.settings_speed_value, speedLabel(settings.playbackSpeed))
+    val crossfadeText = stringResource(R.string.settings_crossfade_value, settings.crossfadeSeconds)
     val sleepText = if (sleepEndsAt <= 0L) {
         stringResource(R.string.settings_sleep_timer_off)
     } else {
@@ -112,6 +117,22 @@ fun PlaybackSettingsScreen(
                     icon = Icons.Rounded.Speed,
                     onClick = { showSpeedPicker = true },
                 )
+                SettingsDivider()
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_automix),
+                    subtitle = stringResource(R.string.settings_automix_hint),
+                    icon = Icons.Rounded.BlurOn,
+                    checked = settings.automix,
+                    onCheckedChange = viewModel::setAutomix,
+                )
+                SettingsDivider()
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_crossfade),
+                    subtitle = stringResource(R.string.settings_crossfade_hint),
+                    value = crossfadeText,
+                    icon = Icons.Rounded.GraphicEq,
+                    onClick = { showCrossfadePicker = true },
+                )
             }
         }
 
@@ -140,6 +161,14 @@ fun PlaybackSettingsScreen(
                     checked = settings.autoplaySimilar,
                     onCheckedChange = viewModel::setAutoplaySimilar,
                 )
+                SettingsDivider()
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_queue_prevent_duplicates),
+                    subtitle = stringResource(R.string.settings_queue_prevent_duplicates_hint),
+                    icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                    checked = settings.queuePreventDuplicates,
+                    onCheckedChange = viewModel::setQueuePreventDuplicates,
+                )
             }
         }
 
@@ -151,18 +180,6 @@ fun PlaybackSettingsScreen(
                     value = sleepText,
                     icon = Icons.Rounded.Timer,
                     onClick = { showSleepPicker = true },
-                )
-            }
-        }
-
-        item(key = "queue") {
-            SettingsGroup(stringResource(R.string.settings_group_queue)) {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_queue_prevent_duplicates),
-                    subtitle = stringResource(R.string.settings_queue_prevent_duplicates_hint),
-                    icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-                    checked = settings.queuePreventDuplicates,
-                    onCheckedChange = viewModel::setQueuePreventDuplicates,
                 )
             }
         }
@@ -190,6 +207,32 @@ fun PlaybackSettingsScreen(
                 )
             }
         }
+    }
+
+    if (showCrossfadePicker) {
+        AlertDialog(
+            onDismissRequest = { showCrossfadePicker = false },
+            title = { Text(stringResource(R.string.settings_crossfade)) },
+            text = {
+                Column(Modifier.padding(top = 4.dp)) {
+                    CrossfadeOptions.forEach { seconds ->
+                        SettingsCheckRow(
+                            label = stringResource(R.string.settings_crossfade_value, seconds),
+                            selected = seconds == settings.crossfadeSeconds,
+                            onClick = {
+                                viewModel.setCrossfadeSeconds(seconds)
+                                showCrossfadePicker = false
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCrossfadePicker = false }) {
+                    Text(stringResource(R.string.settings_close))
+                }
+            },
+        )
     }
 
     if (showSpeedPicker) {

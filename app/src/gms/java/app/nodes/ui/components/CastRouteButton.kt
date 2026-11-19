@@ -49,7 +49,7 @@ fun CastRouteButton(
     if (unavailable) {
         Box(
             modifier = modifier
-                .size(40.dp)
+                .size(52.dp)
                 .clickable(onClick = onUnavailableTap),
             contentAlignment = Alignment.Center,
         ) {
@@ -57,7 +57,7 @@ fun CastRouteButton(
                 imageVector = Icons.Rounded.Cast,
                 contentDescription = stringResource(R.string.player_cast),
                 tint = tint,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(34.dp),
             )
         }
         return
@@ -90,7 +90,7 @@ fun CastRouteButton(
                 View(castContext).apply { visibility = View.GONE }
             }
         },
-        modifier = modifier.size(40.dp),
+        modifier = modifier.size(52.dp),
     )
 }
 

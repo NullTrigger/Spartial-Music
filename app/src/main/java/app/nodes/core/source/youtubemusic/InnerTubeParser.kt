@@ -385,11 +385,55 @@ internal object InnerTubeParser {
                 id = browseId,
                 title = title,
                 artworkUri = musicThumbnail(row),
+                // The card's subtitle carries the real size ("50 songs");
+                // without it every remote playlist reads "0 tracks" until
+                // it is opened.
+                trackCount = subtitleCount(row),
                 sourceId = SourceId.YOUTUBE_MUSIC,
                 externalUrl = "https://music.youtube.com/browse/$browseId",
             )
         }
         return out
+    }
+
+    /**
+     * The number in a card's subtitle when it names a size ("50 songs", "12
+     * tracks"). Wording without a count word - a year like "Playlist • 2026",
+     * or none at all - gives 0, which the UI reads as "unknown" and never as
+     * "0 tracks".
+     */
+    private fun subtitleCount(row: JsonObject): Int {
+        val text = row["subtitle"]?.text() ?: return 0
+        return COUNT_WORDS.find(text)?.groups?.get(1)?.value
+            ?.replace(",", "")?.toIntOrNull() ?: 0
+    }
+
+    /**
+     * The id of a playlist `playlist/create` just made. The answer nests it
+     * under `playlistId` on some builds and inside the payload's browse id on
+     * others, so both are read.
+     */
+    fun createdPlaylistId(root: JsonObject): String? {
+        var found: String? = null
+        walkRenderers(root, "playlistCreationResponseRenderer") { renderer ->
+            if (found == null) found = renderer["playlistId"]?.string()
+        }
+        if (found == null) {
+            fun walk(node: JsonElement) {
+                if (found != null) return
+                when (node) {
+                    is JsonObject -> {
+                        node["playlistId"]?.string()?.let { found = it }
+                        node.values.forEach(::walk)
+                    }
+
+                    is JsonArray -> node.forEach(::walk)
+                    else -> Unit
+                }
+            }
+            walk(root)
+        }
+        return found
     }
 
     /** The signed-in account's name and email from `account/account_menu`. */
@@ -861,5 +905,6 @@ internal object InnerTubeParser {
     )
 
     private val CLOCK = Regex("^\\d{1,2}(:\\d{2}){1,2}$")
+    private val COUNT_WORDS = Regex("([0-9][0-9,]*)\\s*(?:songs?|tracks?)", RegexOption.IGNORE_CASE)
     private val VISITOR_DATA_PREFIX = Regex("^Cg[t|s]")
 }

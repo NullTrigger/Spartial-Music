@@ -35,4 +35,6 @@ data class ArtistStat(
     val artist: String,
     val plays: Int,
     val durationMs: Long = 0L,
+    /** Cover of the artist's most recently played track, when one is known. */
+    val artworkUri: String? = null,
 )

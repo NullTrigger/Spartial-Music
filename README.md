@@ -20,11 +20,30 @@
   Release dates, updates and beta builds, straight from the maintainers.
 </p>
 
+**Like the app? [Star the repository](https://github.com/NullTrigger/Spartial-Music/stargazers) to support the project.**
+
 <p align="center">
   <img alt="GPL-3.0-or-later" src="https://img.shields.io/badge/licence-GPL--3.0--or--later-8f9ba8">
   <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-8f9ba8">
   <img alt="Kotlin and Jetpack Compose" src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-8f9ba8">
 </p>
+
+[![GitHub stars](https://img.shields.io/github/stars/NullTrigger/Spartial-Music?style=flat&logo=github&color=8f9ba8&labelColor=0b0c0e)](https://github.com/NullTrigger/Spartial-Music/stargazers) [![Downloads](https://img.shields.io/github/downloads/NullTrigger/Spartial-Music/total?style=flat&logo=android&color=8f9ba8&labelColor=0b0c0e)](https://github.com/NullTrigger/Spartial-Music/releases) [![Latest release](https://img.shields.io/github/v/release/NullTrigger/Spartial-Music?style=flat&color=8f9ba8&labelColor=0b0c0e)](https://github.com/NullTrigger/Spartial-Music/releases/latest)
+
+---
+
+## Legal disclaimer
+
+Spartial Music is a free, open-source, non-commercial project with no ads and no
+analytics. It hosts no music or video. The optional YouTube Music source is
+unofficial, may stop working at any time, and is used at your own risk and under
+YouTube's terms. The app never downloads, caches or re-encodes YouTube media and
+contains no PoToken or attestation bypass. It is not affiliated with or endorsed
+by YouTube, Google, Jamendo or any other music service. Please support the
+artists you listen to through official channels. Rights holders and others with
+concerns can open an issue or contact the maintainer through the channels in
+[SECURITY.md](SECURITY.md), and we will respond promptly. See also
+[YOUTUBE.md](YOUTUBE.md) and [PRIVACY.md](PRIVACY.md).
 
 ---
 
@@ -36,14 +55,21 @@ history and settings on the device, and puts every provider of music behind one
 `MusicSource` interface.
 
 - **Local library** — reads audio already on your device through MediaStore.
+  Nothing is copied or uploaded.
 - **YouTube Music** — the default source, built on the unofficial InnerTube
-  client. It is outside the YouTube API Services Terms and can break whenever
-  YouTube changes its private endpoints. Read the warning in
+  client. It is **unofficial and optional**: the app is a complete player for
+  your local library without it and never requires a Google account. It is
+  outside the YouTube API Services Terms and can break whenever YouTube
+  changes its private endpoints. Read the warning in
   [YOUTUBE.md](YOUTUBE.md) first.
 - **Official YouTube mode** — the YouTube Data API v3 provider and the official
   embedded player remain in the codebase. No downloads, no background audio for
   these tracks. See [YOUTUBE.md](YOUTUBE.md).
 - **Jamendo** — Creative Commons streaming, credited per track.
+
+No source ever downloads, caches or re-encodes media for offline use: audio is
+played as a stream (or read from the device, for local files) and only metadata
+is cached locally.
 
 There is no account, no sync, no analytics and no advertising. Optional sign-in
 only exists so the app can read your own YouTube Music library and push likes;
@@ -54,6 +80,28 @@ the session stays on the device. See [PRIVACY.md](PRIVACY.md).
 > bypass. The unofficial source is not endorsed by YouTube and is not covered by
 > the YouTube API Services Terms. Spartial Music is not affiliated with YouTube,
 > Google or any streaming service.
+
+## What's new
+
+Everything listed here is in the code today:
+
+- **Device equalizer** — presets, bass boost, virtualizer, system EQ fallback.
+- **Add to playlist** from any track surface, with undo and drag reorder.
+- **Listen Together** — shared sessions over a room code. Opt-in, on a server
+  you choose, with a one-time notice about what is sent.
+- **Word-synced lyrics** — word timing where a source provides it (BetterLyrics
+  TTML, LyricsPlus syllables), line-synced everywhere else, and the source is
+  always credited under the lyrics.
+- **Persistent queue** — restored paused after a restart, including position
+  and shuffle state.
+- **Shuffle and autoplay improvements** — Reshuffle keeps "Play next" next;
+  "Autoplay similar songs" extends the queue with related tracks.
+- **Library backup and restore** — export and import one versioned JSON file;
+  no credentials in the file.
+- **Crash reports** — written locally and never uploaded.
+- **Lyric source grouping** — sources that reach commercial services' private
+  endpoints are off by default under "Additional lyric sources (third-party,
+  unlicensed)".
 
 ## Screenshots
 
@@ -101,6 +149,14 @@ only appears on the five tab roots.
 ## Features
 
 - [x] Five-tab floating navigation and a persistent mini player
+- [x] **Spartial Reel**: an endless vertical feed that *is* the play queue —
+  swipe to change tracks, like, add to playlist, share, save
+- [x] **Follow artists**, local-first, with a Following tab in the Reel
+- [x] **Like sync**: a YouTube Music like is pushed to your account only while
+  signed in, and only for YouTube Music tracks; everything else stays on the
+  device
+- [x] **Animated covers**: your own video loops (any build) and YouTube Music
+  covers where available (full build); streamed, never saved
 - [x] Home hero, recents, continue playing and provider shelves
 - [x] Now Playing with controls, lyrics and queue modes
 - [x] Artwork-tinted backgrounds with local palette extraction
@@ -115,7 +171,8 @@ only appears on the five tab roots.
 - [x] Infinite queue ("Autoplay similar songs"): source related tracks first,
   then the local library, deduped and trimmed
 - [x] Device equalizer with presets, bass boost, virtualizer and system EQ fallback
-- [x] Synced `.lrc` lyrics with nine configurable providers
+- [x] Synced `.lrc` lyrics with nine configurable sources, each credited on
+  screen; third-party unlicensed sources are opt-in
 - [x] Library backup and restore to a versioned JSON file (no credentials)
 - [x] Listen Together: shared sessions over a room code, opt-in, with a
   one-time third-party-server notice
@@ -201,19 +258,44 @@ missing. The default InnerTube source does not need an API key.
 ## Privacy
 
 No accounts, no analytics, no advertising and no tracking. Library data never
-leaves the device. Network requests only happen when you browse or play from a
-provider - including one related-tracks request when the infinite queue looks
-for more music - or when you opt in to a shared Sessions room, which is the one
-feature that talks to a third-party server and says so before connecting. Lyrics
-lookups send only the current track's metadata to the provider you enabled. Full
-detail: [PRIVACY.md](PRIVACY.md).
+leaves the device. Network requests happen only for the music source you are
+using (including one related-tracks request when the infinite queue looks for
+more music), lyrics lookups (the song title and artist), the Listen Together
+server you choose yourself (opt-in, with a one-time notice), and YouTube Music
+sign-in if you opt in to it. The optional YouTube Music session cookie is
+stored encrypted and is excluded from backup and device transfer. Full detail:
+[PRIVACY.md](PRIVACY.md).
+
+## Safety and legal
+
+| What Spartial Music does | What it will never do |
+| --- | --- |
+| Streams YouTube tracks through the official embedded player or the unofficial InnerTube client | Download, cache or re-encode YouTube media |
+| Plays the ads YouTube serves in the embedded player | Skip or block ads |
+| Keeps the YouTube Music session cookie encrypted on the device only | Bundle a PoToken or any attestation bypass |
+| Signs in only when you ask, on Google's own login page | Harvest account cookies or send your library anywhere |
+| Makes every third-party contact opt-in and shown before it happens | Upload crash reports, listening history or analytics |
+| States that Mode 2 is outside the YouTube API Services Terms and can break | Claim endorsement by or affiliation with YouTube, Google or any service |
+
+The never-do list mirrors [YOUTUBE.md](YOUTUBE.md); reversing any of it is a
+maintainer decision recorded there.
+
+## Distribution
+
+The full build — including the unofficial YouTube Music source — is intended
+for **GitHub Releases** and **IzzyOnDroid**.
+
+Planned: a separate Google Play build without the unofficial YouTube source.
+Nothing has been published to Google Play at this time.
+
+The download badge counts GitHub release downloads only; installs from
+IzzyOnDroid or other channels are not included.
 
 ## Credits and prior art
 
-Spartial Music is a clean-room implementation. No source file from another music
-player is copied into this repository. The InnerTube client was written for this
-project; its protocol details and a few product ideas were learned from these
-GPL-3.0 projects, and they deserve the credit:
+Spartial Music is written for this project. Its InnerTube client and some
+product ideas were informed by these GPL-3.0 projects; where behaviour is
+modelled on another project, code comments say so. They deserve the credit:
 
 | Project | Licence | What we learned |
 | --- | --- | --- |
@@ -242,7 +324,8 @@ No album art, artist names, lyrics, audio or third-party logos are bundled.
 Cover art comes from the provider or is generated locally, and
 `DemoCatalog.kt` is fictional. If you believe something in this repository
 infringes your rights, open an issue or contact the maintainer — we will remove
-it promptly. See [SECURITY.md](SECURITY.md) for the contact route.
+it promptly. See the [Legal disclaimer](#legal-disclaimer) above and
+[SECURITY.md](SECURITY.md) for the contact route.
 
 ## Contributing
 

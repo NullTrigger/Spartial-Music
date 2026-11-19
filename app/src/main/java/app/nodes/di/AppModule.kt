@@ -12,7 +12,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import app.nodes.core.data.db.FollowedArtistDao
 import app.nodes.core.data.db.LibraryDao
+import app.nodes.core.data.db.PendingLikeDao
 import app.nodes.core.data.db.QueueDao
 import app.nodes.core.data.db.SpartialDatabase
 import app.nodes.core.data.db.RemoteCacheDao
@@ -86,6 +88,52 @@ private val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/**
+ * v5 adds pinning: `user_playlists.pinnedAt` records when (or whether) the
+ * user pinned a playlist to the library's Pins row. Existing rows get NULL,
+ * which means "not pinned"; nothing existing is touched.
+ */
+private val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `user_playlists` ADD COLUMN `pinnedAt` INTEGER")
+    }
+}
+
+/**
+ * v6 adds the Reel's social graph, both tables in one step:
+ * `followed_artists` (local-first follows) and `pending_like_ops` (likes the
+ * user saved locally that YouTube Music has not accepted yet). Nothing
+ * existing is touched.
+ */
+private val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `followed_artists` (
+                `artistId` TEXT NOT NULL,
+                `sourceId` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `imageUrl` TEXT,
+                `followedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`artistId`, `sourceId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_followed_artists_followedAt` ON `followed_artists` (`followedAt`)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `pending_like_ops` (
+                `trackId` TEXT NOT NULL,
+                `videoId` TEXT NOT NULL,
+                `attempts` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`trackId`)
+            )
+            """.trimIndent(),
+        )
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -110,7 +158,7 @@ object AppModule {
             // Every version has a real migration. The cache is never wiped to
             // pick up a schema change: likes, history and playlists live in
             // the same database (development_guide.md).
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .build()
 
     @Provides
@@ -124,4 +172,12 @@ object AppModule {
 
     @Provides
     fun provideQueueDao(database: SpartialDatabase): QueueDao = database.queueDao()
+
+    @Provides
+    fun provideFollowedArtistDao(database: SpartialDatabase): FollowedArtistDao =
+        database.followedArtistDao()
+
+    @Provides
+    fun providePendingLikeDao(database: SpartialDatabase): PendingLikeDao =
+        database.pendingLikeDao()
 }

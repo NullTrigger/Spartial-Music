@@ -19,6 +19,7 @@ import app.nodes.R
 import app.nodes.core.crash.AppLogger
 import app.nodes.core.crash.AppSnapshot
 import app.nodes.core.data.LibraryRepository
+import app.nodes.core.data.AppSettings
 import app.nodes.core.data.SettingsRepository
 import app.nodes.core.model.PlaybackHandle
 import app.nodes.core.model.SourceId
@@ -224,6 +225,9 @@ class PlaybackController @Inject constructor(
                 try {
                     val player = controller
                     if (player != null && player.isPlaying) {
+                        // Automix rides the same tick: one volume ramp shared
+                        // by every screen and the service.
+                        applyAutomix(player, settings.current())
                         _state.update { state ->
                             state.copy(
                                 isPlaying = true,
@@ -253,6 +257,35 @@ class PlaybackController @Inject constructor(
                 delay(TICK_MS)
             }
         }
+    }
+
+    /**
+     * The volume ramp behind Automix. One player, so this is a real
+     * crossfade: the end of a track fades out before it stops and the next one
+     * fades in over the same [AppSettings.crossfadeSeconds]. A single player
+     * cannot overlap two decoders, so the mix happens across the transition,
+     * not on top of it - which is also what keeps it cheap on low-end devices.
+     * Volume is restored to full whenever Automix is off or the track is
+     * outside its fade window, so nothing can leave the player quiet.
+     */
+    private fun applyAutomix(player: Player, settings: AppSettings) {
+        if (!settings.automix || settings.crossfadeSeconds <= 0) {
+            if (player.volume != 1f) player.volume = 1f
+            return
+        }
+        val fadeMs = settings.crossfadeSeconds * 1_000L
+        val duration = player.duration.takeIf { it > 0L } ?: return
+        val position = player.currentPosition.coerceIn(0L, duration)
+        val remaining = duration - position
+        val hasNext = player.hasNextMediaItem() || queuePosition < queue.lastIndex
+        val volume = when {
+            // Head of a track: fade in.
+            position < fadeMs -> position.toFloat() / fadeMs
+            // Tail of a track that has a successor: fade out.
+            remaining < fadeMs && hasNext -> remaining.toFloat() / fadeMs
+            else -> 1f
+        }
+        player.volume = volume.coerceIn(0f, 1f)
     }
 
     /**

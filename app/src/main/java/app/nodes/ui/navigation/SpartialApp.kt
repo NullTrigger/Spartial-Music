@@ -6,9 +6,12 @@
 package app.nodes.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,6 +57,7 @@ import app.nodes.ui.screens.playlist.PlaylistPickerDialog
 import app.nodes.ui.screens.playlist.PlaylistPickerViewModel
 import app.nodes.ui.screens.player.PlayerViewModel
 import app.nodes.ui.screens.playlist.PlaylistDetailScreen
+import app.nodes.ui.screens.reel.ReelScreen
 import app.nodes.ui.screens.search.SearchScreen
 import app.nodes.ui.screens.sessions.SessionsScreen
 import app.nodes.ui.screens.settings.AboutSettingsScreen
@@ -82,8 +87,9 @@ fun SpartialApp() {
     // the pre-auth login flow) keeps it docked, nested screens included.
     val showBar = route != null && route != Routes.PLAYER && route != Routes.LOGIN
     // The full player owns the screen; every other destination keeps playback
-    // one tap away in the mini player.
-    val showMiniPlayer = route != null && route != Routes.PLAYER
+    // one tap away in the mini player. The Reel is the other exception: it is
+    // the player, full-bleed, so a capsule over it would only cover the art.
+    val showMiniPlayer = route != null && route != Routes.PLAYER && route != Routes.REEL
     val message = playerState.message
 
     LaunchedEffect(message) {
@@ -198,26 +204,54 @@ fun SpartialApp() {
                     onOpenAlbum = { name, albumId ->
                         navController.navigate(Routes.album(name, albumId))
                     },
+                    onOpenTrending = { navController.navigate(Routes.TRENDING) },
+                )
+            }
+
+            composable(Routes.REEL) {
+                ReelScreen(
+                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
 
             composable(
                 Routes.PLAYER,
-                // The player is a sheet, not another page: it rises from the
-                // bottom when the mini player is tapped or dragged up, and
-                // sinks back when it is popped - including when the player
-                // finishes its own swipe-down animation and calls onBack.
+                // The player is a sheet, not another page: it grows out of the
+                // bottom edge when the mini player is tapped or dragged up, and
+                // collapses back into it when it is popped - including when the
+                // player finishes its own swipe-down gesture and calls onBack.
+                //
+                // A short travel (a fifth of the height) with a scale from the
+                // bottom edge reads as the capsule expanding, where the old
+                // full-height linear slide read as a page being pushed. Both
+                // curves are springs, so the motion keeps its energy at the
+                // end instead of stopping dead.
                 enterTransition = {
                     slideIntoContainer(
                         AnimatedContentTransitionScope.SlideDirection.Up,
-                        animationSpec = tween(220),
-                    ) + fadeIn(tween(160))
+                        animationSpec = spring(dampingRatio = 0.86f, stiffness = 420f),
+                        initialOffset = { full -> full / 5 },
+                    ) + scaleIn(
+                        initialScale = 0.94f,
+                        transformOrigin = TransformOrigin(0.5f, 1f),
+                        animationSpec = spring(dampingRatio = 0.86f, stiffness = 420f),
+                    ) + fadeIn(tween(140))
                 },
                 popExitTransition = {
+                    // Closing shrinks toward the bottom edge with slightly more
+                    // stiffness than the entry, and fades a little faster than
+                    // it moves, so the mini player underneath is revealed
+                    // rather than covered by a sliding panel.
                     slideOutOfContainer(
                         AnimatedContentTransitionScope.SlideDirection.Down,
-                        animationSpec = tween(220),
-                    ) + fadeOut(tween(160))
+                        animationSpec = spring(dampingRatio = 0.92f, stiffness = 520f),
+                        targetOffset = { full -> full / 4 },
+                    ) + scaleOut(
+                        targetScale = 0.92f,
+                        transformOrigin = TransformOrigin(0.5f, 1f),
+                        animationSpec = spring(dampingRatio = 0.92f, stiffness = 520f),
+                    ) + fadeOut(tween(170))
                 },
             ) {
                 NowPlayingScreen(
@@ -367,6 +401,7 @@ fun SpartialApp() {
                                     isBuffering = playerState.isBuffering,
                                     onClick = { navController.navigate(Routes.PLAYER) },
                                     onToggle = playerViewModel::togglePlayPause,
+                                    onPrevious = playerViewModel::previous,
                                     onNext = playerViewModel::next,
                                     progress = playerState.progress,
                                     hazeState = hazeState,
@@ -383,6 +418,7 @@ fun SpartialApp() {
                             isBuffering = playerState.isBuffering,
                             onClick = { navController.navigate(Routes.PLAYER) },
                             onToggle = playerViewModel::togglePlayPause,
+                            onPrevious = playerViewModel::previous,
                             onNext = playerViewModel::next,
                             progress = playerState.progress,
                             hazeState = hazeState,

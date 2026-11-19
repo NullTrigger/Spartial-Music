@@ -43,7 +43,7 @@ add or bump a dependency.
 | Dagger / Hilt (`com.google.dagger:hilt-android`) | 2.60.1 | Apache-2.0 |
 | Kotlin standard library + kotlinx-coroutines | 2.2.x / 1.11.0 | Apache-2.0 |
 | kotlinx-serialization-json | 1.12.0 | Apache-2.0 |
-| OkHttp + logging-interceptor | 5.5.1 | Apache-2.0 |
+| OkHttp | 5.5.1 | Apache-2.0 |
 | Retrofit + kotlinx-serialization converter | 2.11.0 | Apache-2.0 |
 | Coil (`io.coil-kt:coil-compose`) | 2.7.0 | Apache-2.0 |
 | Android YouTube Player (`com.pierfrancescosoffritti.androidyoutubeplayer:core`) | 12.1.2 | Apache-2.0 |

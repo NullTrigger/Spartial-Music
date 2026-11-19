@@ -346,7 +346,11 @@ private fun TabPill(
     reduceMotion: Boolean,
 ) {
     val haptics = LocalHapticFeedback.current
-    val selectedIndex = items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+    // -1 when the current route is not a pill tab at all (the Search circle,
+    // or any nested screen). No pill tab may glow then; the bubble simply
+    // rests where it rests.
+    val selectedIndex = items.indexOfFirst { it.route == currentRoute }
+    val restIndex = selectedIndex.coerceAtLeast(0)
     val bubbleTouch = rememberLiquidTouch()
     // Pointer input is a long-running coroutine. Always call the current
     // callback, not the one captured when the bar was first composed.
@@ -368,15 +372,15 @@ private fun TabPill(
         // is derived from this one value, so the highlight can never disagree
         // with the bubble.
         val bubbleCentre = remember(items.size, pillWidthPx) {
-            Animatable(centreOf(selectedIndex))
+            Animatable(centreOf(restIndex))
         }
         var hoverIndex by remember(items.size, pillWidthPx) {
-            mutableIntStateOf(selectedIndex)
+            mutableIntStateOf(restIndex)
         }
         // One revisioned target drives every settle animation. Repeated taps
         // on the current tab and external route changes use the same path.
         var settleIndex by remember(items.size, pillWidthPx) {
-            mutableIntStateOf(selectedIndex)
+            mutableIntStateOf(restIndex)
         }
         var settleRevision by remember { mutableIntStateOf(0) }
         var pressed by remember { mutableStateOf(false) }
@@ -386,7 +390,7 @@ private fun TabPill(
         // restricted suspending scope and cannot drive an animation from
         // inside it.
         var liveCentre by remember(items.size, pillWidthPx) {
-            mutableFloatStateOf(centreOf(selectedIndex))
+            mutableFloatStateOf(centreOf(restIndex))
         }
 
         // Hard clamp: the bubble's bounds stay inside [4dp, pillWidth - 4dp].
@@ -440,7 +444,7 @@ private fun TabPill(
         // owner of the resting Animatable, so animations cannot cancel or
         // fight the gesture coroutine.
         LaunchedEffect(selectedIndex, pillWidthPx, itemWidthPx) {
-            if (!pressed && settleIndex != selectedIndex) {
+            if (!pressed && selectedIndex >= 0 && settleIndex != selectedIndex) {
                 settleIndex = selectedIndex
                 settleRevision++
             }
@@ -690,7 +694,7 @@ private fun Tab(
  */
 val SpartialNavItems = listOf(
     BottomNavItem("home", R.string.nav_home, R.drawable.ic_nav_home),
-    BottomNavItem("trending", R.string.nav_trending, R.drawable.ic_nav_trending),
+    BottomNavItem("reel", R.string.nav_reel, R.drawable.ic_nav_reel),
     BottomNavItem("sessions", R.string.nav_sessions, R.drawable.ic_nav_sessions),
     BottomNavItem("library", R.string.nav_library, R.drawable.ic_nav_library),
     BottomNavItem("search", R.string.nav_search, R.drawable.ic_nav_search),

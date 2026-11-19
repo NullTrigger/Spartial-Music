@@ -78,6 +78,7 @@ fun SearchScreen(
     onBack: (() -> Unit)? = null,
     onOpenArtist: (String) -> Unit = {},
     onOpenAlbum: (String, String?) -> Unit = { _, _ -> },
+    onOpenTrending: () -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -160,7 +161,9 @@ fun SearchScreen(
                     SectionHeader(title = stringResource(R.string.search_browse_music))
                 }
                 genreRows(browse) { entry ->
-                    viewModel.useRecent(entry.query)
+                    // Charts is the Trending page, reached from here now that
+                    // the tab bar carries the Reel instead.
+                    if (entry.query == "charts") onOpenTrending() else viewModel.useRecent(entry.query)
                 }
                 return@LazyColumn
             }

@@ -5,9 +5,8 @@
 
 package app.nodes.ui.components
 
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -28,7 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,6 +74,7 @@ fun MiniPlayer(
     isBuffering: Boolean,
     onClick: () -> Unit,
     onToggle: () -> Unit,
+    onPrevious: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
     progress: Float = 0f,
@@ -85,8 +85,11 @@ fun MiniPlayer(
 ) {
     val scope = rememberCoroutineScope()
     var menuOpen by remember { mutableStateOf(false) }
-    // Negative while dragging up, so the capsule lifts toward the player.
-    val lift = remember { Animatable(0f) }
+    // How far the capsule has lifted toward the player: negative is up. It is
+    // plain state, written straight from the pointer deltas, because launching
+    // a coroutine per delta (as an Animatable forced) dropped frames on a slow
+    // device. Settling is animated by writing the same state each frame.
+    var lift by remember { mutableFloatStateOf(0f) }
     val openThreshold = 72f
     // How far the capsule travels when it hands over to the full player. It is
     // measured from the capsule itself, so it leaves the screen exactly.
@@ -96,48 +99,73 @@ fun MiniPlayer(
     // instead of the absolute position.
     var exitFrom by remember { mutableFloatStateOf(0f) }
     var exitTo by remember { mutableFloatStateOf(0f) }
+
+    /** Drives [lift] to [target] along [spec], then optionally runs [onEnd]. */
+    fun settleLift(
+        target: Float,
+        spec: androidx.compose.animation.core.AnimationSpec<Float>,
+        onEnd: () -> Unit = {},
+    ) {
+        scope.launch {
+            androidx.compose.animation.core.animate(
+                initialValue = lift,
+                targetValue = target,
+                animationSpec = spec,
+            ) { value, _ -> lift = value }
+            onEnd()
+        }
+    }
+
     val dragModifier = Modifier
         .draggable(
             state = rememberDraggableState { delta ->
-                scope.launch {
-                    lift.snapTo((lift.value + delta).coerceIn(-openThreshold * 2f, 0f))
-                }
+                lift = (lift + delta).coerceIn(-openThreshold * 2f, 0f)
             },
             orientation = Orientation.Vertical,
             onDragStopped = { velocity ->
-                scope.launch {
-                    if (lift.value < -openThreshold || velocity < -900f) {
-                        // The gesture continues into the handover: the capsule
-                        // carries on up and out and fades as it goes. It used
-                        // to snap back to rest first, so the capsule jumped
-                        // back down and blinked out of the way in a single
-                        // frame while the player was still rising.
-                        exiting = true
-                        exitFrom = lift.value
-                        // Always further up than the finger already took it.
-                        exitTo = minOf(
-                            exitFrom - (if (capsuleHeightPx > 0) capsuleHeightPx.toFloat() else openThreshold),
-                            -openThreshold * 2f,
-                        )
-                        lift.animateTo(exitTo, tween(160))
-                        onClick()
-                    } else {
-                        lift.animateTo(0f, spring())
-                    }
+                if (lift < -openThreshold || velocity < -900f) {
+                    // The gesture continues into the handover: the capsule is
+                    // absorbed upward and fades as it goes, while the player
+                    // is already rising underneath. A spring rather than a
+                    // linear tween, so it accelerates away instead of drifting.
+                    exiting = true
+                    exitFrom = lift
+                    // Always further up than the finger already took it.
+                    exitTo = minOf(
+                        exitFrom - (if (capsuleHeightPx > 0) capsuleHeightPx.toFloat() else openThreshold),
+                        -openThreshold * 2f,
+                    )
+                    settleLift(
+                        target = exitTo,
+                        spec = spring(dampingRatio = 0.9f, stiffness = 520f),
+                        onEnd = onClick,
+                    )
+                } else {
+                    // Slightly under-damped on the way back: the capsule settles
+                    // with a small, quick breath instead of snapping flat.
+                    settleLift(0f, spring(dampingRatio = 0.78f, stiffness = 520f))
                 }
             },
         )
         .graphicsLayer {
-            translationY = lift.value
-            alpha = if (exiting) {
-                // How far along the handover the capsule is, so it fades out
-                // exactly as it leaves.
+            translationY = lift
+            // Progress of the lift toward the opening threshold.
+            val up = (-lift / (openThreshold * 3f)).coerceIn(0f, 1f)
+            val alpha = if (exiting) {
+                // Fades exactly as far as it has travelled out.
                 val travel = (exitFrom - exitTo).coerceAtLeast(1f)
-                val progress = ((exitFrom - lift.value) / travel).coerceIn(0f, 1f)
+                val progress = ((exitFrom - lift) / travel).coerceIn(0f, 1f)
                 1f - progress
             } else {
-                1f - (-lift.value / (openThreshold * 3f)).coerceIn(0f, 0.6f)
+                1f - up * 0.6f
             }
+            this.alpha = alpha
+            // A whisper of shrink: the capsule recedes into the distance as
+            // the player comes forward, which is what makes the handover read
+            // as one object changing state rather than two animations.
+            val scale = 1f - up * 0.06f
+            scaleX = scale
+            scaleY = scale
         }
 
     Column(
@@ -205,8 +233,21 @@ fun MiniPlayer(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            // Play/pause and next, plain white filled glyphs at ~28dp - no
-            // previous, no circle behind the play.
+            // Previous, play/pause and next, plain white filled glyphs at
+            // ~28dp - no circle behind the play.
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable(role = Role.Button, onClick = onPrevious),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Rounded.SkipPrevious,
+                    contentDescription = stringResource(R.string.action_previous),
+                    tint = SpartialWhite,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
             Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                 if (isBuffering) {
                     CircularProgressIndicator(

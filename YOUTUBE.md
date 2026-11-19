@@ -230,6 +230,45 @@ row in Settings → Content, and it is the only account write in the codebase.
   `SourceId`, its binding in `di/SourceModule.kt` and the settings toggle; the
   rest of the app is unaffected.
 
+### Third-party servers and lyric sources
+
+Two features in the app talk to hosts that are not YouTube, and neither is
+part of either mode above:
+
+- **Listen Together** connects only to the relay server the user picks, after
+  a one-time notice; the app ships with no default server. The room message
+  (room code, display name, current track) never includes a YouTube cookie,
+  token or account. See [PRIVACY.md](PRIVACY.md).
+- **Lyric lookups** ask the lyric services enabled in Settings with the track
+  title and artist. The sources that reach commercial services' private web
+  player endpoints (NetEase, KuGou, and Paxsenix's Apple token scrape) are off
+  by default under "Additional lyric sources (third-party, unlicensed)" and
+  run only when the user switches them on. Nothing from a YouTube session is
+  sent to a lyric service.
+
+Neither feature downloads, caches or re-encodes YouTube media.
+
+### Distribution channels
+
+The full build — including the unofficial InnerTube source described on this
+page — is distributed through GitHub Releases and IzzyOnDroid. A separate
+Google Play build **without the unofficial YouTube source** is planned; if and
+when it ships, the unofficial source will not be in it, and this page will
+still describe the full build only.
+
+### Animated covers (Reel)
+
+The Reel can loop a short video behind a track. Covers are **streamed and never
+saved**: no cache, no download, no disk write, and the player is muted with its
+audio track type disabled so it can never interrupt the music. Sources are the
+user's own picked files and, in the full (foss) build only, YouTube Music if and
+when the data the app already fetches carries an animated cover field — today it
+does not, so the YouTube provider returns nothing and the generated cover shows.
+The Google Play build ships an always-null stub: no animated-cover URL parsing
+and no YouTube video loading exist in that APK. This adds no new endpoint, no
+client identity and no media handling beyond what the policy above already
+forbids and still does.
+
 ### Attribution
 
 The protocol details were learned from GPL-3.0 projects in this space —

@@ -22,11 +22,12 @@ The full licence text is in [LICENSE](LICENSE).
 
 ## Authorship
 
-This project was written as a **clean-room implementation**. It does not contain
-code copied from Metrolist, InnerTune, OuterTune, Glossy or any other music
-player; it shares only the ideas that are common to every media player (a queue, a
-media session, a library database). The InnerTube protocol references are credited
-in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+Spartial Music is written for this project. Its InnerTube client and some
+product ideas were informed by the GPL-3.0 projects credited in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) and the README; where
+behaviour is modelled on another project, code comments say so. It contains no
+copied source file from another music player; it shares only the ideas that are
+common to every media player (a queue, a media session, a library database).
 
 If you fork Spartial Music, add your own copyright line to the files you touch,
 e.g.

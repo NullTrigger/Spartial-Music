@@ -61,9 +61,14 @@ class LibraryRepository @Inject constructor(
                 id = entity.id,
                 title = entity.name,
                 description = entity.description,
+                // A local playlist has no cover of its own: it borrows the
+                // first song's canvas, so a fresh playlist looks like music
+                // instead of a generated letter tile.
+                artworkUri = libraryDao.firstArtwork(entity.id),
                 trackCount = libraryDao.trackCount(entity.id),
                 sourceId = SourceId.LOCAL,
                 createdAt = entity.createdAt,
+                isPinned = entity.pinnedAt != null,
             )
         }
     }
@@ -93,7 +98,14 @@ class LibraryRepository @Inject constructor(
             plays = totals.plays,
             durationMs = totals.durationMs,
             topTracks = tracks.map { TrackStat(track = it.track.toTrack(), plays = it.plays) },
-            topArtists = artists.map { ArtistStat(artist = it.artist, plays = it.plays, durationMs = it.durationMs) },
+            topArtists = artists.map {
+                ArtistStat(
+                    artist = it.artist,
+                    plays = it.plays,
+                    durationMs = it.durationMs,
+                    artworkUri = it.artworkUri,
+                )
+            },
         )
     }
 
@@ -237,6 +249,16 @@ class LibraryRepository @Inject constructor(
         libraryDao.deletePlaylistCompletely(playlistId)
     }
 
+    /**
+     * Pins a playlist to the library's Pins row, or unpins it. Local
+     * playlists only: a YouTube playlist has no row here. Returns the new
+     * state so callers can update their UI without re-reading the store.
+     */
+    suspend fun setPinned(playlistId: String, pinned: Boolean): Boolean {
+        libraryDao.setPinned(playlistId, if (pinned) System.currentTimeMillis() else null)
+        return pinned
+    }
+
     // ------------------------------------------------------------------
     // Persisted queue
     // ------------------------------------------------------------------
@@ -326,6 +348,7 @@ class LibraryRepository @Inject constructor(
                 name = entity.name,
                 description = entity.description,
                 createdAt = entity.createdAt,
+                pinnedAt = entity.pinnedAt,
                 tracks = libraryDao.tracksInPlaylist(entity.id).map { it.toTrack() },
             )
         }
@@ -365,6 +388,7 @@ class LibraryRepository @Inject constructor(
                         description = entry.description,
                         createdAt = entry.createdAt,
                         updatedAt = System.currentTimeMillis(),
+                        pinnedAt = entry.pinnedAt,
                     ),
                 )
                 for (track in entry.tracks) {
@@ -434,6 +458,8 @@ data class BackupPlaylist(
     val name: String,
     val description: String? = null,
     val createdAt: Long = 0L,
+    /** When the playlist was pinned, or null. Absent in old backups: unpinned. */
+    val pinnedAt: Long? = null,
     val tracks: List<Track> = emptyList(),
 )
 

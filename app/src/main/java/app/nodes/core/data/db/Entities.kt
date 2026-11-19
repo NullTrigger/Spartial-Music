@@ -5,6 +5,7 @@
 
 package app.nodes.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -52,6 +53,9 @@ data class PlaylistEntity(
     val description: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    /** When the user pinned this playlist; null means unpinned. */
+    @ColumnInfo(defaultValue = "NULL")
+    val pinnedAt: Long? = null,
 )
 
 /**
@@ -67,6 +71,37 @@ data class PlaylistTrackEntity(
     val playlistId: String,
     val sortOrder: Int,
     val trackId: String,
+)
+
+/**
+ * An artist the user follows. The composite primary key is the unique
+ * (artistId, sourceId) index: one follow per artist per source. Local-first -
+ * a follow is only ever a row in this table.
+ */
+@Entity(
+    tableName = "followed_artists",
+    primaryKeys = ["artistId", "sourceId"],
+    indices = [Index("followedAt")],
+)
+data class FollowedArtistEntity(
+    val artistId: String,
+    val sourceId: String,
+    val name: String,
+    val imageUrl: String?,
+    val followedAt: Long,
+)
+
+/**
+ * A like the user saved locally that YouTube Music has not accepted yet.
+ * Retried on app start and when the Reel opens, with an attempt cap so a
+ * refused track cannot loop forever.
+ */
+@Entity(tableName = "pending_like_ops", primaryKeys = ["trackId"])
+data class PendingLikeEntity(
+    val trackId: String,
+    val videoId: String,
+    val attempts: Int,
+    val updatedAt: Long,
 )
 
 /** Raw provider payloads, with a timestamp so we can respect a TTL. */

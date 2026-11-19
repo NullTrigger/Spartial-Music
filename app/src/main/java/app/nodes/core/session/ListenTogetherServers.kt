@@ -22,14 +22,8 @@ package app.nodes.core.session
  */
 object ListenTogetherServers {
 
-    /** The Spartial/Glossy Cloudflare deployment. `GET` on it lists live rooms. */
-    const val CLOUDFLARE = "wss://glossy-listen-together.izybro110.workers.dev/ws"
-
-    /**
-     * The Metrolist community server, kept as a fallback: it speaks the same
-     * protocol, so a room created here can be joined there and vice versa.
-     */
-    const val METROLIST = "wss://metroserverx.meowery.eu/ws"
+    /** The Cloudflare deployment. `GET` on it lists live rooms. */
+    const val SERVER_1 = "wss://glossy-listen-together.izybro110.workers.dev/ws"
 
     /**
      * What the app connects to when the user has not chosen a server: nothing.
@@ -37,10 +31,9 @@ object ListenTogetherServers {
      */
     const val DEFAULT = ""
 
-    /** Human labels for the server picker. Both are run by third parties. */
+    /** Human labels for the server picker. It is run by a third party. */
     val KNOWN = listOf(
-        CLOUDFLARE to "Cloudflare (third-party server)",
-        METROLIST to "Metrolist community (third-party server)",
+        SERVER_1 to "Server 1 (third-party server)",
     )
 
     /**

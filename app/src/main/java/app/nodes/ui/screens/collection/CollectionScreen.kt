@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -29,7 +30,10 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -39,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.compose.foundation.layout.width
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.nodes.R
@@ -69,6 +74,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -100,6 +106,7 @@ data class CollectionUiState(
 class CollectionViewModel @Inject constructor(
     saved: SavedStateHandle,
     private val library: LibraryRepository,
+    private val follows: app.nodes.core.data.FollowRepository,
 ) : ViewModel() {
 
     val kind: CollectionKind = CollectionKind.from(saved.get<String>("kind") ?: "artist")
@@ -111,6 +118,67 @@ class CollectionViewModel @Inject constructor(
     val likedIds: StateFlow<Set<String>> = library.likedTracks
         .map { tracks -> tracks.mapTo(HashSet()) { it.id } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /**
+     * Follow state for artist pages. The artist identity is the page name -
+     * these pages are name-keyed everywhere. Follows are local-first, so the
+     * identity column is LOCAL for every follow the UI can make today; the
+     * sourceId stays in the key so a future provider-side follow can coexist.
+     */
+    val isFollowing: StateFlow<Boolean> = if (kind == CollectionKind.ARTIST && name.isNotBlank()) {
+        follows.isFollowing(
+            app.nodes.core.data.FollowRepository.artistIdFor(name),
+            app.nodes.core.model.SourceId.LOCAL,
+        )
+    } else {
+        MutableStateFlow(false)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** True right after an unfollow, while the Undo window is open. */
+    var lastUnfollow by mutableStateOf<app.nodes.core.data.FollowedArtist?>(null)
+        private set
+
+    fun followArtist() {
+        if (kind != CollectionKind.ARTIST || name.isBlank()) return
+        viewModelScope.launch {
+            val first = _state.value.tracks.firstOrNull()
+            follows.follow(
+                artistId = app.nodes.core.data.FollowRepository.artistIdFor(name),
+                sourceId = app.nodes.core.model.SourceId.LOCAL,
+                name = name,
+                imageUrl = first?.artworkUri,
+            )
+        }
+    }
+
+    /** Unfollow now; [undoLastUnfollow] puts it back inside the snackbar window. */
+    fun unfollowArtist() {
+        if (kind != CollectionKind.ARTIST || name.isBlank()) return
+        val artistId = app.nodes.core.data.FollowRepository.artistIdFor(name)
+        viewModelScope.launch {
+            val source = app.nodes.core.model.SourceId.LOCAL
+            lastUnfollow = app.nodes.core.data.FollowedArtist(
+                artistId = artistId,
+                sourceId = source,
+                name = name,
+                imageUrl = _state.value.tracks.firstOrNull()?.artworkUri,
+                followedAt = System.currentTimeMillis(),
+            )
+            follows.unfollow(artistId, source)
+        }
+    }
+
+    fun undoLastUnfollow() {
+        val artist = lastUnfollow ?: return
+        lastUnfollow = null
+        viewModelScope.launch {
+            follows.follow(artist.artistId, artist.sourceId, artist.name, artist.imageUrl)
+        }
+    }
+
+    fun dismissUnfollowPrompt() {
+        lastUnfollow = null
+    }
 
     init {
         viewModelScope.launch {
@@ -232,6 +300,47 @@ fun CollectionScreen(
                             )
                         },
                     )
+                    if (viewModel.kind == CollectionKind.ARTIST && viewModel.name.isNotBlank()) {
+                        val following by viewModel.isFollowing.collectAsStateWithLifecycle()
+                        Spacer(Modifier.height(10.dp))
+                        PillButton(
+                            text = stringResource(
+                                if (following) R.string.following else R.string.follow,
+                            ),
+                            onClick = {
+                                if (following) {
+                                    viewModel.unfollowArtist()
+                                } else {
+                                    viewModel.followArtist()
+                                }
+                            },
+                            contentDescription = stringResource(
+                                if (following) R.string.following else R.string.follow,
+                            ),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        )
+                        if (viewModel.lastUnfollow != null) {
+                            LaunchedEffect(viewModel.lastUnfollow) {
+                                delay(5_000)
+                                viewModel.dismissUnfollowPrompt()
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(R.string.follow_stopped, viewModel.name),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SpartialGrey,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        viewModel.undoLastUnfollow()
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.action_undo))
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(10.dp))
                     Text(
                         text = when (viewModel.kind) {

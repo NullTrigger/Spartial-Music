@@ -66,6 +66,12 @@ fun AboutSettingsScreen(
                     title = stringResource(R.string.settings_privacy),
                     onClick = { openUrl(context, "https://github.com/NullTrigger/Spartial-Music/blob/main/PRIVACY.md") },
                 )
+                SettingsDivider()
+                SettingsValueRow(
+                    title = stringResource(R.string.settings_takedown),
+                    subtitle = stringResource(R.string.settings_takedown_hint),
+                    onClick = { openUrl(context, "https://github.com/NullTrigger/Spartial-Music#content-and-takedowns") },
+                )
             }
         }
     }

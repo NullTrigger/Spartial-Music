@@ -191,6 +191,37 @@ class YouTubeMusicSource @Inject constructor(
         return LikeSync(pushed = pushed, failed = failed)
     }
 
+    /** What a playlist push managed: the new playlist, or what went wrong. */
+    sealed interface PlaylistPush {
+        data class Done(val playlistId: String, val added: Int, val missed: Int) : PlaylistPush
+        data object SignedOut : PlaylistPush
+        data object Failed : PlaylistPush
+    }
+
+    /**
+     * Copies a local playlist to the account: every local track is matched to
+     * a YouTube video by its title and artist, and a private playlist holding
+     * those videos is created. Tracks that cannot be matched are counted, never
+     * guessed - a wrong song in someone's playlist is worse than a missing one.
+     */
+    suspend fun pushPlaylist(name: String, tracks: List<Track>): PlaylistPush {
+        if (!innerTube.isSignedIn) return PlaylistPush.SignedOut
+        val videoIds = mutableListOf<String>()
+        var missed = 0
+        for (track in tracks) {
+            val query = listOf(track.title, track.artist).filter { it.isNotBlank() }
+                .joinToString(" ")
+            val match = runCatching { innerTube.search(query, 3) }.getOrDefault(emptyList())
+                .firstOrNull { it.videoId != null }
+                ?.videoId
+            if (match != null) videoIds += match else missed++
+        }
+        if (videoIds.isEmpty()) return PlaylistPush.Failed
+        val id = runCatching { innerTube.createPlaylist(name, null, videoIds) }.getOrNull()
+            ?: return PlaylistPush.Failed
+        return PlaylistPush.Done(playlistId = id, added = videoIds.size, missed = missed)
+    }
+
     override suspend fun play(track: Track): SourceResult<PlaybackHandle> {
         val videoId = track.videoId ?: return SourceResult.Success(
             PlaybackHandle.Unavailable("This track has no YouTube video id."),

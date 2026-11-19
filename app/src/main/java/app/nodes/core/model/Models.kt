@@ -131,6 +131,8 @@ data class Playlist(
     val externalUrl: String? = null,
     /** Local playlists carry their creation time; provider collections may not. */
     val createdAt: Long? = null,
+    /** Pinned to the library's Pins row. Remote cards are never pinned. */
+    val isPinned: Boolean = false,
 ) {
     val isLocal: Boolean get() = sourceId == SourceId.LOCAL
 }

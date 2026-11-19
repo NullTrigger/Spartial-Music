@@ -104,6 +104,7 @@ fun LibraryScreen(
     val tab = LibraryTab.entries[tabIndex]
 
     val playlists = state.playlists.filter { it.matchesQuery(query) }
+    val pinned = playlists.filter { it.isPinned }
     val liked = state.likedTracks.filter { it.matchesQuery(query) }
     val recent = state.recentlyPlayed.filter { it.matchesQuery(query) }
     val artists = state.artists.filter {
@@ -181,23 +182,29 @@ fun LibraryScreen(
                             )
                         }
                     } else {
-                        item(key = "pins-head") {
-                            SectionHeader(title = stringResource(R.string.library_pins))
-                        }
-                        item(key = "pins") {
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                items(
-                                    items = playlists.take(3),
-                                    key = { "pin-${it.id}" },
-                                ) { playlist ->
-                                    PlaylistTile(
-                                        playlist = playlist,
-                                        onClick = { onOpenPlaylist(playlist.id) },
-                                        modifier = Modifier.width(148.dp),
-                                    )
+                        if (pinned.isNotEmpty()) {
+                            item(key = "pins-head") {
+                                SectionHeader(title = stringResource(R.string.library_pins))
+                            }
+                            item(key = "pins") {
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = SpartialSpacing.gutter),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    // Only what the user actually pinned: the row
+                                    // used to take the first three playlists, so
+                                    // every new playlist looked "automatically
+                                    // pinned".
+                                    items(
+                                        items = pinned,
+                                        key = { "pin-${it.id}" },
+                                    ) { playlist ->
+                                        PlaylistTile(
+                                            playlist = playlist,
+                                            onClick = { onOpenPlaylist(playlist.id) },
+                                            modifier = Modifier.width(148.dp),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -437,7 +444,13 @@ private fun PlaylistTile(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = stringResource(R.string.playlist_track_count, playlist.trackCount),
+            // A remote playlist whose card did not carry a number shows its
+            // title only, instead of claiming "0 tracks".
+            text = if (playlist.trackCount > 0 || playlist.isLocal) {
+                stringResource(R.string.playlist_track_count, playlist.trackCount)
+            } else {
+                stringResource(R.string.playlist_remote_kicker)
+            },
             style = SpartialType.rowMeta,
             color = SpartialGrey,
             maxLines = 1,

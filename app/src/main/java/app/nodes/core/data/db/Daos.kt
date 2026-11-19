@@ -23,7 +23,13 @@ data class TrackPlayRow(
 )
 
 /** Plays and estimated minutes grouped by artist name, one rank row each. */
-data class ArtistPlayRow(val artist: String, val plays: Int, val durationMs: Long)
+data class ArtistPlayRow(
+    val artist: String,
+    val plays: Int,
+    val durationMs: Long,
+    /** Cover of the artist's most recently played track; null when none is known. */
+    val artworkUri: String?,
+)
 
 @Dao
 interface TrackDao {
@@ -109,7 +115,11 @@ interface LibraryDao {
     @Query(
         """
         SELECT t.artist AS artist, COUNT(*) AS plays,
-               COALESCE(SUM(t.durationMs), 0) AS durationMs
+               COALESCE(SUM(t.durationMs), 0) AS durationMs,
+               (SELECT t2.artworkUri FROM tracks t2
+                INNER JOIN play_history h2 ON t2.id = h2.trackId
+                WHERE t2.artist = t.artist AND h2.playedAt >= :since
+                ORDER BY h2.playedAt DESC LIMIT 1) AS artworkUri
         FROM play_history h
         INNER JOIN tracks t ON t.id = h.trackId
         WHERE h.playedAt >= :since
@@ -139,6 +149,22 @@ interface LibraryDao {
 
     @Query("SELECT COUNT(*) FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun trackCount(playlistId: String): Int
+
+    /**
+     * The cover a local playlist shows: the first song's artwork, in playlist
+     * order. Null when the playlist is empty or its first song has no cover,
+     * which leaves the generated placeholder in place.
+     */
+    @Query(
+        """
+        SELECT t.artworkUri FROM tracks t
+        INNER JOIN playlist_tracks p ON t.id = p.trackId
+        WHERE p.playlistId = :playlistId
+        ORDER BY p.sortOrder ASC
+        LIMIT 1
+        """,
+    )
+    suspend fun firstArtwork(playlistId: String): String?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylistTrack(cross: PlaylistTrackEntity)
@@ -181,6 +207,10 @@ interface LibraryDao {
 
     @Query("UPDATE user_playlists SET name = :name, updatedAt = :now WHERE id = :id")
     suspend fun renamePlaylist(id: String, name: String, now: Long)
+
+    /** Pins a playlist to the library's Pins row (or unpins when [at] is null). */
+    @Query("UPDATE user_playlists SET pinnedAt = :at WHERE id = :id")
+    suspend fun setPinned(id: String, at: Long?)
 
     @Query(
         """

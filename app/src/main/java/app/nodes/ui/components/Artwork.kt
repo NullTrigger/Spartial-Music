@@ -6,6 +6,7 @@
 package app.nodes.ui.components
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,14 +23,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import app.nodes.R
 import app.nodes.core.util.thumbnailCandidates
 import app.nodes.ui.theme.ArtAccents
 import app.nodes.ui.theme.SpartialBlack
-import app.nodes.ui.theme.SpartialWhite
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 
@@ -53,10 +52,12 @@ fun Artwork(
     targetPx: Int = 512,
     /** How long the image fades in, in ms. 0 fades instantly. */
     crossfadeMillis: Int = 0,
+    /** Whether the generated placeholder shows the small app mark. */
+    showInitial: Boolean = true,
 ) {
     val clipped = modifier.clip(shape)
     if (artworkUri.isNullOrBlank()) {
-        GeneratedArt(title = title, modifier = clipped)
+        GeneratedArt(title = title, modifier = clipped, showInitial = showInitial)
         return
     }
     RemoteArtwork(
@@ -67,6 +68,7 @@ fun Artwork(
         modifier = clipped,
         crossfade = true,
         crossfadeMillis = crossfadeMillis,
+        showInitial = showInitial,
     )
 }
 
@@ -137,7 +139,11 @@ private fun imageRequest(
     return builder.build()
 }
 
-/** Stable gradient + initial for a track without artwork. */
+/**
+ * Stable gradient plus a faint app mark for a track without artwork. The
+ * mark is the launcher foreground at low opacity, so an empty or still-loading
+ * cover reads as "Spartial Music" rather than as a stray letter.
+ */
 @Composable
 fun GeneratedArt(
     title: String,
@@ -162,12 +168,11 @@ fun GeneratedArt(
         contentAlignment = Alignment.Center,
     ) {
         if (showInitial) {
-            Text(
-                text = title.firstOrNull()?.uppercase() ?: "N",
-                color = SpartialWhite.copy(alpha = 0.34f),
-                fontSize = 48.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = null,
+                alpha = 0.16f,
+                modifier = Modifier.fillMaxSize(0.52f),
             )
         }
     }
