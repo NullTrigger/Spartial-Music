@@ -8,6 +8,7 @@ package app.nodes.core.cover
 import app.nodes.core.model.Track
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.jvm.JvmSuppressWildcards
 
 /**
  * Asks every registered [AnimatedCoverProvider] in a fixed order and keeps
@@ -20,7 +21,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class CoverResolver @Inject constructor(
-    private val providers: Set<AnimatedCoverProvider>,
+    private val providers: Set<@JvmSuppressWildcards AnimatedCoverProvider>,
 ) {
     /** Order the design fixes: the user's own file first, then YouTube Music. */
     private val ordered: List<AnimatedCoverProvider> = providers.sortedBy { provider ->
