@@ -39,10 +39,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.Heart
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.Heart
+import androidx.compose.material.icons.rounded.ThumbUpAlt
+import androidx.compose.material.icons.rounded.ThumbUpOffAlt
 import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.DropdownMenu
@@ -389,7 +389,7 @@ private fun ReelOverlay(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ReelActionButton(
-                icon = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                icon = if (isLiked) Icons.Rounded.ThumbUpAlt else Icons.Rounded.ThumbUpOffAlt,
                 label = stringResource(R.string.reel_action_like),
                 tint = if (isLiked) LikePink else SpartialWhite,
                 onClick = onLike,
