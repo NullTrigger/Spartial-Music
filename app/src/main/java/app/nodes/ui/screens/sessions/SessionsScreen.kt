@@ -62,6 +62,7 @@ import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.PillButton
 import app.nodes.ui.components.PillStyle
 import app.nodes.ui.components.glass
+import app.nodes.ui.screens.onboarding.OnboardingAvatar
 import app.nodes.ui.theme.SpartialBlack
 import app.nodes.ui.theme.SpartialGrey
 import app.nodes.ui.theme.SpartialType
@@ -81,6 +82,7 @@ fun SessionsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val name by viewModel.name.collectAsStateWithLifecycle()
+    val avatarId by viewModel.profileAvatarId.collectAsStateWithLifecycle()
     val code by viewModel.code.collectAsStateWithLifecycle()
     val server by viewModel.server.collectAsStateWithLifecycle()
     val pendingConnect by viewModel.pendingConnect.collectAsStateWithLifecycle()
@@ -123,6 +125,28 @@ fun SessionsScreen(
             title = stringResource(R.string.sessions_title),
             subtitle = stringResource(R.string.sessions_subtitle),
         )
+
+        // Who the room sees you as. The avatar is a local id drawn from this
+        // device's own drawables; only the name ever crosses a socket.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OnboardingAvatar(
+                id = avatarId,
+                diameter = 34.dp,
+                contentDescription = stringResource(R.string.sessions_you_avatar),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = name,
+                style = SpartialType.rowMeta,
+                color = SpartialGrey,
+                maxLines = 1,
+            )
+        }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),

@@ -174,6 +174,8 @@ only appears on the five tab roots.
 - [x] Synced `.lrc` lyrics with nine configurable sources, each credited on
   screen; third-party unlicensed sources are opt-in
 - [x] Library backup and restore to a versioned JSON file (no credentials)
+- [x] First-run onboarding: optional sign-in or a guest path, a local avatar and
+  username, and community links that open in your browser
 - [x] Listen Together: shared sessions over a room code, opt-in, with a
   one-time third-party-server notice
 - [x] Crash reports written locally, never uploaded

@@ -17,6 +17,7 @@ import app.nodes.core.cover.CoverResolver
 import app.nodes.core.cover.UserLoopStore
 import app.nodes.core.data.FollowRepository
 import app.nodes.core.data.LibraryRepository
+import app.nodes.core.data.SearchHistoryRepository
 import app.nodes.core.data.SettingsRepository
 import app.nodes.core.data.db.PendingLikeDao
 import app.nodes.core.data.db.PendingLikeEntity
@@ -62,6 +63,7 @@ class ReelViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val player: PlaybackController,
     private val library: LibraryRepository,
+    private val searchHistory: SearchHistoryRepository,
     private val follows: FollowRepository,
     private val settings: SettingsRepository,
     private val registry: SourceRegistry,
@@ -152,6 +154,21 @@ class ReelViewModel @Inject constructor(
      * (recents and likes), then a shuffle of the whole library. Never blocks
      * playback; never duplicates an id that is queued or just played.
      */
+    /** Keep one copy of each recording in the live queue, preserving current. */
+    private fun removeEchoesFromQueue() {
+        val queue = playerState.value.queue
+        if (queue.size < 2) return
+        val currentId = playerState.value.current?.id
+        val seen = HashSet<String>()
+        currentId?.let { id -> queue.firstOrNull { it.id == id }?.let { seen += ReelFeed.identity(it) } }
+        val remove = ArrayList<Int>()
+        queue.forEachIndexed { index, track ->
+            if (track.id == currentId) return@forEachIndexed
+            if (!seen.add(ReelFeed.identity(track))) remove += index
+        }
+        remove.asReversed().forEach(player::removeFromQueue)
+    }
+
     private fun maybeExtend() {
         if (extending) return
         val state = playerState.value
@@ -171,7 +188,12 @@ class ReelViewModel @Inject constructor(
     private suspend fun nextBatch(state: PlayerUiState): List<Track> {
         val current = state.current ?: return emptyList()
         val exclude = HashSet(state.queue.map { it.id })
-        exclude += library.recentlyPlayedIds(RECENT_EXCLUDE)
+        val recentPlays = library.recentlyPlayedTracks(RECENT_EXCLUDE)
+        exclude += recentPlays.map { it.id }
+        val likedTracks = library.likedTracks.first()
+        val recentQueries = searchHistory.recent.first()
+        val excludeMusic = (state.queue + recentPlays)
+            .mapTo(HashSet()) { ReelFeed.identity(it) }
         val candidates = ArrayList<Track>()
 
         if (_state.value.tab == ReelTab.FOLLOWING) {
@@ -187,14 +209,18 @@ class ReelViewModel @Inject constructor(
                 candidates += related
             }
         }
-        if (candidates.isEmpty()) {
-            // 2. the local candidate pool: recents and likes.
-            candidates += library.recentlyPlayed.first()
-            candidates += library.likedTracks.first()
-            // 3. last resort: a shuffle of the whole library.
-            candidates += library.allTracks.first().shuffled()
-        }
-        return ReelFeed.batch(candidates, exclude, BATCH)
+        // Include the local catalogue even when the source returns related
+        // tracks: it contains the tracks the user found through Search, so the
+        // same local behavior rank can compare both candidate pools.
+        candidates += likedTracks
+        candidates += library.allTracks.first()
+        val ranked = ReelFeed.personalize(
+            candidates = candidates,
+            recentQueries = recentQueries,
+            recentlyPlayed = recentPlays,
+            liked = likedTracks,
+        )
+        return ReelFeed.batch(ranked, exclude, BATCH, excludeMusic)
     }
 
     /** One cached track list per followed artist, newest follow first. */
@@ -202,13 +228,28 @@ class ReelViewModel @Inject constructor(
         val artists = follows.mostRecent(FOLLOWING_ARTISTS)
         if (artists.isEmpty()) return emptyList()
         return artists.map { followed ->
-            runCatching { library.artistTracks(followed.name).first() }.getOrDefault(emptyList())
+            runCatching { library.artistTracks(followed.name).first() }
+                .getOrDefault(emptyList())
         }
     }
 
     /** More songs from the followed artists, for the Following refill. */
-    private suspend fun followingCandidates(exclude: Set<String>, limit: Int): List<Track> =
-        ReelFeed.interleaveByArtist(followingPools(), exclude, limit)
+    private suspend fun followingCandidates(exclude: Set<String>, limit: Int): List<Track> {
+        val recentPlays = library.recentlyPlayedTracks(RECENT_EXCLUDE)
+        val recentMusic = recentPlays.mapTo(HashSet()) { ReelFeed.identity(it) }
+        val queuedMusic = playerState.value.queue.mapTo(HashSet()) { ReelFeed.identity(it) }
+        val recentQueries = searchHistory.recent.first()
+        val likedTracks = library.likedTracks.first()
+        val rankedPools = followingPools().map { pool ->
+            ReelFeed.personalize(pool, recentQueries, recentPlays, likedTracks)
+        }
+        return ReelFeed.interleaveByArtist(
+            byArtist = rankedPools,
+            exclude = exclude,
+            limit = limit,
+            excludeMusic = recentMusic + queuedMusic,
+        )
+    }
 
     /** Switch the pager between For you (the live queue) and Following. */
     fun selectTab(tab: ReelTab) {
@@ -238,11 +279,6 @@ class ReelViewModel @Inject constructor(
             FOLLOWING_FEED_SIZE,
         )
         if (feed.isEmpty()) {
-            // Rebuild without the exclusion so the tab still has content; the
-            // refill step dedupes against the live queue anyway.
-            feed = ReelFeed.interleaveByArtist(followingPools(), emptySet(), FOLLOWING_FEED_SIZE)
-        }
-        if (feed.isEmpty()) {
             // Followed artists whose music the device has never seen.
             _state.update { it.copy(followingEmpty = true) }
             return
@@ -258,16 +294,29 @@ class ReelViewModel @Inject constructor(
     fun seedFeed() {
         viewModelScope.launch {
             if (playerState.value.queue.isNotEmpty()) return@launch
-            val pool = library.recentlyPlayed.first() +
-                library.likedTracks.first() +
-                library.allTracks.first().shuffled()
-            val feed = ReelFeed.batch(pool, emptySet(), BATCH)
+            val recentPlays = library.recentlyPlayedTracks(RECENT_EXCLUDE)
+            val likedTracks = library.likedTracks.first()
+            val recentQueries = searchHistory.recent.first()
+            val pool = likedTracks + library.allTracks.first()
+            val ranked = ReelFeed.personalize(
+                candidates = pool,
+                recentQueries = recentQueries,
+                recentlyPlayed = recentPlays,
+                liked = likedTracks,
+            )
+            val recentIds = recentPlays.mapTo(HashSet()) { it.id }
+            val recentMusic = recentPlays.mapTo(HashSet()) { ReelFeed.identity(it) }
+            val fresh = ReelFeed.batch(ranked, recentIds, BATCH, recentMusic)
+            // When the whole local catalogue is inside the recent window, fall
+            // back to a unique batch rather than leaving the Reel without a page.
+            val feed = fresh.ifEmpty { ReelFeed.batch(ranked, emptySet(), BATCH) }
             if (feed.isNotEmpty()) player.playNow(feed.first(), feed)
         }
     }
 
     /** Opening the screen: make sure there is a first page, then sync. */
     fun onScreenShown() {
+        removeEchoesFromQueue()
         if (playerState.value.queue.isEmpty()) {
             seedFeed()
         } else {

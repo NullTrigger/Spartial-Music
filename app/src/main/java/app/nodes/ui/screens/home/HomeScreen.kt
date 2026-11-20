@@ -180,6 +180,28 @@ fun HomeScreen(
                 }
             }
 
+            if (state.searchSuggestions.isNotEmpty()) {
+                item(key = "search-suggestions") {
+                    HomeSectionRail(
+                        section = HomeSection(
+                            id = "search-suggestions",
+                            title = stringResource(R.string.home_search_suggestions_title),
+                            subtitle = stringResource(R.string.home_search_suggestions_subtitle),
+                            tracks = state.searchSuggestions,
+                        ),
+                        onTrackClick = { track ->
+                            val collection = track.collectionId
+                            if (collection != null) {
+                                onOpenCollection(collection)
+                            } else {
+                                playerViewModel.play(track, state.searchSuggestions)
+                            }
+                        },
+                        onSeeAll = onOpenSuggestions,
+                    )
+                }
+            }
+
             if (state.newSongs.isNotEmpty() || loading) {
                 item(key = "new-songs") {
                     NewSongsPager(

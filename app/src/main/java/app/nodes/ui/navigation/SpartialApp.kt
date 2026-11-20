@@ -49,7 +49,11 @@ import app.nodes.ui.screens.diagnostics.DiagnosticsScreen
 import app.nodes.ui.screens.home.HomeScreen
 import app.nodes.ui.screens.library.LibraryScreen
 import app.nodes.ui.screens.login.MusicLoginScreen
-import app.nodes.ui.screens.onboarding.OnboardingScreen
+import app.nodes.ui.screens.onboarding.OnboardingAllSetScreen
+import app.nodes.ui.screens.onboarding.OnboardingProfileScreen
+import app.nodes.ui.screens.onboarding.OnboardingWelcomeScreen
+import app.nodes.ui.screens.onboarding.ProfileEditScreen
+import app.nodes.ui.components.EmptyState
 import app.nodes.ui.screens.equalizer.EqualizerScreen
 import app.nodes.ui.screens.player.NowPlayingScreen
 import app.nodes.ui.screens.playlist.PlaylistNotice
@@ -75,7 +79,7 @@ import app.nodes.ui.theme.SpartialBlack
 import kotlinx.coroutines.delay
 
 @Composable
-fun SpartialApp() {
+fun SpartialApp(startOnboarding: Boolean = false) {
     val navController = rememberNavController()
     val playerViewModel: PlayerViewModel = hiltViewModel()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
@@ -83,13 +87,17 @@ fun SpartialApp() {
     val collapsed by BarCollapseBus.collapsed.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
-    // The bar is persistent: every screen except the full-screen player (and
-    // the pre-auth login flow) keeps it docked, nested screens included.
-    val showBar = route != null && route != Routes.PLAYER && route != Routes.LOGIN
+    val inOnboarding = route in Routes.ONBOARDING_ROUTES
+    // The bar is persistent: every screen except the full-screen player, the
+    // pre-auth login flow and the first-run wizard keeps it docked, nested
+    // screens included.
+    val showBar = route != null && route != Routes.PLAYER && route != Routes.LOGIN && !inOnboarding
     // The full player owns the screen; every other destination keeps playback
     // one tap away in the mini player. The Reel is the other exception: it is
     // the player, full-bleed, so a capsule over it would only cover the art.
-    val showMiniPlayer = route != null && route != Routes.PLAYER && route != Routes.REEL
+    // The wizard has nothing playing yet, so it stays clear too.
+    val showMiniPlayer =
+        route != null && route != Routes.PLAYER && route != Routes.REEL && !inOnboarding
     val message = playerState.message
 
     LaunchedEffect(message) {
@@ -127,11 +135,42 @@ fun SpartialApp() {
     ) {
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME,
+            startDestination = if (startOnboarding) Routes.ONBOARDING else Routes.HOME,
             modifier = Modifier
                 .fillMaxSize()
                 .hazeSource(hazeState),
         ) {
+            composable(Routes.ONBOARDING) {
+                OnboardingWelcomeScreen(
+                    onContinue = { navController.navigate(Routes.ONBOARDING_PROFILE) },
+                    onOpenWebViewLogin = { navController.navigate(Routes.LOGIN) },
+                )
+            }
+
+            composable(Routes.ONBOARDING_PROFILE) {
+                OnboardingProfileScreen(
+                    onBack = { navController.popBackStack() },
+                    onContinue = { navController.navigate(Routes.ONBOARDING_ALL_SET) },
+                )
+            }
+
+            composable(Routes.ONBOARDING_ALL_SET) {
+                OnboardingAllSetScreen(
+                    onDone = {
+                        navController.navigate(Routes.HOME) {
+                            // The wizard is finished: drop it (and its start
+                            // destination) so back from Home leaves the app.
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+
+            composable(Routes.SETTINGS_PROFILE) {
+                ProfileEditScreen(onDone = { navController.popBackStack() })
+            }
+
             composable(Routes.HOME) {
                 HomeScreen(
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
@@ -278,6 +317,7 @@ fun SpartialApp() {
                     onOpenLyrics = { navController.navigate(Routes.SETTINGS_LYRICS) },
                     onOpenData = { navController.navigate(Routes.SETTINGS_DATA) },
                     onOpenAbout = { navController.navigate(Routes.SETTINGS_ABOUT) },
+                    onOpenProfile = { navController.navigate(Routes.SETTINGS_PROFILE) },
                 )
             }
 
@@ -325,7 +365,13 @@ fun SpartialApp() {
             composable(Routes.PLAYLIST_PATTERN) { entry ->
                 val playlistId = entry.arguments?.getString(Routes.PLAYLIST_ARG)
                 if (playlistId.isNullOrBlank()) {
-                    OnboardingScreen(onAllSet = { navController.popBackStack() })
+                    // Nothing to open: say so instead of showing the wrong page.
+                    EmptyState(
+                        title = stringResource(R.string.playlist_missing_title),
+                        description = stringResource(R.string.playlist_missing_body),
+                        actionLabel = stringResource(R.string.cd_back),
+                        onAction = { navController.popBackStack() },
+                    )
                 } else {
                     PlaylistDetailScreen(
                         playlistId = playlistId,

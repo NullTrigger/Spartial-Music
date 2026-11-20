@@ -29,6 +29,21 @@ object Routes {
     const val DIAGNOSTICS = "diagnostics"
     const val LOGIN = "login"
 
+    /**
+     * First-run flow. Screen 1 is the start destination while
+     * `onboarding_done` is false; the other two are pushed on top of it, so
+     * system back walks 3 -> 2 -> 1 and exits the app from 1.
+     */
+    const val ONBOARDING = "onboarding/welcome"
+    const val ONBOARDING_PROFILE = "onboarding/profile"
+    const val ONBOARDING_ALL_SET = "onboarding/all-set"
+
+    /** The same avatar and username editor, reopened from Settings. */
+    const val SETTINGS_PROFILE = "settings/profile"
+
+    /** Routes that hide the floating bar and the mini player while they are up. */
+    val ONBOARDING_ROUTES = setOf(ONBOARDING, ONBOARDING_PROFILE, ONBOARDING_ALL_SET)
+
     const val PLAYLIST_ARG = "playlistId"
     const val PLAYLIST_PATTERN = "playlist/{$PLAYLIST_ARG}"
 

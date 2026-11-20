@@ -24,6 +24,7 @@ import javax.inject.Singleton
 data class InnerTubeAccount(
     val name: String,
     val email: String? = null,
+    val imageUrl: String? = null,
 )
 
 /**
@@ -165,6 +166,7 @@ class InnerTubeAuth @Inject constructor(
             ?.putString(KEY_DATA_SYNC_ID, dataSyncId)
             ?.putString(KEY_ACCOUNT_NAME, account.name)
             ?.putString(KEY_ACCOUNT_EMAIL, account.email)
+            ?.putString(KEY_ACCOUNT_IMAGE_URL, account.imageUrl)
             ?.apply()
         visitorDataCache = visitorData ?: visitorDataCache
         _account.value = account
@@ -178,6 +180,7 @@ class InnerTubeAuth @Inject constructor(
             ?.remove(KEY_DATA_SYNC_ID)
             ?.remove(KEY_ACCOUNT_NAME)
             ?.remove(KEY_ACCOUNT_EMAIL)
+            ?.remove(KEY_ACCOUNT_IMAGE_URL)
             ?.apply()
         _account.value = null
     }
@@ -185,7 +188,11 @@ class InnerTubeAuth @Inject constructor(
     private fun readAccount(): InnerTubeAccount? {
         val name = prefs?.getString(KEY_ACCOUNT_NAME, null) ?: return null
         if (prefs.getString(KEY_COOKIE, null).isNullOrBlank()) return null
-        return InnerTubeAccount(name = name, email = prefs.getString(KEY_ACCOUNT_EMAIL, null))
+        return InnerTubeAccount(
+            name = name,
+            email = prefs.getString(KEY_ACCOUNT_EMAIL, null),
+            imageUrl = prefs.getString(KEY_ACCOUNT_IMAGE_URL, null),
+        )
     }
 
     private fun sha1(value: String): String? = runCatching {
@@ -205,5 +212,6 @@ class InnerTubeAuth @Inject constructor(
         private const val KEY_DATA_SYNC_ID = "data_sync_id"
         private const val KEY_ACCOUNT_NAME = "account_name"
         private const val KEY_ACCOUNT_EMAIL = "account_email"
+        private const val KEY_ACCOUNT_IMAGE_URL = "account_image_url"
     }
 }

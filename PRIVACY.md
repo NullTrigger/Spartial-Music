@@ -19,11 +19,27 @@ Last updated: 2026-11-12.
 | Search history | DataStore (`nodes_settings`) | No |
 | Settings, chosen source, quota counter | DataStore | No |
 | Cached provider responses | Room (`remote_cache`) | No |
+| Fetched lyrics | App-private `files/lyrics_cache` + memory | No |
+| Artwork thumbnails | Coil's app cache | No |
 | Lyrics (`files/lyrics/*.lrc`, `*.txt`) | App-private files | No |
 | Google account email (if you sign in) | DataStore | No |
 | OAuth access token | Memory only, for the session | No |
 | YouTube Music session cookie (if you sign in to it) | `EncryptedSharedPreferences`, key in the Android Keystore | Only to `music.youtube.com` |
 | Audio files on your device | Never copied or uploaded | No |
+| Onboarding profile (avatar id, display name) | DataStore (`nodes_settings`) | Name only, and only when you join a Listen Together session |
+
+Your profile is a local thing. The avatar is one of nine images that ship inside
+the app, identified by a number; that number and the image itself never leave
+the device and are not part of any session or request. They travel only where you
+put them yourself: the avatar number and the name are written into a library
+backup file when you export one, and read back when you restore it. The display
+name goes to the room server only when you choose to create or join a Listen
+Together session, and it stays a plain nickname - the app never links it to an
+account or to anything you listen to. Settings → Data lets you clear artwork,
+fetched lyrics and catalogue response caches independently, or clear all three.
+It does not remove saved library data or audio; streamed audio is not cached. The Telegram and GitHub links on the last
+onboarding screen open in your own browser through a plain system intent; the
+app does not observe, record or report whether you tap them.
 
 Android's own backup may include the app database if you have device backup
 enabled; that is your OS-level choice, and cached responses are excluded. The

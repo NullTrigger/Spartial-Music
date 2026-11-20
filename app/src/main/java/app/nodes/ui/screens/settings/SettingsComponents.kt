@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.theme.GlassBorder
 import app.nodes.ui.theme.SpartialBlack
@@ -324,6 +325,7 @@ fun SettingsAccountCard(
     title: String,
     subtitle: String,
     onClick: (() -> Unit)?,
+    imageUrl: String? = null,
 ) {
     val shape = RoundedCornerShape(22.dp)
     Row(
@@ -344,23 +346,14 @@ fun SettingsAccountCard(
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(SpartialAccent, SpartialAccentDeep),
-                    ),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = initial,
-                style = MaterialTheme.typography.titleMedium,
-                color = SpartialBlack,
-            )
-        }
+        Artwork(
+            artworkUri = imageUrl,
+            title = initial,
+            modifier = Modifier.size(42.dp),
+            shape = CircleShape,
+            targetPx = 128,
+            showInitial = true,
+        )
         Column(
             Modifier
                 .weight(1f)

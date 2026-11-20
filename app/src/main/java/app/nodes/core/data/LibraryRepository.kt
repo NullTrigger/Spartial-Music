@@ -55,6 +55,10 @@ class LibraryRepository @Inject constructor(
     suspend fun recentlyPlayedIds(count: Int): Set<String> =
         libraryDao.recentlyPlayed(count).first().mapTo(HashSet()) { it.id }
 
+    /** Recent track metadata for local recommendation ranking and cross-source dedupe. */
+    suspend fun recentlyPlayedTracks(count: Int): List<Track> =
+        libraryDao.recentlyPlayed(count).first().map { it.toTrack() }
+
     val playlists: Flow<List<Playlist>> = libraryDao.playlists().map { rows ->
         rows.map { entity ->
             Playlist(
@@ -478,6 +482,9 @@ data class BackupSettings(
     val rememberQueue: Boolean? = null,
     val rememberShuffle: Boolean? = null,
     val autoplaySimilar: Boolean? = null,
+    /** The local onboarding profile. Never a credential, never an avatar image. */
+    val profileAvatarId: Int? = null,
+    val profileDisplayName: String? = null,
 )
 
 /** What an import did, for the message the user sees. */

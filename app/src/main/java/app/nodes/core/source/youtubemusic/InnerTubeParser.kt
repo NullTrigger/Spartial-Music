@@ -461,7 +461,11 @@ internal object InnerTubeParser {
         val account = header ?: return null
         val name = account["accountName"]?.text()?.trim()
             ?.takeIf { it.isNotEmpty() } ?: return null
-        return InnerTubeAccount(name = name, email = account["email"]?.text()?.trim())
+        return InnerTubeAccount(
+            name = name,
+            email = account["email"]?.text()?.trim(),
+            imageUrl = largestImage(account),
+        )
     }
 
     /** The suggestions YouTube Music offers for a partly typed query. */

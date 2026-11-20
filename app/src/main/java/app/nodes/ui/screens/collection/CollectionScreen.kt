@@ -48,7 +48,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.nodes.R
 import app.nodes.core.data.LibraryRepository
+import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
+import app.nodes.core.source.SourceRegistry
 import app.nodes.ui.components.Artwork
 import app.nodes.ui.components.CircleIconButton
 import app.nodes.ui.components.DetailTopBar
@@ -68,6 +70,7 @@ import app.nodes.ui.theme.SpartialSpacing
 import app.nodes.ui.theme.SpartialWhite
 import app.nodes.ui.theme.rememberArtworkTint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -107,6 +110,7 @@ class CollectionViewModel @Inject constructor(
     saved: SavedStateHandle,
     private val library: LibraryRepository,
     private val follows: app.nodes.core.data.FollowRepository,
+    private val sources: SourceRegistry,
 ) : ViewModel() {
 
     val kind: CollectionKind = CollectionKind.from(saved.get<String>("kind") ?: "artist")
@@ -114,6 +118,7 @@ class CollectionViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(CollectionUiState())
     val state: StateFlow<CollectionUiState> = _state.asStateFlow()
+    private var artistLookupComplete = kind != CollectionKind.ARTIST
 
     val likedIds: StateFlow<Set<String>> = library.likedTracks
         .map { tracks -> tracks.mapTo(HashSet()) { it.id } }
@@ -141,12 +146,12 @@ class CollectionViewModel @Inject constructor(
     fun followArtist() {
         if (kind != CollectionKind.ARTIST || name.isBlank()) return
         viewModelScope.launch {
-            val first = _state.value.tracks.firstOrNull()
+            val image = _state.value.tracks.firstNotNullOfOrNull { it.artworkUri }
             follows.follow(
                 artistId = app.nodes.core.data.FollowRepository.artistIdFor(name),
                 sourceId = app.nodes.core.model.SourceId.LOCAL,
                 name = name,
-                imageUrl = first?.artworkUri,
+                imageUrl = image,
             )
         }
     }
@@ -161,7 +166,7 @@ class CollectionViewModel @Inject constructor(
                 artistId = artistId,
                 sourceId = source,
                 name = name,
-                imageUrl = _state.value.tracks.firstOrNull()?.artworkUri,
+                imageUrl = _state.value.tracks.firstNotNullOfOrNull { it.artworkUri },
                 followedAt = System.currentTimeMillis(),
             )
             follows.unfollow(artistId, source)
@@ -188,7 +193,34 @@ class CollectionViewModel @Inject constructor(
                 library.albumTracks(name)
             }
             flow.collect { tracks ->
-                _state.value = CollectionUiState(tracks = tracks, loading = false)
+                _state.value = CollectionUiState(
+                    tracks = tracks,
+                    loading = tracks.isEmpty() && !artistLookupComplete,
+                )
+            }
+        }
+        if (kind == CollectionKind.ARTIST && name.isNotBlank()) {
+            // Artist pages previously showed only songs encountered in earlier
+            // searches. Fetch more through the configured source; Room emits
+            // the added songs to the page. Existing cached tracks survive errors.
+            viewModelScope.launch {
+                try {
+                    when (val result = sources.primary().search(name, ARTIST_TRACK_LIMIT)) {
+                        is SourceResult.Success -> library.cacheTracks(
+                            result.data.filter { track ->
+                                track.artist.split(',').any { it.trim().equals(name, ignoreCase = true) }
+                            },
+                        )
+                        is SourceResult.Failure -> Unit
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Keep showing already-cached tracks if a lookup or cache write fails.
+                } finally {
+                    artistLookupComplete = true
+                    _state.value = _state.value.copy(loading = false)
+                }
             }
         }
     }
@@ -203,12 +235,15 @@ class CollectionViewModel @Inject constructor(
             tracks.forEach { library.setLiked(it, liked) }
         }
     }
+
+    private companion object {
+        const val ARTIST_TRACK_LIMIT = 50
+    }
 }
 
 /**
  * An artist or album page. Both reuse the artwork tint, a cover, a compact
- * action row and a bare list of every cached track. Nothing is fetched here:
- * this is a Room query over music the app has already seen.
+ * action row and a bare list of every matching track already in the local cache.
  */
 @Composable
 fun CollectionScreen(
@@ -223,7 +258,7 @@ fun CollectionScreen(
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val tracks = state.tracks
     val title = viewModel.name.ifBlank { stringResource(R.string.collection_none) }
-    val artworkUri = tracks.firstOrNull()?.artworkUri
+    val artworkUri = tracks.firstNotNullOfOrNull { it.artworkUri }
     val tint = rememberArtworkTint(artworkUri, title)
     val allLiked = tracks.isNotEmpty() && tracks.all { it.id in likedIds }
 

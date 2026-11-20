@@ -60,6 +60,10 @@ data class AppSettings(
     val queuePreventDuplicates: Boolean = true,
     val youtubeRegion: String = "US",
     val onboardingCompleted: Boolean = false,
+    /** Onboarding profile: one of the nine local avatars. Never sent anywhere. */
+    val profileAvatarId: Int = DEFAULT_AVATAR_ID,
+    /** The name shown in Listen Together; blank in storage means [DEFAULT_DISPLAY_NAME]. */
+    val profileDisplayName: String = DEFAULT_DISPLAY_NAME,
     val youtubeAccountEmail: String? = null,
     val youtubeSignedIn: Boolean = false,
     /** Local YouTube quota bookkeeping, see YOUTUBE.md. */
@@ -97,6 +101,11 @@ data class AppSettings(
     val sleepTimerEndsAt: Long = 0L,
 )
 
+private const val DEFAULT_AVATAR_ID = 1
+private const val MIN_AVATAR_ID = 1
+private const val MAX_AVATAR_ID = 9
+private const val DEFAULT_DISPLAY_NAME = "Listener"
+
 /**
  * All user state that is not library data. Deliberately local-only: nothing is
  * uploaded anywhere, and OAuth tokens are never persisted (see PRIVACY.md).
@@ -118,6 +127,8 @@ class SettingsRepository @Inject constructor(
             queuePreventDuplicates = prefs[KEY_QUEUE_PREVENT_DUPLICATES] ?: true,
             youtubeRegion = prefs[KEY_YOUTUBE_REGION] ?: "US",
             onboardingCompleted = prefs[KEY_ONBOARDING] ?: false,
+            profileAvatarId = prefs[KEY_PROFILE_AVATAR] ?: DEFAULT_AVATAR_ID,
+            profileDisplayName = prefs[KEY_PROFILE_NAME].orBlankToNull() ?: DEFAULT_DISPLAY_NAME,
             youtubeAccountEmail = prefs[KEY_YOUTUBE_EMAIL],
             youtubeSignedIn = prefs[KEY_YOUTUBE_SIGNED_IN] ?: false,
             quotaDate = prefs[KEY_QUOTA_DATE] ?: "",
@@ -198,6 +209,24 @@ class SettingsRepository @Inject constructor(
     suspend fun setOnboardingCompleted(completed: Boolean) =
         dataStore.edit { it[KEY_ONBOARDING] = completed }
 
+    /** The onboarding avatar, clamped to the nine the picker offers. */
+    val profileAvatarId: Flow<Int> = dataStore.data.map { prefs ->
+        (prefs[KEY_PROFILE_AVATAR] ?: DEFAULT_AVATAR_ID).coerceIn(MIN_AVATAR_ID, MAX_AVATAR_ID)
+    }
+
+    suspend fun setProfileAvatarId(id: Int) = dataStore.edit { prefs ->
+        prefs[KEY_PROFILE_AVATAR] = id.coerceIn(MIN_AVATAR_ID, MAX_AVATAR_ID)
+    }
+
+    /** The local display name. Empty or whitespace-only falls back to "Listener". */
+    val profileDisplayName: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_PROFILE_NAME].orBlankToNull() ?: DEFAULT_DISPLAY_NAME
+    }
+
+    suspend fun setProfileDisplayName(name: String) = dataStore.edit { prefs ->
+        prefs[KEY_PROFILE_NAME] = name.trim().ifEmpty { DEFAULT_DISPLAY_NAME }
+    }
+
     suspend fun setYoutubeAccount(email: String?, signedIn: Boolean) = dataStore.edit { prefs ->
         if (email == null) prefs.remove(KEY_YOUTUBE_EMAIL) else prefs[KEY_YOUTUBE_EMAIL] = email
         prefs[KEY_YOUTUBE_SIGNED_IN] = signedIn
@@ -250,6 +279,8 @@ class SettingsRepository @Inject constructor(
             backup.rememberQueue?.let { prefs[KEY_REMEMBER_QUEUE] = it }
             backup.rememberShuffle?.let { prefs[KEY_REMEMBER_SHUFFLE] = it }
             backup.autoplaySimilar?.let { prefs[KEY_AUTOPLAY_SIMILAR] = it }
+            backup.profileAvatarId?.let { prefs[KEY_PROFILE_AVATAR] = it.coerceIn(MIN_AVATAR_ID, MAX_AVATAR_ID) }
+            backup.profileDisplayName?.let { prefs[KEY_PROFILE_NAME] = it.trim().ifEmpty { DEFAULT_DISPLAY_NAME } }
         }
 
     suspend fun setSkipSilence(enabled: Boolean) =
@@ -298,6 +329,8 @@ class SettingsRepository @Inject constructor(
         val KEY_HIGH_QUALITY = booleanPreferencesKey("high_quality_audio")
         val KEY_YOUTUBE_REGION = stringPreferencesKey("youtube_region")
         val KEY_ONBOARDING = booleanPreferencesKey("onboarding_completed")
+        val KEY_PROFILE_AVATAR = intPreferencesKey("profile_avatar_id")
+        val KEY_PROFILE_NAME = stringPreferencesKey("profile_display_name")
         val KEY_YOUTUBE_EMAIL = stringPreferencesKey("youtube_account_email")
         val KEY_YOUTUBE_SIGNED_IN = booleanPreferencesKey("youtube_signed_in")
         val KEY_QUOTA_DATE = stringPreferencesKey("quota_date")
@@ -350,6 +383,8 @@ class SettingsRepository @Inject constructor(
      * bottom: an old string cannot mention a provider that did not exist yet, and
      * dropping it silently would make the new provider unreachable.
      */
+    private fun String?.orBlankToNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
     private fun parseLyricsOrder(stored: String?): List<String> {
         if (stored.isNullOrBlank()) return LyricsProviders.DEFAULT_ORDER
         val saved = stored.split(',').map { it.trim() }.filter { it in LyricsProviders.KNOWN }

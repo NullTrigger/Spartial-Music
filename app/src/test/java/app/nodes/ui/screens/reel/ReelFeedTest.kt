@@ -34,6 +34,34 @@ class ReelFeedTest {
     }
 
     @Test
+    fun `batch removes same recording across source ids`() {
+        val first = Track(id = "jamendo:1", title = "Blue Sky", artist = "Aster")
+        val echo = Track(id = "youtube:2", title = "BLUE SKY", artist = "Aster")
+        val other = Track(id = "jamendo:3", title = "Open Road", artist = "Mira")
+
+        val batch = ReelFeed.batch(listOf(first, echo, other), emptySet(), 10)
+
+        assertEquals(listOf("jamendo:1", "jamendo:3"), batch.map { it.id })
+    }
+
+    @Test
+    fun `personalize favors recent search and new tracks by listened artists`() {
+        val recent = Track(id = "played", title = "Quiet River", artist = "Aster")
+        val searched = Track(id = "search-hit", title = "Quiet Fields", artist = "Mira")
+        val artistMatch = Track(id = "artist-hit", title = "Open Road", artist = "Aster")
+        val unrelated = Track(id = "other", title = "Bright Lights", artist = "Noor")
+
+        val ranked = ReelFeed.personalize(
+            candidates = listOf(unrelated, artistMatch, searched),
+            recentQueries = listOf("quiet fields"),
+            recentlyPlayed = listOf(recent),
+            liked = emptyList(),
+        )
+
+        assertEquals(listOf("search-hit", "artist-hit", "other"), ranked.map { it.id })
+    }
+
+    @Test
     fun `batch excludes the queue and the recent fifty and caps the size`() {
         val candidates = (1..30).map { track("t$it") } + track("queued") + track("recent")
         val batch = ReelFeed.batch(candidates, setOf("queued", "recent"), 10)

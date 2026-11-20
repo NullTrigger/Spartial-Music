@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Storage
@@ -52,6 +53,7 @@ fun SettingsScreen(
     onOpenLyrics: () -> Unit,
     onOpenData: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenProfile: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
@@ -92,6 +94,20 @@ fun SettingsScreen(
                     title = account.email ?: account.name ?: anonymous,
                     subtitle = signedInHint,
                     onClick = onOpenContent,
+                    imageUrl = account.imageUrl,
+                )
+            }
+        }
+
+        item(key = "profile") {
+            // The local profile: an avatar that never leaves the device and the
+            // name Listen Together shows. Editing reopens the wizard's own UI.
+            SettingsGroup(stringResource(R.string.onb_profile_group)) {
+                SettingsValueRow(
+                    title = stringResource(R.string.onb_profile_row_title),
+                    value = settings.profileDisplayName,
+                    icon = Icons.Rounded.Person,
+                    onClick = onOpenProfile,
                 )
             }
         }

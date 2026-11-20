@@ -9,163 +9,35 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.Send
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import android.widget.Toast
 import app.nodes.R
-import app.nodes.ui.theme.SpartialBlack
-import app.nodes.ui.theme.SpartialGrey
-import app.nodes.ui.theme.SpartialSerif
-import app.nodes.ui.theme.SpartialWhite
 
 /**
- * First-run screen, matching the reference lockup: mark + serif wordmark, the
- * "This is an Indie Project" line, three white pills, and the quiet footnote.
+ * Community links shared by the onboarding screens and the Settings profile
+ * editor.
+ *
+ * The old single-screen onboarding is replaced by the three-screen flow in
+ * [OnboardingWelcomeScreen], [OnboardingProfileScreen] and
+ * [OnboardingAllSetScreen]; what is left here is the one thing that flow still
+ * needs, which is opening a URL in the user's own browser.
+ *
+ * Only `ACTION_VIEW` is used: no WebView, no custom tab, no tracking redirect.
+ * The app never learns whether the link was followed.
  */
-@Composable
-fun OnboardingScreen(
-    onAllSet: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val githubUrl = stringResource(R.string.community_github_url)
-    val telegramUrl = stringResource(R.string.community_telegram_url)
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(SpartialBlack)
-            .systemBarsPadding()
-            .padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.weight(1f))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_spartial_mark),
-                contentDescription = stringResource(R.string.app_name),
-                modifier = Modifier.size(64.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = stringResource(R.string.app_name),
-                fontFamily = SpartialSerif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 32.sp,
-                color = SpartialWhite,
-            )
-        }
-
-        Spacer(Modifier.height(72.dp))
-
-        Text(
-            text = stringResource(R.string.onboarding_heading),
-            style = MaterialTheme.typography.headlineLarge,
-            color = SpartialWhite,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(Modifier.height(28.dp))
-
-        OnboardingPill(
-            label = stringResource(R.string.onboarding_github),
-            icon = Icons.Rounded.Code,
-            onClick = { openCommunity(context, githubUrl) },
-        )
-        Spacer(Modifier.height(14.dp))
-        OnboardingPill(
-            label = stringResource(R.string.onboarding_telegram),
-            icon = Icons.Rounded.Send,
-            onClick = { openCommunity(context, telegramUrl) },
-        )
-        Spacer(Modifier.height(14.dp))
-        OnboardingPill(
-            label = stringResource(R.string.onboarding_all_set),
-            icon = Icons.AutoMirrored.Rounded.ArrowForward,
-            onClick = onAllSet,
-        )
-
-        Spacer(Modifier.height(26.dp))
-
-        Text(
-            text = stringResource(R.string.onboarding_footnote),
-            style = MaterialTheme.typography.bodySmall,
-            color = SpartialGrey,
-            textAlign = TextAlign.Center,
-        )
-
-        Spacer(Modifier.weight(1f))
+fun openCommunity(context: Context, url: String) {
+    if (url.isBlank()) {
+        Toast.makeText(context, R.string.onboarding_links_missing, Toast.LENGTH_SHORT).show()
+        return
     }
-}
-
-@Composable
-private fun OnboardingPill(
-    label: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(62.dp)
-            .clip(CircleShape)
-            .background(SpartialWhite)
-            .clickable(onClick = onClick),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = SpartialBlack,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleLarge,
-            color = SpartialBlack,
-        )
-    }
-}
-
-private fun openCommunity(context: Context, url: String) {
     runCatching {
         context.startActivity(
             Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
-    }.onFailure {
-        if (it !is ActivityNotFoundException) throw it
+    }.onFailure { error ->
+        if (error is ActivityNotFoundException) {
+            Toast.makeText(context, R.string.onboarding_links_missing, Toast.LENGTH_SHORT).show()
+        } else {
+            throw error
+        }
     }
 }

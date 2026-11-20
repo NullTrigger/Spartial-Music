@@ -22,7 +22,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,11 +35,11 @@ import app.nodes.core.data.SettingsRepository
 import app.nodes.ui.navigation.SpartialApp
 import app.nodes.ui.screens.crash.CrashActivity
 import app.nodes.ui.screens.crash.CrashDialog
-import app.nodes.ui.screens.onboarding.OnboardingScreen
+import app.nodes.ui.screens.onboarding.OnboardingRules
+import app.nodes.ui.screens.onboarding.hasExistingLibraryData
 import app.nodes.ui.theme.SpartialBlack
 import app.nodes.ui.theme.SpartialTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -52,10 +51,17 @@ class MainActivity : FragmentActivity() {
     @Volatile
     private var settingsLoaded = false
 
+    /**
+     * Captured before anything can write: an existing library database means
+     * this device already had the app, so the first-run wizard stays hidden.
+     */
+    private var existingInstall = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         splashScreen.setKeepOnScreenCondition { !settingsLoaded }
         super.onCreate(savedInstanceState)
+        existingInstall = hasExistingLibraryData(this)
         enableEdgeToEdge()
 
         setContent {
@@ -65,7 +71,6 @@ class MainActivity : FragmentActivity() {
                 mutableStateOf(CrashReport.pendingReport(this@MainActivity))
             }
             var appSettings by remember { mutableStateOf<AppSettings?>(null) }
-            val scope = rememberCoroutineScope()
 
             LaunchedEffect(Unit) {
                 settings.settings.collect { current ->
@@ -75,21 +80,29 @@ class MainActivity : FragmentActivity() {
             }
 
             val current = appSettings
+            // Decided once, and never re-decided: finishing the wizard flips the
+            // stored flag, and a NavHost whose start destination changes would
+            // rebuild its graph under the user's feet.
+            var startOnboarding by remember { mutableStateOf<Boolean?>(null) }
+            LaunchedEffect(current) {
+                if (current != null && startOnboarding == null) {
+                    startOnboarding = OnboardingRules.showOnboarding(
+                        onboardingCompleted = current.onboardingCompleted,
+                        existingInstall = existingInstall,
+                    )
+                }
+            }
+
             SpartialTheme(dynamicColor = current?.dynamicColor == true) {
-                when {
-                    current == null -> Box(
+                val firstRun = startOnboarding
+                if (current == null || firstRun == null) {
+                    Box(
                         Modifier
                             .fillMaxSize()
                             .background(SpartialBlack),
                     )
-
-                    !current.onboardingCompleted -> OnboardingScreen(
-                        onAllSet = {
-                            scope.launch { settings.setOnboardingCompleted(true) }
-                        },
-                    )
-
-                    else -> SpartialApp()
+                } else {
+                    SpartialApp(startOnboarding = firstRun)
                 }
             }
 

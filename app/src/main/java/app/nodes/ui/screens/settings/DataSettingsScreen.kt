@@ -12,6 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.runtime.Composable
@@ -70,9 +73,30 @@ fun DataSettingsScreen(
         item(key = "cache") {
             SettingsGroup(stringResource(R.string.settings_storage)) {
                 SettingsActionRow(
-                    title = stringResource(R.string.settings_clear_cache),
-                    subtitle = stringResource(R.string.settings_storage_hint),
+                    title = stringResource(R.string.settings_clear_thumbnails),
+                    subtitle = stringResource(R.string.settings_clear_thumbnails_hint),
+                    icon = Icons.Rounded.Image,
+                    onClick = viewModel::clearThumbnailCache,
+                )
+                SettingsDivider()
+                SettingsActionRow(
+                    title = stringResource(R.string.settings_clear_lyrics),
+                    subtitle = stringResource(R.string.settings_clear_lyrics_hint),
+                    icon = Icons.Rounded.MusicNote,
+                    onClick = viewModel::clearLyricsCache,
+                )
+                SettingsDivider()
+                SettingsActionRow(
+                    title = stringResource(R.string.settings_clear_songs),
+                    subtitle = stringResource(R.string.settings_clear_songs_hint),
                     icon = Icons.Rounded.Storage,
+                    onClick = viewModel::clearSongCache,
+                )
+                SettingsDivider()
+                SettingsActionRow(
+                    title = stringResource(R.string.settings_clear_cache),
+                    subtitle = stringResource(R.string.settings_clear_all_caches_hint),
+                    icon = Icons.Rounded.DeleteOutline,
                     onClick = viewModel::clearCache,
                 )
             }

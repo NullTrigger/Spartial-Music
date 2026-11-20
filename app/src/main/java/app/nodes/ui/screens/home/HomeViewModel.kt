@@ -8,6 +8,7 @@ package app.nodes.ui.screens.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.nodes.core.data.LibraryRepository
+import app.nodes.core.data.SearchHistoryRepository
 import app.nodes.core.data.SettingsRepository
 import app.nodes.core.model.HomeFeed
 import app.nodes.core.model.SourceErrorType
@@ -39,6 +40,8 @@ data class HomeUiState(
     val banners: List<Track> = emptyList(),
     /** The suggestions derive's "fresh" list, unchanged. */
     val newSongs: List<Track> = emptyList(),
+    /** Tracks in the local catalogue that match the user's recent searches. */
+    val searchSuggestions: List<Track> = emptyList(),
     val error: SourceErrorType? = null,
     val sourceName: String = "",
     val sourceId: SourceId = SourceId.LOCAL,
@@ -49,6 +52,7 @@ class HomeViewModel @Inject constructor(
     private val registry: SourceRegistry,
     private val settings: SettingsRepository,
     private val library: LibraryRepository,
+    private val searchHistory: SearchHistoryRepository,
     private val signIn: YouTubeSignIn,
     private val musicAuth: InnerTubeAuth,
 ) : ViewModel() {
@@ -85,12 +89,39 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             library.recentlyPlayed.collect { recents ->
                 _state.update { it.copy(recents = recents) }
+                refreshSearchSuggestions()
+            }
+        }
+        // The search history and locally cached search results are the only
+        // inputs. Updating either recomputes a local rail without making calls.
+        viewModelScope.launch {
+            searchHistory.recent.collect {
+                refreshSearchSuggestions()
+            }
+        }
+        viewModelScope.launch {
+            library.allTracks.collect {
+                refreshSearchSuggestions()
             }
         }
     }
 
     fun refresh() {
         viewModelScope.launch { load(_state.value.sourceId) }
+    }
+
+    private suspend fun refreshSearchSuggestions() {
+        val queries = searchHistory.recent.first()
+        val cached = library.allTracks.first()
+        val current = _state.value
+        val excluded = (current.banners + current.feed.sections.flatMap { it.tracks } + current.recents)
+            .mapTo(HashSet()) { it.id }
+        val suggestions = searchHistorySuggestions(
+            recentQueries = queries,
+            cachedTracks = cached,
+            excludedIds = excluded,
+        )
+        _state.update { it.copy(searchSuggestions = suggestions) }
     }
 
     private suspend fun load(sourceId: SourceId) {
@@ -114,6 +145,7 @@ class HomeViewModel @Inject constructor(
                         newSongs = newSongs(feed, recent),
                     )
                 }
+                refreshSearchSuggestions()
                 // Record what was fetched: album and artist pages are a Room
                 // query over music the app has already seen.
                 runCatching {

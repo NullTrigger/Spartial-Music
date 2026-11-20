@@ -10,8 +10,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.nodes.R
 import app.nodes.core.data.AppSettings
+import app.nodes.core.data.BackupSettings
 import app.nodes.core.data.LibraryBackup
 import app.nodes.core.data.LibraryRepository
+import app.nodes.core.data.LyricsRepository
 import app.nodes.core.data.RemoteCache
 import app.nodes.core.data.SearchHistoryRepository
 import app.nodes.core.data.SettingsRepository
@@ -20,6 +22,7 @@ import app.nodes.core.source.youtubemusic.InnerTubeAccount
 import app.nodes.core.source.youtubemusic.InnerTubeAuth
 import app.nodes.core.source.youtubemusic.YouTubeMusicSource
 import app.nodes.playback.PlaybackController
+import coil.imageLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +40,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: SettingsRepository,
     private val cache: RemoteCache,
+    private val lyrics: LyricsRepository,
     private val searchHistory: SearchHistoryRepository,
     private val innerTubeAuth: InnerTubeAuth,
     private val innerTubeSource: YouTubeMusicSource,
@@ -192,8 +196,37 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Clear only Coil's in-memory and on-disk artwork/thumbnail entries. */
+    fun clearThumbnailCache() {
+        viewModelScope.launch {
+            context.imageLoader.memoryCache?.clear()
+            context.imageLoader.diskCache?.clear()
+            _message.value = context.getString(R.string.settings_thumbnail_cache_cleared)
+        }
+    }
+
+    /** Clear cached lyric payloads and the in-memory resolved results. */
+    fun clearLyricsCache() {
+        viewModelScope.launch {
+            lyrics.clearCache()
+            _message.value = context.getString(R.string.settings_lyrics_cache_cleared)
+        }
+    }
+
+    /** Clear cached provider/catalogue responses; saved library rows are kept. */
+    fun clearSongCache() {
+        viewModelScope.launch {
+            cache.clear()
+            _message.value = context.getString(R.string.settings_song_cache_cleared)
+        }
+    }
+
+    /** Clear the three disposable cache stores, but never library data or audio. */
     fun clearCache() {
         viewModelScope.launch {
+            context.imageLoader.memoryCache?.clear()
+            context.imageLoader.diskCache?.clear()
+            lyrics.clearCache()
             cache.clear()
             _message.value = context.getString(R.string.settings_cache_cleared)
         }
@@ -260,7 +293,16 @@ class SettingsViewModel @Inject constructor(
     fun exportLibrary(uri: android.net.Uri, includeHistory: Boolean) {
         viewModelScope.launch {
             runCatching {
-                val backup = library.exportBackup(includeHistory)
+                // Only the profile travels in the settings block today: it is
+                // local, non-secret, and the one thing a restored device
+                // cannot guess. Credentials are not fields of this model.
+                val profile = settings.current()
+                val backup = library.exportBackup(includeHistory).copy(
+                    settings = BackupSettings(
+                        profileAvatarId = profile.profileAvatarId,
+                        profileDisplayName = profile.profileDisplayName,
+                    ),
+                )
                 val json = backupJson.encodeToString(LibraryBackup.serializer(), backup)
                 context.contentResolver.openOutputStream(uri)?.use { out ->
                     out.write(json.toByteArray(Charsets.UTF_8))

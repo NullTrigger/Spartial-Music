@@ -179,6 +179,27 @@ class InnerTubeParserTest {
     }
 
     @Test
+    fun `account parser reads the largest profile thumbnail`() {
+        val response = json(
+            """
+            {"activeAccountHeaderRenderer":{
+              "accountName":"Listener",
+              "email":"listener@example.invalid",
+              "avatar":{"thumbnails":[
+                {"url":"https://img.example/avatar64.jpg","width":64,"height":64},
+                {"url":"https://img.example/avatar256.jpg","width":256,"height":256}]}
+            }}
+            """.trimIndent(),
+        )
+
+        val account = InnerTubeParser.account(response)!!
+
+        assertEquals("Listener", account.name)
+        assertEquals("listener@example.invalid", account.email)
+        assertEquals("https://img.example/avatar256.jpg", account.imageUrl)
+    }
+
+    @Test
     fun `collection page reads the newest header layout`() {
         val page = InnerTubeParser.collectionPage(json(viewModelHeader), 10)
 

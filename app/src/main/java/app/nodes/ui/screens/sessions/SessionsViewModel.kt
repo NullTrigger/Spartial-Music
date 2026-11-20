@@ -37,6 +37,14 @@ class SessionsViewModel @Inject constructor(
     private val _name = MutableStateFlow("")
     val name: StateFlow<String> = _name.asStateFlow()
 
+    /**
+     * The onboarding avatar, shown next to the name in the header. It is a
+     * local drawable id only: the wire protocol has no field for it and never
+     * will.
+     */
+    private val _profileAvatarId = MutableStateFlow(DEFAULT_AVATAR)
+    val profileAvatarId: StateFlow<Int> = _profileAvatarId.asStateFlow()
+
     private val _code = MutableStateFlow("")
     val code: StateFlow<String> = _code.asStateFlow()
 
@@ -50,6 +58,14 @@ class SessionsViewModel @Inject constructor(
      */
     private val _pendingConnect = MutableStateFlow<(() -> Unit)?>(null)
     val pendingConnect: StateFlow<(() -> Unit)?> = _pendingConnect.asStateFlow()
+
+    init {
+        // The wizard's profile is the starting name; the field stays editable.
+        viewModelScope.launch {
+            _name.value = settings.profileDisplayName.first()
+            _profileAvatarId.value = settings.profileAvatarId.first()
+        }
+    }
 
     fun setName(value: String) {
         _name.value = value
@@ -126,6 +142,9 @@ class SessionsViewModel @Inject constructor(
 
     private companion object {
         const val DEFAULT_NAME = "Guest"
+
+        /** Matches the wizard's first avatar; used before settings are read. */
+        const val DEFAULT_AVATAR = 1
 
         /** Room codes are six characters on every server in this protocol family. */
         const val ROOM_CODE_LENGTH = 6
