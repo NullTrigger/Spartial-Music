@@ -19,6 +19,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -33,6 +35,22 @@ data class RoomUiState(
     val members: List<String> = emptyList(),
     val pending: List<PendingJoiner> = emptyList(),
     val notice: String? = null,
+    /**
+     * Who runs the room, as the server named it. Empty until a room is joined
+     * or created; the ticket's title is built from it.
+     */
+    val hostName: String = "",
+    /**
+     * When this device entered the room, in device time. The protocol carries
+     * no room creation stamp, so "From" is honestly "since you got here".
+     */
+    val startedAtMs: Long = 0L,
+    /**
+     * The song the room is playing, read from this device's own player: every
+     * listener in a room follows it, host or not, so the player is the one
+     * source both roles agree on.
+     */
+    val playingTrack: Track? = null,
 )
 
 /**
@@ -68,6 +86,7 @@ class ListenTogetherManager @Inject constructor(
     private var eventsJob: Job? = null
     private var statusJob: Job? = null
     private var hostJob: Job? = null
+    private var mirrorJob: Job? = null
 
     private var myUserId = ""
     private var hostId = ""
@@ -138,9 +157,11 @@ class ListenTogetherManager @Inject constructor(
         eventsJob?.cancel()
         statusJob?.cancel()
         hostJob?.cancel()
+        mirrorJob?.cancel()
         eventsJob = null
         statusJob = null
         hostJob = null
+        mirrorJob = null
         client?.close()
         client = null
         myUserId = ""
@@ -159,8 +180,19 @@ class ListenTogetherManager @Inject constructor(
                 // The host's own name is not echoed back by the server, so the
                 // member list starts empty and the UI labels the first row
                 // "You".
-                _state.update { it.copy(status = RoomStatus.IN_ROOM, code = event.code, isHost = true, members = emptyList()) }
+                _state.update {
+                    it.copy(
+                        status = RoomStatus.IN_ROOM,
+                        code = event.code,
+                        isHost = true,
+                        members = emptyList(),
+                        hostName = displayName,
+                        startedAtMs = System.currentTimeMillis(),
+                        playingTrack = playback.state.value.current,
+                    )
+                }
                 startHosting()
+                mirrorPlayingTrack()
             }
 
             is RoomEvent.Joined -> {
@@ -172,12 +204,18 @@ class ListenTogetherManager @Inject constructor(
                         status = RoomStatus.IN_ROOM,
                         code = event.code,
                         isHost = event.userId == event.state.hostId,
-                        members = event.state.users.map(RemoteUser::username),
+                        members = event.state.users
+                            .filterNot { user -> user.userId == event.userId }
+                            .map(RemoteUser::username),
+                        hostName = event.state.users.firstOrNull { user -> user.isHost }?.username.orEmpty(),
+                        startedAtMs = System.currentTimeMillis(),
+                        playingTrack = event.state.currentTrack?.let(::toTrack),
                     )
                 }
                 // A host who reconnects into a room they still own has to
                 // resume broadcasting, or the room freezes on their last action.
                 if (_state.value.isHost) startHosting()
+                mirrorPlayingTrack()
             }
 
             is RoomEvent.JoinRequest -> _state.update {
@@ -343,6 +381,22 @@ class ListenTogetherManager @Inject constructor(
                         )
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Mirrors this device's current song into the room state, for both roles.
+     *
+     * Deliberately separate from [startHosting]: the ticket has to show what is
+     * playing for a listener who never broadcasts anything, and the player is
+     * the only place a guest can see the room's song.
+     */
+    private fun mirrorPlayingTrack() {
+        if (mirrorJob != null) return
+        mirrorJob = scope.launch {
+            playback.state.map { it.current }.distinctUntilChanged().collect { current ->
+                _state.update { it.copy(playingTrack = current) }
             }
         }
     }

@@ -119,31 +119,26 @@
 
     <!-- Sessions -->
     <string name="sessions_title">Sessions</string>
-    <string name="sessions_subtitle">Listen together, in sync.</string>
-    <string name="sessions_create">Create a session</string>
+    <string name="sessions_subtitle">Listen Together.</string>
+    <string name="sessions_create">Create Session</string>
     <string name="sessions_join">Join</string>
-    <string name="sessions_empty">No live sessions. Start one and invite a friend.</string>
-    <string name="session_room">Session</string>
-    <string name="session_listeners">%1$d listening</string>
-    <string name="sessions_name_label">Your name</string>
+    <string name="sessions_name_placeholder">Yourname</string>
+    <string name="sessions_code_placeholder">Roomcode</string>
+    <string name="sessions_ticket_help">Got a code? Enter it in \'Roomcode\' and type your Name then click Join. Want to create your own Session? Type your Name and click \'Create Session\'.</string>
     <string name="sessions_you_avatar">Your avatar in this room</string>
-    <string name="sessions_name_hint">Shown to everyone in the room</string>
     <string name="sessions_server_label">Room server</string>
     <string name="sessions_custom_server">Custom server</string>
     <string name="sessions_change">Change</string>
-    <string name="sessions_code_label">Room code</string>
-    <string name="sessions_code_hint">ABCDEF</string>
-    <string name="sessions_copy_code">Copy the room code</string>
-    <string name="sessions_code_share">Share this code so friends can join</string>
-    <string name="sessions_role_host">You are hosting</string>
-    <string name="sessions_role_guest">Listening to the host</string>
-    <string name="sessions_people">%1$d in this room</string>
-    <string name="sessions_you">You</string>
     <string name="sessions_pending">Waiting for you</string>
     <string name="sessions_approve">Let in</string>
     <string name="sessions_decline">Block</string>
-    <string name="sessions_leave">Leave</string>
-    <string name="sessions_stop">End session</string>
+    <string name="sessions_leave_session">Leave Session</string>
+    <string name="sessions_stop">End Session</string>
+    <string name="sessions_ticket_title">%1$s\'s Listening Party</string>
+    <string name="sessions_ticket_members">Member count: %1$d</string>
+    <string name="sessions_ticket_from">From: %1$s</string>
+    <string name="sessions_ticket_playing">Playing Track:</string>
+    <string name="sessions_ticket_none">Nothing playing yet</string>
     <string name="sessions_host_hint">Your play, pause, seek and skips move everyone in the room.</string>
     <string name="sessions_guest_hint">The host controls this room. Mute and volume stay yours.</string>
     <string name="sessions_dismiss">Dismiss</string>
@@ -699,4 +694,5 @@
     <string name="artist_top_songs">Top Songs</string>
     <string name="artist_bio">Artist page built from your library. Its songs, albums and listening history stay on this device.</string>
     <string name="artist_songs_count">%1$d songs</string>
+    <string name="artist_top_songs">Top %1$d songs</string>
 </resources>

@@ -5,6 +5,8 @@
 
 package app.nodes.ui.screens.sessions
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,22 +18,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Logout
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,13 +43,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -57,7 +64,6 @@ import app.nodes.R
 import app.nodes.core.session.ListenTogetherServers
 import app.nodes.core.session.RoomStatus
 import app.nodes.core.session.RoomUiState
-import app.nodes.ui.components.CircleIconButton
 import app.nodes.ui.components.PageHeader
 import app.nodes.ui.components.PillButton
 import app.nodes.ui.components.PillStyle
@@ -67,14 +73,20 @@ import app.nodes.ui.theme.SpartialBlack
 import app.nodes.ui.theme.SpartialGrey
 import app.nodes.ui.theme.SpartialType
 import app.nodes.ui.theme.SpartialWhite
+import java.text.DateFormat
+import java.util.Date
 
 /**
  * Sessions - listen together with friends.
  *
- * One screen covers both roles. Hosting means this device's player drives
- * everyone else's; joining means a room code and the host drives this one. The
- * room code is the whole invite: it is typed, not linked, because a code that
- * has to be read aloud over a chat app is a code that stays six characters.
+ * One screen covers both roles and both states. Out of a room it asks for two
+ * things and offers two ways in: a name, and either a code plus Join or Create
+ * Session. In a room it shows the same ticket to the host and to everyone who
+ * joined it, because the room is the same room whichever end you hold: the
+ * code is the invite, printed on the stub.
+ *
+ * The room code is typed, never linked - a code that has to survive being read
+ * aloud over a chat app is a code that stays six characters.
  */
 @Composable
 fun SessionsScreen(
@@ -116,37 +128,18 @@ fun SessionsScreen(
         )
     }
 
+    val inRoom = state.status == RoomStatus.IN_ROOM && state.code.isNotBlank()
+
     Column(
         Modifier
             .fillMaxSize()
-            .background(SpartialBlack),
+            .background(SpartialBlack)
+            .imePadding(),
     ) {
         PageHeader(
             title = stringResource(R.string.sessions_title),
             subtitle = stringResource(R.string.sessions_subtitle),
         )
-
-        // Who the room sees you as. The avatar is a local id drawn from this
-        // device's own drawables; only the name ever crosses a socket.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OnboardingAvatar(
-                id = avatarId,
-                diameter = 34.dp,
-                contentDescription = stringResource(R.string.sessions_you_avatar),
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = name,
-                style = SpartialType.rowMeta,
-                color = SpartialGrey,
-                maxLines = 1,
-            )
-        }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -154,9 +147,10 @@ fun SessionsScreen(
                 start = 20.dp,
                 end = 20.dp,
                 top = 8.dp,
-                bottom = 180.dp,
+                bottom = 28.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item(key = "notice") {
                 state.notice?.let { message ->
@@ -184,22 +178,103 @@ fun SessionsScreen(
                 }
             }
 
-            if (state.status == RoomStatus.IN_ROOM) {
-                item(key = "live") {
-                    LiveRoom(
-                        state = state,
-                        onLeave = viewModel::leave,
-                        onApprove = viewModel::approve,
-                        onDecline = viewModel::decline,
+            if (inRoom) {
+                item(key = "ticket") {
+                    SessionTicket(state = state, avatarId = avatarId, name = name)
+                }
+
+                item(key = "leave") {
+                    PillButton(
+                        text = stringResource(
+                            if (state.isHost) R.string.sessions_stop else R.string.sessions_leave_session,
+                        ),
+                        onClick = viewModel::leave,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                    )
+                }
+
+                if (state.isHost && state.pending.isNotEmpty()) {
+                    item(key = "pending") {
+                        PendingCard(
+                            names = state.pending.map { it.username },
+                            onApprove = { index -> viewModel.approve(state.pending[index].userId) },
+                            onDecline = { index -> viewModel.decline(state.pending[index].userId) },
+                        )
+                    }
+                }
+
+                item(key = "role-hint") {
+                    Text(
+                        text = stringResource(
+                            if (state.isHost) R.string.sessions_host_hint else R.string.sessions_guest_hint,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SpartialGrey,
+                        textAlign = TextAlign.Center,
                     )
                 }
             } else {
-                item(key = "identity") {
-                    FieldCard(
-                        label = stringResource(R.string.sessions_name_label),
+                item(key = "art") {
+                    // The three listeners. Decorative: the name field right
+                    // below says who you are in the room.
+                    Image(
+                        painter = painterResource(R.drawable.sessions_group),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(190.dp),
+                    )
+                }
+
+                item(key = "name") {
+                    PillField(
                         value = name,
-                        placeholder = stringResource(R.string.sessions_name_hint),
                         onValueChange = viewModel::setName,
+                        placeholder = stringResource(R.string.sessions_name_placeholder),
+                        avatarId = avatarId,
+                        imeAction = ImeAction.Next,
+                    )
+                }
+
+                item(key = "code-join") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PillField(
+                            value = code,
+                            onValueChange = viewModel::setCode,
+                            placeholder = stringResource(R.string.sessions_code_placeholder),
+                            imeAction = ImeAction.Done,
+                            onDone = viewModel::join,
+                            letterSpacing = 4.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        PillButton(
+                            text = stringResource(R.string.sessions_join),
+                            onClick = viewModel::join,
+                        )
+                    }
+                }
+
+                item(key = "create") {
+                    PillButton(
+                        text = stringResource(R.string.sessions_create),
+                        onClick = viewModel::create,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp),
+                    )
+                }
+
+                item(key = "help") {
+                    Text(
+                        text = stringResource(R.string.sessions_ticket_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SpartialGrey,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 2.dp),
                     )
                 }
 
@@ -210,66 +285,12 @@ fun SessionsScreen(
                     )
                 }
 
-                item(key = "create") {
-                    PillButton(
-                        text = stringResource(R.string.sessions_create),
-                        onClick = viewModel::create,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                item(key = "join") {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .glass(RoundedCornerShape(20.dp), scrim = 0.2f)
-                            .padding(14.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.sessions_code_label),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = SpartialGrey,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(
-                                value = code,
-                                onValueChange = viewModel::setCode,
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                placeholder = {
-                                    Text(
-                                        text = stringResource(R.string.sessions_code_hint),
-                                        color = SpartialGrey,
-                                    )
-                                },
-                                textStyle = TextStyle(
-                                    fontWeight = FontWeight.SemiBold,
-                                    letterSpacing = 4.sp,
-                                    color = SpartialWhite,
-                                ),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = SpartialWhite.copy(alpha = 0.4f),
-                                    unfocusedBorderColor = SpartialWhite.copy(alpha = 0.14f),
-                                    focusedLabelColor = SpartialGrey,
-                                ),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            PillButton(
-                                text = stringResource(R.string.sessions_join),
-                                onClick = viewModel::join,
-                                style = PillStyle.Glass,
-                            )
-                        }
-                    }
-                }
-
                 item(key = "privacy") {
                     Text(
                         text = stringResource(R.string.sessions_privacy_note),
                         style = MaterialTheme.typography.bodySmall,
                         color = SpartialGrey,
-                        modifier = Modifier.padding(top = 4.dp),
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
@@ -277,166 +298,258 @@ fun SessionsScreen(
     }
 }
 
+/**
+ * The ticket. Same card for the host and for everyone who joined with the code,
+ * because both ends hold the same room: who is playing, how many are in it,
+ * when this device got in, what is on now, and the code on the stub.
+ */
 @Composable
-private fun LiveRoom(
+private fun SessionTicket(
     state: RoomUiState,
-    onLeave: () -> Unit,
-    onApprove: (String) -> Unit,
-    onDecline: (String) -> Unit,
+    avatarId: Int,
+    name: String,
 ) {
-    val clipboard = LocalClipboardManager.current
+    val hostName = state.hostName.ifBlank { name }
+    val from = remember(state.startedAtMs) {
+        if (state.startedAtMs <= 0L) "" else DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(state.startedAtMs))
+    }
+    val track = state.playingTrack
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .glass(RoundedCornerShape(24.dp), scrim = 0.28f)
-            .padding(18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(SpartialWhite, RoundedCornerShape(30.dp))
+            .padding(horizontal = 16.dp),
     ) {
-        Text(
-            text = stringResource(
-                if (state.isHost) R.string.sessions_role_host else R.string.sessions_role_guest,
-            ).uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = SpartialGrey,
+        Spacer(Modifier.height(16.dp))
+        Image(
+            painter = painterResource(R.drawable.sessions_ticket_mark),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(132.dp)
+                .clip(RoundedCornerShape(20.dp)),
         )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = stringResource(R.string.sessions_ticket_title, hostName),
+            style = TextStyle(
+                fontFamily = SpartialType.rowTitle.fontFamily,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 20.sp,
+                color = TicketInk,
+            ),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Perforation()
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TicketLabel(stringResource(R.string.sessions_ticket_members, state.members.size + 1))
+            Spacer(Modifier.width(16.dp))
+            TicketLabel(stringResource(R.string.sessions_ticket_from, from))
+        }
         Spacer(Modifier.height(10.dp))
         Text(
-            text = state.code,
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 8.sp,
-            color = SpartialWhite,
-            textAlign = TextAlign.Center,
+            text = stringResource(R.string.sessions_ticket_playing),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = TicketLabelColor,
         )
-        Spacer(Modifier.height(6.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.ContentCopy,
-                contentDescription = stringResource(R.string.sessions_copy_code),
-                tint = SpartialGrey,
-                modifier = Modifier
-                    .size(18.dp)
-                    .clip(CircleShape)
-                    .clickable {
-                        clipboard.setText(AnnotatedString(state.code))
-                    },
-            )
-            Text(
-                text = stringResource(R.string.sessions_code_share),
-                style = MaterialTheme.typography.bodySmall,
-                color = SpartialGrey,
-            )
-        }
-
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
-            text = stringResource(R.string.sessions_people, state.members.size + 1),
-            style = MaterialTheme.typography.titleMedium,
-            color = SpartialWhite,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(6.dp))
-        MemberRow(stringResource(R.string.sessions_you))
-        state.members.forEach { member -> MemberRow(member) }
-
-        if (state.pending.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = stringResource(R.string.sessions_pending),
-                style = MaterialTheme.typography.labelMedium,
-                color = SpartialGrey,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            state.pending.forEach { request ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = request.username,
-                        style = SpartialType.rowTitle,
-                        color = SpartialWhite,
-                        modifier = Modifier.weight(1f),
-                    )
-                    PillButton(
-                        text = stringResource(R.string.sessions_approve),
-                        onClick = { onApprove(request.userId) },
-                        style = PillStyle.Glass,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    PillButton(
-                        text = stringResource(R.string.sessions_decline),
-                        onClick = { onDecline(request.userId) },
-                        style = PillStyle.Glass,
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(20.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PillButton(
-                text = stringResource(if (state.isHost) R.string.sessions_stop else R.string.sessions_leave),
-                onClick = onLeave,
-                modifier = Modifier.weight(1f),
-                style = PillStyle.Glass,
-            )
-            Spacer(Modifier.width(10.dp))
-            CircleIconButton(
-                icon = Icons.Rounded.Logout,
-                contentDescription = stringResource(R.string.sessions_leave),
-                onClick = onLeave,
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = stringResource(
-                if (state.isHost) R.string.sessions_host_hint else R.string.sessions_guest_hint,
+            text = track?.let { "${it.title}${if (it.artist.isBlank()) "" else " (${it.artist})"}" }
+                ?: stringResource(R.string.sessions_ticket_none),
+            style = TextStyle(
+                fontFamily = SpartialType.rowTitle.fontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = TicketInk,
             ),
-            style = MaterialTheme.typography.bodySmall,
-            color = SpartialGrey,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
+
+        Perforation()
+
+        Text(
+            text = state.code,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            style = TextStyle(
+                fontFamily = SpartialType.rowTitle.fontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 26.sp,
+                letterSpacing = 6.sp,
+                color = TicketInk,
+            ),
+        )
+        Spacer(Modifier.height(8.dp))
+        TicketBarcode(code = state.code, modifier = Modifier.fillMaxWidth().height(48.dp))
+        Spacer(Modifier.height(18.dp))
     }
 }
 
+/** The dashed cut line, with the punch holes that bite into its ends. */
 @Composable
-private fun MemberRow(name: String) {
-    Row(
+private fun Perforation() {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .height(26.dp),
     ) {
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val inset = 18.dp.toPx()
+            val y = size.height / 2f
+            drawLine(
+                color = Color(0xFFB9B9BE),
+                start = Offset(inset, y),
+                end = Offset(size.width - inset, y),
+                strokeWidth = 1.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(9f, 9f)),
+            )
+        }
+        // The holes are the screen showing through the card, so they wear the
+        // page colour rather than a fake shadow.
         Box(
             Modifier
-                .size(8.dp)
+                .align(Alignment.CenterStart)
+                .offset(x = (-11).dp)
+                .size(22.dp)
                 .clip(CircleShape)
-                .background(SpartialWhite.copy(alpha = 0.55f)),
+                .background(SpartialBlack),
         )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = name,
-            style = SpartialType.rowMeta,
-            color = SpartialWhite.copy(alpha = 0.86f),
+        Box(
+            Modifier
+                .align(Alignment.CenterEnd)
+                .offset(x = 11.dp)
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(SpartialBlack),
         )
     }
 }
 
+/**
+ * The stub's barcode.
+ *
+ * Decorative: the pattern is derived from the code so the same room always
+ * prints the same bars, but it is deliberately not a scannable symbology -
+ * nobody should be aiming a camera at a phone to join a listening room when
+ * they can type six characters.
+ */
 @Composable
-private fun FieldCard(
-    label: String,
+private fun TicketBarcode(code: String, modifier: Modifier = Modifier) {
+    val bars = remember(code) { barcodeModules(code) }
+    val total = bars.sum().coerceAtLeast(1)
+    Canvas(modifier) {
+        val unit = size.width / total
+        var x = 0f
+        var black = true
+        for (module in bars) {
+            if (black) {
+                drawRect(color = TicketInk, topLeft = Offset(x, 0f), size = Size(unit * module, size.height))
+            }
+            x += unit * module
+            black = !black
+        }
+    }
+}
+
+private fun barcodeModules(code: String): List<Int> {
+    val out = mutableListOf(2, 1, 2) // quiet start + guard
+    code.forEachIndexed { index, char ->
+        val seed = char.code + index * 31
+        repeat(4) { bit -> out += 1 + ((seed shr bit) and 3) }
+    }
+    out += 2
+    out += 1
+    out += 2
+    return out
+}
+
+/** The grey pill the reference uses for both typed fields. */
+@Composable
+private fun PillField(
     value: String,
-    placeholder: String,
     onValueChange: (String) -> Unit,
+    placeholder: String,
+    imeAction: ImeAction,
+    modifier: Modifier = Modifier,
+    onDone: (() -> Unit)? = null,
+    avatarId: Int? = null,
+    letterSpacing: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .background(Color(0xFF6E6E73))
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            if (avatarId != null) {
+                OnboardingAvatar(
+                    id = avatarId,
+                    diameter = 30.dp,
+                    contentDescription = stringResource(R.string.sessions_you_avatar),
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                textStyle = TextStyle(
+                    fontFamily = SpartialType.rowTitle.fontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    letterSpacing = letterSpacing,
+                    color = SpartialWhite,
+                ),
+                cursorBrush = SolidColor(SpartialWhite),
+                keyboardOptions = KeyboardOptions(imeAction = imeAction, autoCorrectEnabled = false),
+                // Only a field with an action overrides the keyboard: "Next"
+                // on the name field must move focus, not create a room the
+                // moment a listener finishes typing their name.
+                keyboardActions = onDone?.let { done ->
+                    KeyboardActions(onDone = { done() })
+                } ?: KeyboardActions(),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                style = TextStyle(
+                                    fontFamily = SpartialType.rowTitle.fontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp,
+                                    color = Color(0xFFE2E2E7),
+                                ),
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+        }
+    }
+}
+
+/** Host-only: the people waiting at the door. */
+@Composable
+private fun PendingCard(
+    names: List<String>,
+    onApprove: (Int) -> Unit,
+    onDecline: (Int) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -445,26 +558,47 @@ private fun FieldCard(
             .padding(14.dp),
     ) {
         Text(
-            text = label,
+            text = stringResource(R.string.sessions_pending),
             style = MaterialTheme.typography.labelMedium,
             color = SpartialGrey,
         )
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            placeholder = { Text(text = placeholder, color = SpartialGrey) },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = SpartialWhite.copy(alpha = 0.4f),
-                unfocusedBorderColor = SpartialWhite.copy(alpha = 0.14f),
-                focusedTextColor = SpartialWhite,
-                unfocusedTextColor = SpartialWhite,
-                cursorColor = SpartialWhite,
-            ),
-        )
+        names.forEachIndexed { index, who ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = who,
+                    style = SpartialType.rowTitle,
+                    color = SpartialWhite,
+                    modifier = Modifier.weight(1f),
+                )
+                PillButton(
+                    text = stringResource(R.string.sessions_approve),
+                    onClick = { onApprove(index) },
+                    style = PillStyle.Glass,
+                )
+                Spacer(Modifier.width(8.dp))
+                PillButton(
+                    text = stringResource(R.string.sessions_decline),
+                    onClick = { onDecline(index) },
+                    style = PillStyle.Glass,
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun TicketLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = TicketLabelColor,
+    )
 }
 
 @Composable
@@ -523,3 +657,6 @@ private fun ServerPicker(selected: String, onSelect: (String) -> Unit) {
         }
     }
 }
+
+private val TicketInk = Color(0xFF0B0B0C)
+private val TicketLabelColor = Color(0xFF8B7629)
