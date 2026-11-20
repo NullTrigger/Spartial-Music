@@ -8,6 +8,7 @@ package app.nodes.ui.screens.onboarding
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -318,7 +319,7 @@ internal fun OnboardingButton(
                 },
             )
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = label },
+            .semantics { this.contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -476,7 +477,7 @@ private fun WelcomeShowcase(cards: List<WelcomeCard>) {
                         .shadow(SpartialElevation.high, RoundedCornerShape(22.dp), clip = false)
                         .clip(RoundedCornerShape(22.dp))
                         .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(22.dp))
-                        .semantics { contentDescription = description },
+                        .semantics { this.contentDescription = description },
                 ) {
                     OnboardingCardArt(
                         drawableName = card.drawableName,

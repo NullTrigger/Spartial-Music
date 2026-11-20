@@ -171,7 +171,7 @@ fun OnboardingMark(
                 if (description.isEmpty()) {
                     Modifier
                 } else {
-                    Modifier.semantics { contentDescription = description }
+                    Modifier.semantics { this.contentDescription = description }
                 },
             ),
     ) {
@@ -217,7 +217,7 @@ fun OnboardingAvatar(
                 if (description.isEmpty()) {
                     Modifier
                 } else {
-                    Modifier.semantics { contentDescription = description }
+                    Modifier.semantics { this.contentDescription = description }
                 },
             ),
         contentAlignment = Alignment.Center,

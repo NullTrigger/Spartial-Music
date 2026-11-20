@@ -96,7 +96,7 @@ fun OnboardingAllSetScreen(
                         .clip(CircleShape)
                         .background(OnboardingColors.Check)
                         .border(3.dp, OnboardingColors.Background, CircleShape)
-                        .semantics { contentDescription = savedLabel },
+                        .semantics { this.contentDescription = savedLabel },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -232,7 +232,7 @@ private fun OnboardingSupportCard(
                         Modifier
                     },
                 )
-                .semantics { contentDescription = title },
+                .semantics { this.contentDescription = title },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -272,7 +272,7 @@ private fun OnboardingSupportCard(
                 .clip(CircleShape)
                 .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                 .clickable(role = Role.Button, onClickLabel = action, onClick = onClick)
-                .semantics { contentDescription = action },
+                .semantics { this.contentDescription = action },
             contentAlignment = Alignment.Center,
         ) {
             Text(

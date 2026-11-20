@@ -75,5 +75,6 @@ object OnboardingRules {
  */
 fun hasExistingLibraryData(context: Context): Boolean {
     val database = context.getDatabasePath(SpartialDatabase.NAME)
-    return database.exists() || database.parentFile?.any { it.name.startsWith(database.name) } == true
+    val parent = database.parentFile
+    return database.exists() || parent?.listFiles()?.any { it.name.startsWith(database.name) } == true
 }

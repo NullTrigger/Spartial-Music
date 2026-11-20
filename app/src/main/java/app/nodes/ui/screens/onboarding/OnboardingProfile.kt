@@ -275,7 +275,7 @@ private fun AvatarGridRow(
                 modifier = Modifier
                     .size(cell)
                     .clickable(role = Role.Button, onClickLabel = label, onClick = { onSelect(id) })
-                    .semantics { contentDescription = label },
+                    .semantics { this.contentDescription = label },
                 contentAlignment = Alignment.Center,
             ) {
                 if (isSelected) {
@@ -387,7 +387,7 @@ private fun OnboardingChevronButton(
                 onClickLabel = label,
                 onClick = onClick,
             )
-            .semantics { contentDescription = label },
+            .semantics { this.contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Box(
