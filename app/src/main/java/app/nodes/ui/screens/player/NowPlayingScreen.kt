@@ -1031,6 +1031,7 @@ private fun PlayerDock(
         PlayerTransport(
             state = state,
             accent = palette.accent,
+            gradientEnd = palette.deep,
             onPlayPause = onPlayPause,
             onPrevious = onPrevious,
             onNext = onNext,
@@ -1406,6 +1407,7 @@ private fun AudioFormatBadge(label: String) {
 private fun PlayerTransport(
     state: PlayerUiState,
     accent: Color,
+    gradientEnd: Color,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -1432,7 +1434,7 @@ private fun PlayerTransport(
             CastRouteButton(
                 unavailable = state.embeddedVideoId != null,
                 tint = accent,
-                gradientEnd = palette.deep,
+                gradientEnd = gradientEnd,
                 onUnavailableTap = {
                     Toast.makeText(
                         context,
