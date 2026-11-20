@@ -363,7 +363,7 @@ fun CollectionScreen(
                     MetaRow(
                         parts = when (viewModel.kind) {
                             CollectionKind.ARTIST -> listOf(
-                                stringResource(R.string.artist_top_songs, tracks.size),
+                                stringResource(R.string.artist_songs_count, tracks.size),
                             )
 
                             CollectionKind.ALBUM -> listOf(

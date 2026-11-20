@@ -694,5 +694,4 @@
     <string name="artist_top_songs">Top Songs</string>
     <string name="artist_bio">Artist page built from your library. Its songs, albums and listening history stay on this device.</string>
     <string name="artist_songs_count">%1$d songs</string>
-    <string name="artist_top_songs">Top %1$d songs</string>
 </resources>
