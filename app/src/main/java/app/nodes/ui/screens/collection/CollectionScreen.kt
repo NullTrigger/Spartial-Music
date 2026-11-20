@@ -119,6 +119,13 @@ class CollectionViewModel @Inject constructor(
     private val _state = MutableStateFlow(CollectionUiState())
     val state: StateFlow<CollectionUiState> = _state.asStateFlow()
     private var artistLookupComplete = kind != CollectionKind.ARTIST
+    // Every song the cache holds for this artist, before the page ranks and
+    // caps it. Kept so a re-rank never needs another Room round-trip.
+    private var cachedTracks: List<Track> = emptyList()
+    // The artist's songs in the order the source returned them. That order is
+    // the ranking: a music search answers with the best-known songs first,
+    // while Room can only order by recency.
+    private var artistTopIds: List<String> = emptyList()
 
     val likedIds: StateFlow<Set<String>> = library.likedTracks
         .map { tracks -> tracks.mapTo(HashSet()) { it.id } }
@@ -193,24 +200,25 @@ class CollectionViewModel @Inject constructor(
                 library.albumTracks(name)
             }
             flow.collect { tracks ->
-                _state.value = CollectionUiState(
-                    tracks = tracks,
-                    loading = tracks.isEmpty() && !artistLookupComplete,
-                )
+                cachedTracks = tracks
+                publish()
             }
         }
         if (kind == CollectionKind.ARTIST && name.isNotBlank()) {
-            // Artist pages previously showed only songs encountered in earlier
-            // searches. Fetch more through the configured source; Room emits
-            // the added songs to the page. Existing cached tracks survive errors.
+            // The page shows the artist's top songs, not every song that ever
+            // passed through the cache. Slightly more candidates than the page
+            // needs are fetched, because the search also answers with other
+            // artists under this name and those are dropped below.
             viewModelScope.launch {
                 try {
-                    when (val result = sources.primary().search(name, ARTIST_TRACK_LIMIT)) {
-                        is SourceResult.Success -> library.cacheTracks(
-                            result.data.filter { track ->
+                    when (val result = sources.primary().search(name, ARTIST_SEARCH_LIMIT)) {
+                        is SourceResult.Success -> {
+                            val matching = result.data.filter { track ->
                                 track.artist.split(',').any { it.trim().equals(name, ignoreCase = true) }
-                            },
-                        )
+                            }
+                            artistTopIds = matching.map { it.id }
+                            library.cacheTracks(matching)
+                        }
                         is SourceResult.Failure -> Unit
                     }
                 } catch (cancelled: CancellationException) {
@@ -219,10 +227,36 @@ class CollectionViewModel @Inject constructor(
                     // Keep showing already-cached tracks if a lookup or cache write fails.
                 } finally {
                     artistLookupComplete = true
-                    _state.value = _state.value.copy(loading = false)
+                    // The cache write normally re-emits, but a failed or empty
+                    // lookup does not: publish anyway so the page settles.
+                    publish()
                 }
             }
         }
+    }
+
+    /** Rebuilds the visible list from the cache and whatever ranking is known. */
+    private fun publish() {
+        val shown = if (kind == CollectionKind.ARTIST) topArtistTracks(cachedTracks) else cachedTracks
+        _state.value = CollectionUiState(
+            tracks = shown,
+            loading = shown.isEmpty() && !artistLookupComplete,
+        )
+    }
+
+    /**
+     * The artist's [ARTIST_VISIBLE_LIMIT] top songs. Ranked candidates come
+     * first in source order; songs the search did not return only fill the
+     * remaining slots, which keeps the page usable offline or when a lookup
+     * fails.
+     */
+    private fun topArtistTracks(cached: List<Track>): List<Track> {
+        if (cached.isEmpty() || artistTopIds.isEmpty()) return cached.take(ARTIST_VISIBLE_LIMIT)
+        val top = artistTopIds.toSet()
+        val byId = cached.associateBy { it.id }
+        val ranked = artistTopIds.mapNotNull { byId[it] }
+        val spare = cached.filterNot { it.id in top }
+        return (ranked + spare).take(ARTIST_VISIBLE_LIMIT)
     }
 
     fun toggleLike(track: Track) {
@@ -237,7 +271,11 @@ class CollectionViewModel @Inject constructor(
     }
 
     private companion object {
-        const val ARTIST_TRACK_LIMIT = 50
+        /** Candidates asked for, a little more than the page shows. */
+        const val ARTIST_SEARCH_LIMIT = 15
+
+        /** Songs an artist page lists. */
+        const val ARTIST_VISIBLE_LIMIT = 5
     }
 }
 
@@ -325,7 +363,7 @@ fun CollectionScreen(
                     MetaRow(
                         parts = when (viewModel.kind) {
                             CollectionKind.ARTIST -> listOf(
-                                stringResource(R.string.artist_songs_count, tracks.size),
+                                stringResource(R.string.artist_top_songs, tracks.size),
                             )
 
                             CollectionKind.ALBUM -> listOf(
