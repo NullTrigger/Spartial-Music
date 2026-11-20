@@ -91,9 +91,10 @@ import kotlinx.coroutines.delay
  *
  * The layout follows the reference: a full-bleed cover with the design's
  * scrim, the title row and text tabs at the top, one action column down the
- * right edge, the track block and "Up next" line at the bottom left, and a
- * 3dp progress hairline above the floating tab bar - which stays visible,
- * with Reel highlighted, while the mini player does not.
+ * right edge, and one bottom block holding the track, the "Up next" line and
+ * the 3dp progress hairline under them. Reel is the one tab that hides the
+ * floating bar and the mini player, so that block is anchored to the system
+ * navigation inset instead of to a bar that is not there.
  */
 @Composable
 fun ReelScreen(
@@ -414,76 +415,80 @@ private fun ReelOverlay(
             )
         }
 
-        // Bottom-left block: equalizer, title, artist, up next.
+        // Bottom block, in one column: the track, "Up next", then the progress
+        // hairline below them. Anchored to the navigation inset, because Reel
+        // hides the floating tab bar - the old fixed offsets reserved space for
+        // it and left both the text and the bar floating above dead black.
         Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 20.dp, end = 88.dp, bottom = 172.dp),
-        ) {
-            if (current != null) {
-                EqualizerBars(playing = isPlaying, reduceMotion = reduceMotion)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = current.title,
-                    style = reelStyle(24.sp, FontWeight.ExtraBold, SpartialWhite),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = current.artist,
-                    style = reelStyle(
-                        15.sp,
-                        FontWeight.SemiBold,
-                        SpartialWhite.copy(alpha = 0.88f),
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (next != null) {
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.ExpandLess,
-                        contentDescription = null,
-                        tint = SpartialWhite,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.reel_up_next),
-                        style = reelStyle(12.sp, FontWeight.Bold, SpartialWhite),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = next.title,
-                        style = reelStyle(13.sp, FontWeight.Normal, SpartialWhite.copy(alpha = 0.85f)),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                }
-            }
-        }
-
-        // The 3dp progress hairline, just above the floating tab bar.
-        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 84.dp)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .height(3.dp)
-                .background(SpartialWhite.copy(alpha = 0.25f), RoundedCornerShape(2.dp)),
+                .padding(start = 20.dp, end = 20.dp, bottom = 26.dp),
         ) {
+            // The action column owns the right edge, so the text stops short of it.
+            Column(modifier = Modifier.padding(end = 68.dp)) {
+                if (current != null) {
+                    EqualizerBars(playing = isPlaying, reduceMotion = reduceMotion)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = current.title,
+                        style = reelStyle(24.sp, FontWeight.ExtraBold, SpartialWhite),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = current.artist,
+                        style = reelStyle(
+                            15.sp,
+                            FontWeight.SemiBold,
+                            SpartialWhite.copy(alpha = 0.88f),
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (next != null) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Rounded.ExpandLess,
+                            contentDescription = null,
+                            tint = SpartialWhite,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.reel_up_next),
+                            style = reelStyle(12.sp, FontWeight.Bold, SpartialWhite),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = next.title,
+                            style = reelStyle(13.sp, FontWeight.Normal, SpartialWhite.copy(alpha = 0.85f)),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    }
+                }
+            }
+
+            // The 3dp hairline, always under the text with a fixed gap.
+            Spacer(Modifier.height(18.dp))
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(progress)
+                    .fillMaxWidth()
                     .height(3.dp)
-                    .background(SpartialWhite, RoundedCornerShape(2.dp)),
-            )
+                    .background(SpartialWhite.copy(alpha = 0.25f), RoundedCornerShape(2.dp)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .height(3.dp)
+                        .background(SpartialWhite, RoundedCornerShape(2.dp)),
+                )
+            }
         }
     }
 }
