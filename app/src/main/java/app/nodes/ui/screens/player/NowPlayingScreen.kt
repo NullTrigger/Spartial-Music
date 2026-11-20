@@ -60,7 +60,6 @@ import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -447,7 +446,6 @@ fun NowPlayingScreen(
                     onOpenLyrics = { mode = PlayerMode.LYRICS },
                     onOpenQueue = { mode = PlayerMode.QUEUE },
                     onOpenControls = { mode = PlayerMode.CONTROLS },
-                    onAddToQueue = { playerViewModel.addToQueue(track) },
                     onAddToPlaylist = { AddToPlaylistBus.request(track) },
                     onMore = { showTrackOptions = true },
                 )
@@ -985,7 +983,6 @@ private fun PlayerDock(
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenControls: () -> Unit,
-    onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onMore: () -> Unit,
 ) {
@@ -1006,7 +1003,6 @@ private fun PlayerDock(
             ControlsActionRow(
                 liked = liked,
                 onToggleLike = onToggleLike,
-                onAddToQueue = onAddToQueue,
                 onAddToPlaylist = onAddToPlaylist,
                 onMore = onMore,
                 onOpenLyrics = onOpenLyrics,
@@ -1048,7 +1044,6 @@ private fun PlayerDock(
 private fun ControlsActionRow(
     liked: Boolean,
     onToggleLike: () -> Unit,
-    onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onMore: () -> Unit,
     onOpenLyrics: () -> Unit,
@@ -1130,12 +1125,6 @@ private fun ControlsActionRow(
                     contentDescription = stringResource(R.string.player_add_to_playlist),
                     tint = SpartialWhite,
                     onClick = onAddToPlaylist,
-                )
-                DockAction(
-                    icon = Icons.Rounded.MusicNote,
-                    contentDescription = stringResource(R.string.player_add_to_queue),
-                    tint = SpartialWhite,
-                    onClick = onAddToQueue,
                 )
                 DockAction(
                     icon = Icons.Rounded.MoreHoriz,
@@ -1443,6 +1432,7 @@ private fun PlayerTransport(
             CastRouteButton(
                 unavailable = state.embeddedVideoId != null,
                 tint = accent,
+                gradientEnd = palette.deep,
                 onUnavailableTap = {
                     Toast.makeText(
                         context,

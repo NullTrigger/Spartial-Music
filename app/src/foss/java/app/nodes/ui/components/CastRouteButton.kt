@@ -8,6 +8,7 @@ package app.nodes.ui.components
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Airplay
 import androidx.compose.material.icons.rounded.Bluetooth
@@ -35,12 +37,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.nodes.R
+import app.nodes.ui.theme.navAccent
 
 /**
  * The route slot in the Now Playing secondary controls, FOSS flavour.
@@ -62,18 +66,28 @@ fun CastRouteButton(
     onUnavailableTap: () -> Unit = {},
     onChooserFailure: () -> Unit = {},
     tint: Color = Color.Unspecified,
+    gradientEnd: Color = Color.Unspecified,
 ) {
     var showPanel by remember { mutableStateOf(false) }
+    val colors = if (tint == Color.Unspecified) {
+        listOf(navAccent, Color(0xFF7567E8))
+    } else {
+        listOf(
+            tint,
+            if (gradientEnd == Color.Unspecified) tint.copy(alpha = 0.72f) else gradientEnd,
+        )
+    }
     Box(
         modifier = modifier
             .size(52.dp)
+            .background(Brush.linearGradient(colors), CircleShape)
             .clickable(onClick = { showPanel = true }),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = Icons.Rounded.Airplay,
             contentDescription = stringResource(R.string.player_output_route),
-            tint = tint,
+            tint = Color.White,
             modifier = Modifier.size(34.dp),
         )
     }

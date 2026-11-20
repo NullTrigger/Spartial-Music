@@ -195,6 +195,44 @@ fun OnboardingMark(
 }
 
 /**
+ * The app icon mark at the top of the wizard: `ic_app_mark` (the same glyph the
+ * splash screen uses) when the build carries it, otherwise the drawn
+ * [OnboardingMark], so the header is never empty.
+ */
+@Composable
+fun OnboardingAppIcon(
+    width: Dp,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+) {
+    val resId = rememberDrawableId("ic_app_mark")
+    if (resId == 0) {
+        OnboardingMark(
+            width = width,
+            color = OnboardingColors.Text,
+            modifier = modifier,
+            contentDescription = contentDescription,
+        )
+        return
+    }
+    val description = contentDescription.orEmpty()
+    Image(
+        painter = painterResource(resId),
+        contentDescription = contentDescription,
+        contentScale = ContentScale.Fit,
+        modifier = modifier
+            .size(width = width, height = width * (224f / 244f))
+            .then(
+                if (description.isEmpty()) {
+                    Modifier
+                } else {
+                    Modifier.semantics { this.contentDescription = description }
+                },
+            ),
+    )
+}
+
+/**
  * One avatar: `avatar_<id>` when the build carries it, otherwise a drawn
  * placeholder (a tinted disc with a head and shoulders).
  */

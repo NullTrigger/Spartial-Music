@@ -146,9 +146,8 @@ fun OnboardingWelcomeScreen(
                 .padding(top = 58.dp, bottom = 108.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            OnboardingMark(
+            OnboardingAppIcon(
                 width = 48.dp,
-                color = OnboardingColors.Text,
                 contentDescription = stringResource(R.string.onb_logo_description),
             )
 
