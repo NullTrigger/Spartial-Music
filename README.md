@@ -32,18 +32,37 @@
 
 ---
 
-## Legal disclaimer
+## Legal & Non-Affiliation Disclaimer
 
-Spartial Music is a free, open-source, non-commercial project with no ads and no
-analytics. It hosts no music or video. The optional YouTube Music source is
-unofficial, may stop working at any time, and is used at your own risk and under
-YouTube's terms. The app never downloads, caches or re-encodes YouTube media and
-contains no PoToken or attestation bypass. It is not affiliated with or endorsed
-by YouTube, Google, Jamendo or any other music service. Please support the
-artists you listen to through official channels. Rights holders and others with
-concerns can open an issue or contact the maintainer through the channels in
-[SECURITY.md](SECURITY.md), and we will respond promptly. See also
-[YOUTUBE.md](YOUTUBE.md) and [PRIVACY.md](PRIVACY.md).
+Spartial Music is free, open-source software licensed under GPL-3.0-or-later,
+provided for personal and educational use. This project-purpose statement does
+not restrict rights granted under the GPL. Users are responsible for complying
+with applicable copyright laws and third-party Terms of Service.
+
+This project is not affiliated with, funded by, authorized by, endorsed by, or
+in any way associated with YouTube, Google LLC, Metrolist Group LLC, or any of
+their affiliates and subsidiaries. All trademarks, service marks, trade names,
+product names, and intellectual property rights referenced in this project
+belong to their respective owners.
+
+Spartial Music is an independent, client-only Android app. The maintainers do
+not host or distribute music, video, lyrics, or artwork, and the app does not
+upload or store those media files on a Spartial Music server. It makes requests
+to third-party services when you use their features; see [PRIVACY.md](PRIVACY.md)
+for what is sent and to whom. The app does not provide offline copies of
+streamed media. Its Room database and cache files stay in app-private or
+app-specific device storage.
+
+YouTube integrations have two modes: **Mode 1**, the official Data API v3 and
+embedded player; and **Mode 2**, the unofficial InnerTube client, which is the
+default source in this fork. Mode 2 is outside the YouTube API Services Terms,
+may stop working at any time, and carries the legal and reliability caveats in
+[YOUTUBE.md](YOUTUBE.md). In either mode the app never downloads, caches, or
+re-encodes YouTube media, skips ads, or bundles a PoToken or attestation bypass.
+
+For questions or feedback, use [GitHub Issues](https://github.com/NullTrigger/Spartial-Music/issues).
+Do not post private personal information in public issues. See also
+[YOUTUBE.md](YOUTUBE.md), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -52,28 +71,32 @@ concerns can open an issue or contact the maintainer through the channels in
 Spartial Music is a dark-only Android music player built with Kotlin, Jetpack
 Compose Material 3, Media3, Room and Hilt. It keeps your likes, playlists,
 history and settings on the device, and puts every provider of music behind one
-`MusicSource` interface.
+`MusicSource` interface. Each provider implements the same search, home,
+trending, playlist and playback contract, then is registered with
+`SourceRegistry`; the player stays independent of which provider supplied a
+track.
 
 - **Local library** — reads audio already on your device through MediaStore.
   Nothing is copied or uploaded.
-- **YouTube Music** — the default source, built on the unofficial InnerTube
-  client. It is **unofficial and optional**: the app is a complete player for
-  your local library without it and never requires a Google account. It is
-  outside the YouTube API Services Terms and can break whenever YouTube
-  changes its private endpoints. Read the warning in
-  [YOUTUBE.md](YOUTUBE.md) first.
-- **Official YouTube mode** — the YouTube Data API v3 provider and the official
-  embedded player remain in the codebase. No downloads, no background audio for
-  these tracks. See [YOUTUBE.md](YOUTUBE.md).
-- **Jamendo** — Creative Commons streaming, credited per track.
+- **Mode 2 — YouTube Music** — the default source, built on the unofficial
+  InnerTube client. It is **unofficial and optional**: the app is a complete
+  player for your local library without it and never requires a Google account.
+  It is outside the YouTube API Services Terms and can break whenever YouTube
+  changes its private endpoints. Read the warning in [YOUTUBE.md](YOUTUBE.md).
+- **Mode 1 — Official YouTube** — the YouTube Data API v3 provider and official
+  embedded player remain registered and selectable. No downloads or background
+  audio for these tracks. See [YOUTUBE.md](YOUTUBE.md).
 
-No source ever downloads, caches or re-encodes media for offline use: audio is
-played as a stream (or read from the device, for local files) and only metadata
-is cached locally.
+Streamed audio is played from its provider and is never downloaded, cached, or
+re-encoded for offline use. Local audio is read from the device. App metadata
+and settings use local app storage; the app does not operate a content server.
 
-There is no account, no sync, no analytics and no advertising. Optional sign-in
-only exists so the app can read your own YouTube Music library and push likes;
-the session stays on the device. See [PRIVACY.md](PRIVACY.md).
+There is no Spartial Music account, analytics, advertising, or automatic
+telemetry. Optional Google/YouTube sign-in enables provider features; credentials
+are not sent to a Spartial Music server. Listen Together sends limited session
+data to the third-party relay only after you choose a server and accept its
+notice. Android backup and user-exported library backups are also described in
+[PRIVACY.md](PRIVACY.md).
 
 > **YouTube policy:** Spartial Music never downloads, caches or re-encodes
 > YouTube media, never skips ads, and never bundles a PoToken or attestation
@@ -191,7 +214,6 @@ app/src/main/java/app/nodes
 │   ├── model         Track, Playlist, HomeFeed, PlaybackHandle, SourceResult
 │   ├── source        MusicSource interface + SourceRegistry + demo catalogue
 │   │   ├── local     MediaStore
-│   │   ├── jamendo   Creative Commons streaming
 │   │   ├── youtube   Data API v3 + optional OAuth
 │   │   └── youtubemusic  InnerTube client (default source)
 │   └── util
@@ -219,11 +241,23 @@ interface MusicSource {
 }
 ```
 
-`play()` returns either `PlaybackHandle.Stream(url)` (local files, CC audio) or
-`PlaybackHandle.EmbeddedVideo(videoId)` (official YouTube). The player routes
-accordingly: ExoPlayer for streams, the official embedded player for YouTube.
+`play()` returns either `PlaybackHandle.Stream(url)` (for supported audio
+streams or local files) or `PlaybackHandle.EmbeddedVideo(videoId)` (official
+YouTube). The player routes accordingly: ExoPlayer for streams, the official
+embedded player for YouTube.
+
+## Installation
+
+Download the FOSS APK from [GitHub Releases](https://github.com/NullTrigger/Spartial-Music/releases).
+Android may ask you to allow installation from your browser or file manager;
+review the APK source and permissions before installing. GitHub release files
+are not distributed through Google Play and do not update through Play Store.
 
 ## Build
+
+Spartial Music preserves the `app.nodes` package and has two store flavours:
+`gms` (Google Play services, including Cast) and `foss` (without Google Play
+service binaries). They share the same player and source architecture.
 
 Requirements:
 
@@ -251,22 +285,25 @@ Nothing secret is committed. `app/build.gradle.kts` reads, in order,
 | --- | --- |
 | `YOUTUBE_API_KEY` | Official YouTube search, Home and Trending |
 | `YOUTUBE_OAUTH_CLIENT_ID` | Optional Google Sign-In |
-| `JAMENDO_CLIENT_ID` | Creative Commons streaming |
 
 Without keys the app still runs: Home shows the placeholder catalogue, the local
 source works if you grant audio permission, and Settings explains what is
-missing. The default InnerTube source does not need an API key.
+missing. The default Mode 2 InnerTube source does not need an API key. Mode 1 is
+the official YouTube Data API v3 provider with the embedded player; Mode 2 is
+unofficial, outside the YouTube API Services Terms, and may break. Both modes
+and their caveats are documented in [YOUTUBE.md](YOUTUBE.md).
 
 ## Privacy
 
-No accounts, no analytics, no advertising and no tracking. Library data never
-leaves the device. Network requests happen only for the music source you are
-using (including one related-tracks request when the infinite queue looks for
-more music), lyrics lookups (the song title and artist), the Listen Together
-server you choose yourself (opt-in, with a one-time notice), and YouTube Music
-sign-in if you opt in to it. The optional YouTube Music session cookie is
-stored encrypted and is excluded from backup and device transfer. Full detail:
-[PRIVACY.md](PRIVACY.md).
+No Spartial Music account, analytics, advertising, ad-ID collection, or
+automatic crash upload. Library and settings data are local by default, with
+Android backup and user-exported JSON backup available as described in
+[PRIVACY.md](PRIVACY.md). Catalogue metadata, fetched lyrics, and artwork may be
+cached locally; streamed audio is not downloaded for offline playback. Network
+requests go directly to the selected music source and enabled lyrics providers,
+and to a Listen Together relay only after you opt in. The unofficial YouTube
+Music cookie is encrypted on-device and excluded from backup; the GMS build's
+OAuth token is held in memory. Full detail: [PRIVACY.md](PRIVACY.md).
 
 ## Safety and legal
 
@@ -302,8 +339,10 @@ modelled on another project, code comments say so. They deserve the credit:
 | Project | Licence | What we learned |
 | --- | --- | --- |
 | [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube request shape, WebView sign-in study (not copied, not used) |
-| [Metrolist](https://github.com/mostafaalagamy/Metrolist) | GPL-3.0 | InnerTube protocol reference |
+| [Metrolist](https://github.com/MetrolistGroup/Metrolist) | GPL-3.0 | InnerTube protocol and Listen Together reference |
 | InnerTune / OuterTune | GPL-3.0 | InnerTube protocol reference |
+| [ArchiveTune](https://github.com/rukamori/ArchiveTune) | GPL-3.0 | Upstream project acknowledged by the maintainer; no direct code reuse is claimed here |
+| [Echo Music](https://github.com/EchoMusicApp/Echo-Music) | GPL-3.0 | Upstream project acknowledged by the maintainer; no direct code reuse is claimed here |
 
 The player stands on the Android open-source stack:
 
@@ -320,14 +359,15 @@ The full dependency list, versions and licences are in
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). App code is GPL-3.0-or-later;
 see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
 
-### Content and takedowns
+### Copyright and takedown concerns
 
-No album art, artist names, lyrics, audio or third-party logos are bundled.
-Cover art comes from the provider or is generated locally, and
-`DemoCatalog.kt` is fictional. If you believe something in this repository
-infringes your rights, open an issue or contact the maintainer — we will remove
-it promptly. See the [Legal disclaimer](#legal-disclaimer) above and
-[SECURITY.md](SECURITY.md) for the contact route.
+No third-party album art, artist names, lyrics, audio, or logos are bundled.
+Cover art is provided by the relevant service or generated locally, and
+`DemoCatalog.kt` contains fictional sample data. For copyright or legal
+concerns, use [GitHub's copyright and DMCA removal process](https://docs.github.com/en/site-policy/content-removal-policies/dmca-takedown-policy).
+For non-sensitive project questions, use the repository's GitHub issues; do not
+post private personal information publicly. Security vulnerabilities should be
+reported as described in [SECURITY.md](SECURITY.md).
 
 ## Contributing
 
@@ -338,9 +378,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and
 ## Licence
 
 GPL-3.0-or-later. You are free to use, study, share and modify the app; forks
-must stay open under the same licence and keep the copyright notices.
-
-**Not affiliated with, funded, authorised or endorsed by YouTube, Google LLC,
-Jamendo or any streaming service.** "YouTube" is a trademark of Google LLC. All
-third-party content remains the property of its owners and is used only through
-the providers' public APIs and licences.
+must stay open under the same licence and keep the copyright notices. See the
+[full licence](LICENSE) and [legal and non-affiliation disclaimer](#legal--non-affiliation-disclaimer).

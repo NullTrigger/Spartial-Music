@@ -6,7 +6,7 @@
 # APKs in a row: this one builds the gms flavour only —
 # `nodes-gms-<version>.apk` — with Play services and Cast. The FOSS APK is
 # built by .github/workflows/release.yml. Both workflows sign with the same
-# KEYSTORE_* secrets, need the YOUTUBE_*/JAMENDO_* keys for
+# KEYSTORE_* secrets, need the YOUTUBE_* keys for
 # `local.properties`, run on the same `v*` tags, and attach their APK plus
 # its sha256 to the same GitHub Release.
 

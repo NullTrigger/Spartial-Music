@@ -18,8 +18,8 @@
     <string name="onb_dot_selected">Current card</string>
     <string name="onb_dot_other">Another card</string>
     <string name="onb_welcome_above">Welcome to</string>
-    <string name="onb_welcome_subtitle">A quieter way to listen. Your local files, free Creative Commons music and optional YouTube Music. No ads, no analytics.</string>
-    <string name="onb_welcome_subtitle_play">A quieter way to listen. Your local files and free Creative Commons music. No ads, no analytics.</string>
+    <string name="onb_welcome_subtitle">A quieter way to listen. Your local files and optional YouTube Music. No ads, no analytics.</string>
+    <string name="onb_welcome_subtitle_play">A quieter way to listen. Your local files and official YouTube. No ads, no analytics.</string>
     <string name="onb_sign_in_google">Sign in with Google</string>
     <string name="onb_continue_guest">Continue as guest</string>
     <string name="onb_sign_in_note">Signing in is optional. It only unlocks your YouTube Music library and syncing your likes. The session stays encrypted on this device.</string>
@@ -102,11 +102,9 @@
 
     <!-- Sources -->
     <string name="source_local">Local device</string>
-    <string name="source_jamendo">Jamendo (Creative Commons)</string>
     <string name="source_youtube">YouTube (official API)</string>
     <string name="source_youtube_music">YouTube Music (unofficial)</string>
     <string name="source_needs_key">Add a YouTube Data API key in local.properties to enable this source.</string>
-    <string name="source_needs_client_id">Add a Jamendo client ID in local.properties to enable this source.</string>
     <string name="source_quota_exceeded">YouTube API quota for today is used up. It resets at midnight Pacific Time. Cached and local content still works.</string>
     <string name="source_network_error">Could not reach the source. Check your connection.</string>
     <string name="source_unauthorized">The source refused the request. Check your API key restrictions.</string>
@@ -174,7 +172,6 @@
     <string name="library_title">Library</string>
     <string name="library_playlists">Playlists</string>
     <string name="library_liked">Liked songs</string>
-    <string name="library_downloads">Downloads</string>
     <string name="library_new_playlist">New playlist</string>
     <string name="library_playlist_name">Playlist name</string>
     <string name="library_playlist_created">Playlist created</string>
@@ -183,7 +180,6 @@
     <string name="library_empty_playlists">Create a playlist and it will appear here.</string>
     <string name="library_empty_recent">Songs you play will show up here.</string>
     <string name="library_empty_artists">Artists from the songs in your library will show up here.</string>
-    <string name="library_empty_downloads">Downloads are supported for Creative Commons sources only. Streamed YouTube tracks cannot be downloaded.</string>
     <string name="library_download_note">Only Creative Commons / public domain audio can be saved, and only where the licence allows it.</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_create">Create</string>
@@ -406,7 +402,7 @@
     <string name="settings_lyrics_extra_note">Off unless you switch one on. These ask third-party services for lyrics that may be copyrighted and that this project does not license; a source can stop working at any time. Every request sends the song title and artist.</string>
     <string name="player_lyrics_credit">Lyrics: %1$s</string>
     <string name="settings_takedown">Content and takedowns</string>
-    <string name="settings_takedown_hint">How to report content in the repository</string>
+    <string name="settings_takedown_hint">Report copyright concerns through GitHub</string>
     <string name="settings_lyrics_local_hint">Read from the track\'s folder</string>
     <string name="settings_lyrics_local_value">Always first</string>
     <string name="settings_lyrics_display">Display</string>
@@ -523,7 +519,7 @@
     <string name="label_unknown_artist">Unknown artist</string>
     <string name="label_unknown_album">Single</string>
     <string name="label_demo_art">Placeholder artwork</string>
-    <string name="disclaimer_short">Spartial Music is not affiliated with YouTube, Google or any streaming service.</string>
+    <string name="disclaimer_short">Not affiliated with, funded by, authorized by, endorsed by, or associated with YouTube, Google LLC, Metrolist Group LLC, or their affiliates and subsidiaries.</string>
 
     <!-- Listening stats. All numbers come from the local play history. -->
     <string name="stats_title">Listening stats</string>
@@ -616,7 +612,6 @@
     <string name="player_reorder_up">Move up</string>
     <string name="player_reorder_down">Move down</string>
     <string name="player_source_local">Local device</string>
-    <string name="player_source_jamendo">Jamendo</string>
     <string name="player_source_youtube">YouTube</string>
     <string name="player_source_youtube_music">YouTube Music</string>
 

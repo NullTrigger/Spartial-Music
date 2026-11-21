@@ -2,14 +2,14 @@
 <!--
   Copyright (C) 2026 The Spartial Music Authors.
   Licensed under GPL-3.0-or-later. See LICENSE.
-  Your library data stays on device. Backups exclude cached remote responses
-  and the encrypted YouTube Music session cookie.
+  Backups include the Room database (including remote-cache metadata) and
+  shared preferences, but exclude the encrypted YouTube Music session cookie.
 -->
 <full-backup-content>
-    <!-- The library database and settings are backed up; cached remote
-         responses and external files are never included. The encrypted
-         YouTube Music session cookie (innertube_session) is excluded: a
-         backup must never carry an account session to another device. -->
+    <!-- The Room database (including remote-cache metadata) and shared
+         preferences are included. App-private files are not included by these
+         rules. The encrypted YouTube Music session cookie (innertube_session)
+         is excluded so a backup never carries that account session. -->
     <include domain="database" path="." />
     <include domain="sharedpref" path="." />
     <exclude domain="sharedpref" path="innertube_session.xml" />

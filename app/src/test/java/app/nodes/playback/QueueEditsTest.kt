@@ -78,7 +78,7 @@ class QueueEditsTest {
                     tracks = listOf(track("ytmusic-x")),
                 ),
             ),
-            likedTracks = listOf(track("jamendo-y")),
+            likedTracks = listOf(track("local-y")),
             playHistory = listOf(BackupPlay(trackId = "ytmusic-x", playedAt = 9L)),
             settings = BackupSettings(playbackSpeed = 1.25f, rememberQueue = true),
         )

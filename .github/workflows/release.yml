@@ -6,7 +6,7 @@
 # (Play services + Cast) is built by its own file,
 # .github/workflows/release-gms.yml, so the two APKs never share a build.
 # Both workflows sign with the same KEYSTORE_* secrets, need the
-# YOUTUBE_*/JAMENDO_* keys for `local.properties`, and attach their APK plus
+# YOUTUBE_* keys for `local.properties`, and attach their APK plus
 # its sha256 to the same `v*` tag GitHub Release.
 name: Release FOSS APK
 
@@ -87,12 +87,10 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_OAUTH_CLIENT_ID: ${{ secrets.YOUTUBE_OAUTH_CLIENT_ID }}
-          JAMENDO_CLIENT_ID: ${{ secrets.JAMENDO_CLIENT_ID }}
         run: |
           {
             echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY"
             echo "YOUTUBE_OAUTH_CLIENT_ID=$YOUTUBE_OAUTH_CLIENT_ID"
-            echo "JAMENDO_CLIENT_ID=$JAMENDO_CLIENT_ID"
           } > local.properties
 
       - name: Assemble the FOSS release

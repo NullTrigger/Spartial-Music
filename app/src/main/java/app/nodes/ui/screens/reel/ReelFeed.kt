@@ -160,7 +160,7 @@ object ReelFeed {
 
 /** What a like tap should do beyond the local database. */
 enum class LikeAction {
-    /** Guest, or a local/Jamendo track: the Room write is the whole story. */
+    /** Guest, or a locally sourced track: the Room write is the whole story. */
     LOCAL_ONLY,
 
     /** Signed in and the track is a YouTube Music track: push the like. */

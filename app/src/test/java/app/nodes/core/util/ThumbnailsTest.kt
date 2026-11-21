@@ -54,7 +54,7 @@ class ThumbnailsTest {
 
     @Test
     fun `other hosts are left alone`() {
-        val url = "https://images.jamendo.com/?id=42&size=200"
+        val url = "https://images.example.org/?id=42&size=200"
         assertEquals(url, upgradeThumbnail(url, 544))
     }
 

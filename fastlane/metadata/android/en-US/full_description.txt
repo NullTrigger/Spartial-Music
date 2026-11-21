@@ -1,9 +1,8 @@
 Spartial Music is an open-source Android music player with a dark, glassy interface.
 
 Play the music you own, and stream what is legal to stream. Spartial Music reads
-audio already on your device, streams Creative Commons music from Jamendo, and
-can play from YouTube Music through an unofficial client. Nothing is downloaded,
-extracted or kept from YouTube.
+audio already on your device, and can play from YouTube Music through an
+unofficial client. Nothing is downloaded, extracted or kept from YouTube.
 
 FEATURES
 - Five floating tabs: Home, Trending, Suggestions, Library and Search
@@ -33,7 +32,6 @@ server you pick. Full detail: PRIVACY.md in the repository.
 
 SOURCES
 - Local device files through MediaStore
-- Jamendo (Creative Commons)
 - YouTube Music through an unofficial InnerTube client (default source)
 - Official YouTube Data API v3 provider and embedded player (code included)
 
@@ -48,5 +46,5 @@ build without the unofficial YouTube source is planned.
 
 LICENCE
 GPL-3.0-or-later. No album art, artist names or audio from third parties is
-bundled. Spartial Music is not affiliated with YouTube, Google, Jamendo or any
-streaming service.
+bundled. Spartial Music is not affiliated with YouTube, Google or any streaming
+service.

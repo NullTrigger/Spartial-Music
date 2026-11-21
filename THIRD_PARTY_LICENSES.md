@@ -42,7 +42,7 @@ add or bump a dependency.
 | --- | --- | --- |
 | Dagger / Hilt (`com.google.dagger:hilt-android`) | 2.60.1 | Apache-2.0 |
 | Kotlin standard library + kotlinx-coroutines | 2.2.x / 1.11.0 | Apache-2.0 |
-| kotlinx-serialization-json | 1.12.0 | Apache-2.0 |
+| kotlinx-serialization-json | 1.9.0 | Apache-2.0 |
 | OkHttp | 5.5.1 | Apache-2.0 |
 | Retrofit + kotlinx-serialization converter | 2.11.0 | Apache-2.0 |
 | Coil (`io.coil-kt:coil-compose`) | 2.7.0 | Apache-2.0 |
@@ -65,8 +65,7 @@ add or bump a dependency.
 | Service | Terms |
 | --- | --- |
 | YouTube Data API v3 | [YouTube API Services Terms](https://developers.google.com/youtube/terms/api-services-terms-of-service), [Google Privacy Policy](https://policies.google.com/privacy) |
-| YouTube InnerTube (`youtubei`), unofficial and opt-in | Not covered by the YouTube API Services Terms. See [YOUTUBE.md](YOUTUBE.md) |
-| Jamendo API | [Jamendo terms](https://developer.jamendo.com/v3.0), per-track Creative Commons licence |
+| YouTube InnerTube (`youtubei`), unofficial and the default source in this fork | Not covered by the YouTube API Services Terms. See [YOUTUBE.md](YOUTUBE.md) |
 
 ## Fonts and images
 
@@ -91,7 +90,7 @@ projects in this space, credited here:
 
 | Project | Licence | What Spartial Music uses |
 | --- | --- | --- |
-| [Metrolist](https://github.com/mostafaalagamy/Metrolist) | GPL-3.0 | InnerTube protocol reference; Listen Together room protocol and wire field numbers |
+| [Metrolist](https://github.com/MetrolistGroup/Metrolist) | GPL-3.0 | InnerTube protocol reference; Listen Together room protocol and wire field numbers |
 | InnerTune / OuterTune | GPL-3.0 | InnerTube protocol reference |
 | [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube protocol reference, WebView sign-in study, the Listen Together wire protocol (`metroserver-worker/src/protocol.js`), and the lyrics provider set: the TTML handling in `core/lyrics/providers/Ttml.kt` and the KuGou/Paxsenix/LyricsPlus/BetterLyrics endpoints are written to match its `betterlyrics/`, `kugou/` and `paxsenix/` modules, which derive from ViMusic and BetterLyrics upstream |
 | [ViMusic](https://github.com/vfsfitvnm/ViMusic) | GPL-3.0 | Upstream of the KuGou lyrics search the KuGou provider follows |

@@ -83,7 +83,6 @@ android {
 
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${secret("YOUTUBE_API_KEY")}\"")
         buildConfigField("String", "YOUTUBE_OAUTH_CLIENT_ID", "\"${secret("YOUTUBE_OAUTH_CLIENT_ID")}\"")
-        buildConfigField("String", "JAMENDO_CLIENT_ID", "\"${secret("JAMENDO_CLIENT_ID")}\"")
     }
 
     /**

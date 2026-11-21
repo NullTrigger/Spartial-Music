@@ -35,13 +35,13 @@ class ReelFeedTest {
 
     @Test
     fun `batch removes same recording across source ids`() {
-        val first = Track(id = "jamendo:1", title = "Blue Sky", artist = "Aster")
+        val first = Track(id = "other:1", title = "Blue Sky", artist = "Aster")
         val echo = Track(id = "youtube:2", title = "BLUE SKY", artist = "Aster")
-        val other = Track(id = "jamendo:3", title = "Open Road", artist = "Mira")
+        val other = Track(id = "other:3", title = "Open Road", artist = "Mira")
 
         val batch = ReelFeed.batch(listOf(first, echo, other), emptySet(), 10)
 
-        assertEquals(listOf("jamendo:1", "jamendo:3"), batch.map { it.id })
+        assertEquals(listOf("other:1", "other:3"), batch.map { it.id })
     }
 
     @Test

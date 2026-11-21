@@ -33,7 +33,6 @@ body:
       label: Music source
       options:
         - Local device
-        - Jamendo (Creative Commons)
         - YouTube (official)
         - Not source related (UI, settings, playback)
     validations:

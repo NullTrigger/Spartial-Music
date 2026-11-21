@@ -70,7 +70,7 @@ fun AboutSettingsScreen(
                 SettingsValueRow(
                     title = stringResource(R.string.settings_takedown),
                     subtitle = stringResource(R.string.settings_takedown_hint),
-                    onClick = { openUrl(context, "https://github.com/NullTrigger/Spartial-Music#content-and-takedowns") },
+                    onClick = { openUrl(context, "https://docs.github.com/en/site-policy/content-removal-policies/dmca-takedown-policy") },
                 )
             }
         }

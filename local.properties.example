@@ -23,9 +23,3 @@ YOUTUBE_API_KEY=
 # Create an Android OAuth client ID with your package name (app.nodes) and the
 # SHA-1 fingerprint of your signing key.
 YOUTUBE_OAUTH_CLIENT_ID=
-
-# ---------------------------------------------------------------------------
-# Jamendo API client ID (optional). Free for non-commercial use:
-# https://devportal.jamendo.com/  – CC-licensed catalogue, legal to stream.
-# ---------------------------------------------------------------------------
-JAMENDO_CLIENT_ID=

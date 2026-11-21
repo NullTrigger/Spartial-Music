@@ -42,11 +42,14 @@ Full list with licences: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 ## Trademarks and content
 
+Spartial Music is not affiliated with, funded by, authorized by, endorsed by, or
+in any way associated with YouTube, Google LLC, Metrolist Group LLC, or any of
+their affiliates or subsidiaries. All trademarks, service marks, trade names,
+product names, and intellectual property rights referenced in this project
+belong to their respective owners.
+
 - "YouTube" is a trademark of Google LLC. Spartial Music uses YouTube's official
-  APIs and player and is not affiliated with, endorsed by or sponsored by YouTube
-  or Google.
-- "Jamendo" is a trademark of Jamendo SA. Audio streamed from Jamendo is offered
-  under Creative Commons licences; each track carries its licence link.
+  APIs and player; use does not imply endorsement or affiliation.
 - No album art, artist names or audio from third parties is bundled in this
   repository. Placeholder artwork is generated procedurally, and the sample
   catalogue in `DemoCatalog.kt` is fictional.

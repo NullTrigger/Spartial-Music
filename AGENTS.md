@@ -73,8 +73,8 @@ app/src/main/java/app/nodes/
 1. Implement `MusicSource` (`core/source/MusicSource.kt`): `search`, `getHome`,
    `getTrending`, `getPlaylist`, `play`. Return `SourceResult` — never throw for
    expected failures such as a missing key or an exhausted quota.
-2. Give every track a stable `id` prefixed with the source id (`jamendo:123`) so
-   Room and the queue can tell providers apart.
+2. Give every track a stable `id` prefixed with the source id (for example,
+   `local:123`) so Room and the queue can tell providers apart.
 3. Choose a `PlaybackHandle`: `Stream(url)` for progressive audio that Media3 can
    play, `EmbeddedVideo(id)` for the official YouTube player, or `Unavailable`
    with a reason.
@@ -114,7 +114,9 @@ Windows: `.\gradlew.bat`. JDK 17. Details: [BUILDING.md](BUILDING.md).
   with an endpoint of its own. It is opt-in and `PRIVACY.md` documents exactly
   what crosses the socket. Do not add a second relay, or route any other feature
   through it, without a maintainer decision.
-- Mode 2 (unofficial InnerTube) is not implemented, by design. See
-  [YOUTUBE.md](YOUTUBE.md).
+- Mode 2 (unofficial InnerTube) is implemented and is the default source by
+  maintainer decision. Mode 1 (official Data API v3 + embedded player) remains
+  registered and selectable. See [YOUTUBE.md](YOUTUBE.md) for the rationale,
+  limits and legal caveats.
 - Store screenshots must be captured from a real device; see
   `fastlane/metadata/android/en-US/images/README.md`.

@@ -56,19 +56,19 @@ class AddToPlaylistTest {
     fun `add reports added and stores the row`() = runBlocking {
         val playlist = repository.createPlaylist("Test")
 
-        val result = repository.addToPlaylist(playlist.id, track("jamendo:1"))
+        val result = repository.addToPlaylist(playlist.id, track("other:1"))
 
         assertEquals(AddToPlaylistResult.Added, result)
         val rows = db.libraryDao().playlistTrackRows(playlist.id)
-        assertEquals(listOf("jamendo:1"), rows.map { it.trackId })
+        assertEquals(listOf("other:1"), rows.map { it.trackId })
     }
 
     @Test
     fun `duplicate reports already exists and keeps a single row`() = runBlocking {
         val playlist = repository.createPlaylist("Test")
-        repository.addToPlaylist(playlist.id, track("jamendo:1"))
+        repository.addToPlaylist(playlist.id, track("other:1"))
 
-        val second = repository.addToPlaylist(playlist.id, track("jamendo:1"))
+        val second = repository.addToPlaylist(playlist.id, track("other:1"))
 
         assertEquals(AddToPlaylistResult.AlreadyExists, second)
         val rows = db.libraryDao().playlistTrackRows(playlist.id)
@@ -79,12 +79,12 @@ class AddToPlaylistTest {
     fun `new tracks land after the existing ones`() = runBlocking {
         val playlist = repository.createPlaylist("Test")
 
-        repository.addToPlaylist(playlist.id, track("jamendo:1"))
-        repository.addToPlaylist(playlist.id, track("jamendo:2"))
-        repository.addToPlaylist(playlist.id, track("jamendo:3"))
+        repository.addToPlaylist(playlist.id, track("other:1"))
+        repository.addToPlaylist(playlist.id, track("other:2"))
+        repository.addToPlaylist(playlist.id, track("other:3"))
 
         val rows = db.libraryDao().playlistTrackRows(playlist.id)
-        assertEquals(listOf("jamendo:1", "jamendo:2", "jamendo:3"), rows.map { it.trackId })
+        assertEquals(listOf("other:1", "other:2", "other:3"), rows.map { it.trackId })
         assertEquals(listOf(0, 1, 2), rows.map { it.sortOrder })
     }
 }

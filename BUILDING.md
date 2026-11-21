@@ -78,7 +78,6 @@ notepad local.properties
 - `YOUTUBE_OAUTH_CLIENT_ID` — Android OAuth client for package `app.nodes`
   (use `app.nodes.debug` for debug builds) with your signing SHA-1. Only needed
   for the optional "Sign in with Google" playlist import.
-- `JAMENDO_CLIENT_ID` — free at <https://devportal.jamendo.com/>.
 
 Details, quota table and the legal boundaries: [YOUTUBE.md](YOUTUBE.md).
 

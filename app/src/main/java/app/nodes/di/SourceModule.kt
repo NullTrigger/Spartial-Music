@@ -6,7 +6,6 @@
 package app.nodes.di
 
 import app.nodes.core.source.MusicSource
-import app.nodes.core.source.jamendo.JamendoSource
 import app.nodes.core.source.local.LocalSource
 import app.nodes.core.source.youtube.YouTubeOfficialSource
 import app.nodes.core.source.youtubemusic.YouTubeMusicSource
@@ -23,10 +22,6 @@ abstract class SourceModule {
     @Binds
     @IntoSet
     abstract fun bindLocalSource(source: LocalSource): MusicSource
-
-    @Binds
-    @IntoSet
-    abstract fun bindJamendoSource(source: JamendoSource): MusicSource
 
     @Binds
     @IntoSet

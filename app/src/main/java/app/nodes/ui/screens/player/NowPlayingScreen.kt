@@ -1709,7 +1709,6 @@ private fun YouTubeEmbeddedCard(videoId: String, onStop: () -> Unit) {
 private fun playerSourceName(sourceId: SourceId): String = stringResource(
     when (sourceId) {
         SourceId.LOCAL -> R.string.player_source_local
-        SourceId.JAMENDO -> R.string.player_source_jamendo
         SourceId.YOUTUBE -> R.string.player_source_youtube
         SourceId.YOUTUBE_MUSIC -> R.string.player_source_youtube_music
     },

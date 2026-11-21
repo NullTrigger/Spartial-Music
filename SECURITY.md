@@ -52,8 +52,8 @@ faster timeline.
 
 Spartial Music never ships API keys. Keys are read at build time from `local.properties`
 (git-ignored) or the environment. If you find a key in the repository or in build
-output, treat it as compromised: revoke it in Google Cloud Console / the Jamendo
-portal and open a private report.
+output, treat it as compromised: revoke it in Google Cloud Console and open a
+private report.
 
 OAuth tokens are held in memory only. If a token leaks through a crash report or
 a log, revoke it at <https://myaccount.google.com/permissions>.

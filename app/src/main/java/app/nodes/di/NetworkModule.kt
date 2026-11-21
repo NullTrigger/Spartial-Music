@@ -5,7 +5,6 @@
 
 package app.nodes.di
 
-import app.nodes.core.source.jamendo.JamendoApi
 import app.nodes.core.source.youtube.YouTubeApi
 import dagger.Module
 import dagger.Provides
@@ -43,15 +42,4 @@ object NetworkModule {
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(YouTubeApi::class.java)
-
-    @Provides
-    @Singleton
-    @Named("jamendo")
-    fun provideJamendoApi(json: Json, client: OkHttpClient): JamendoApi =
-        Retrofit.Builder()
-            .baseUrl("https://api.jamendo.com/v3.0/")
-            .client(client)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .build()
-            .create(JamendoApi::class.java)
 }

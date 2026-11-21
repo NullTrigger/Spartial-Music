@@ -7,8 +7,8 @@
     <cloud-backup>
         <include domain="database" path="." />
         <include domain="sharedpref" path="." />
-        <!-- The encrypted YouTube Music session cookie never leaves the
-             device, not even through a backup. -->
+        <!-- The encrypted YouTube Music session cookie is not included in
+             cloud backup, even when other app data is backed up. -->
         <exclude domain="sharedpref" path="innertube_session.xml" />
     </cloud-backup>
     <device-transfer>

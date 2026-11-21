@@ -6,5 +6,5 @@ First public build (0.1.0).
 - Search genres, filters and grouped results
 - Library playlists, pins, liked songs, recents and artists
 - Playlist, album, artist and all-songs screens
-- YouTube Music (InnerTube), official YouTube, Jamendo and local sources
+- YouTube Music (InnerTube), official YouTube and local sources
 - Likes, playlists, history, search, settings and crash diagnostics

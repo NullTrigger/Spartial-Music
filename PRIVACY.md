@@ -1,168 +1,159 @@
 # Privacy
 
-Spartial Music is a local-first music player. There is no Spartial Music account,
-no analytics, no remote crash reporting, no advertising SDK and no tracking of
-any kind.
+**Last Updated: November 2026**
 
-The one exception is **Sessions**: shared listening needs a relay, because two
-phones have no other way to agree on what is playing and where in the track they
-are. It is opt-in, off until you create or join a room, and it is described in
-full below rather than buried.
+Spartial Music is a free, open-source Android media client. The maintainers do
+not collect personal information through the app. It has no Spartial account
+system, advertising, analytics, ad-ID collection, or remote crash-reporting
+service. The app has no developer-operated backend. Most library and settings
+data is stored on the device. The optional Listen Together feature is an exception:
+it connects to a relay chosen by the user, operated by a third party.
 
-Last updated: 2026-11-12.
+This policy describes the app's current behavior. It does not replace the privacy
+policies or terms of the third-party services you choose to use.
 
-## What stays on your device
+## Data stored on the device
 
-| Data | Where | Leaves the device? |
-| --- | --- | --- |
-| Liked songs, playlists, play history | Room database (`nodes.db`) | No |
-| Search history | DataStore (`nodes_settings`) | No |
-| Settings, chosen source, quota counter | DataStore | No |
-| Cached provider responses | Room (`remote_cache`) | No |
-| Fetched lyrics | App-private `files/lyrics_cache` + memory | No |
-| Artwork thumbnails | Coil's app cache | No |
-| Lyrics (`files/lyrics/*.lrc`, `*.txt`) | App-private files | No |
-| Google account email (if you sign in) | DataStore | No |
-| OAuth access token | Memory only, for the session | No |
-| YouTube Music session cookie (if you sign in to it) | `EncryptedSharedPreferences`, key in the Android Keystore | Only to `music.youtube.com` |
-| Audio files on your device | Never copied or uploaded | No |
-| Onboarding profile (avatar id, display name) | DataStore (`nodes_settings`) | Name only, and only when you join a Listen Together session |
+The app stores its Room database and DataStore preferences in Android's
+app-specific storage. These may contain playlists, liked tracks, play history,
+search history, profile name and avatar selection, playback settings, and cached
+catalogue metadata. Fetched lyrics are cached under the app's private files
+(directory `files/lyrics_cache`); user-provided lyric files and video-loop covers
+are also stored in app-private files. Artwork and thumbnails use Coil's app
+cache. The YouTube Music playback URL cache is held in memory only.
 
-Your profile is a local thing. The avatar is one of nine images that ship inside
-the app, identified by a number; that number and the image itself never leave
-the device and are not part of any session or request. They travel only where you
-put them yourself: the avatar number and the name are written into a library
-backup file when you export one, and read back when you restore it. The display
-name goes to the room server only when you choose to create or join a Listen
-Together session, and it stays a plain nickname - the app never links it to an
-account or to anything you listen to. Settings → Data lets you clear artwork,
-fetched lyrics and catalogue response caches independently, or clear all three.
-It does not remove saved library data or audio; streamed audio is not cached. The Telegram and GitHub links on the last
-onboarding screen open in your own browser through a plain system intent; the
-app does not observe, record or report whether you tap them.
+**The app does not download or keep streamed audio for offline playback.** It
+plays streamed media from its provider and reads local audio files already on
+your device. Catalogue metadata, lyrics, artwork, and user-selected cover loops
+are not offline audio copies. The app does not upload media or library data to a
+Spartial Music server, and it does not run a content-hosting server.
 
-Android's own backup may include the app database if you have device backup
-enabled; that is your OS-level choice, and cached responses are excluded. The
-encrypted YouTube Music session cookie is excluded from backup and device
-transfer too, so a restored or transferred device never carries an account
-session.
+Crash diagnostics are local by default and can be disabled in Settings. Crash
+reports are kept in the app-specific `Android/data/<package>/files/crash_logs`
+directory (with an internal-storage fallback); the app log is also stored in
+app-specific storage. Reports are not sent automatically. They may contain
+technical details about an error; review a report before sharing it. If you
+choose to share one, the Android share sheet sends it to the destination you
+select. If you choose **Save to Downloads**, a text report is explicitly copied
+to the shared Downloads folder. These actions apply only to diagnostic text,
+never to audio.
 
-## Network requests Spartial Music makes
+## Network connections and third-party services
 
-Spartial Music only talks to a provider when you browse or play something:
+The app makes network requests when you use the related feature. The following
+services are present in the app code:
 
-1. **YouTube Data API v3** (`googleapis.com`) — search, charts, playlists.
-   Requests include your API key (yours, from `local.properties`) and, if you
-   signed in, an OAuth bearer token. Google's handling is described by the
-   [Google Privacy Policy](https://policies.google.com/privacy) and the
-   [YouTube API Services Terms](https://developers.google.com/youtube/terms/api-services-terms-of-service).
-2. **YouTube embedded player** (`youtube.com`, `ytimg.com`) — when you play a
-   YouTube track. This is Google's player, running in a WebView; it may set
-   cookies and collect playback data under Google's policies.
-3. **Jamendo** (`api.jamendo.com`) — Creative Commons catalogue search and
-   streaming, including artwork and audio URLs.
-4. **Artwork CDNs** — cover images are fetched by Coil from the URL the provider
-   returned.
-5. **Lyrics providers** — when a track starts and no local `.lrc`/`.txt` file
-   exists, Spartial Music asks these services in the order chosen in Settings:
-   the community sources BetterLyrics (`lyrics-api.boidu.dev`), the LyricsPlus
-   community mirrors, LRCLIB, SimpMusic and Lyrics.ovh, and the video's own
-   captions on `music.youtube.com`. A separate group, **"Additional lyric
-   sources (third-party, unlicensed)" — NetEase, KuGou and Paxsenix — is off
-   unless you switch one on**; these reach commercial services' web-player
-   endpoints and return lyrics this project does not license. A lookup contains
-   the track title, artist, album and duration (and the YouTube video id for
-   SimpMusic and the captions source). No account cookie, email or listening
-   history is sent. Paxsenix reads the web player's public JWT from Apple's own
-   page bundle; no Apple account is involved and nothing is purchased or signed
-   into. The provider that answered is credited under the lyrics on screen.
-   See [docs/LYRICS.md](docs/LYRICS.md).
-6. **Session relay** (the room server shown on the Sessions screen; run by a
-   **third party** — Spartial Music runs no server of its own) — **only while
-   you are hosting or listening in a room, and only after you pick a server and
-   accept the one-time notice.** The app ships with no default server and
-   never connects until you choose one. A room message carries the room code,
-   the display name you typed, and for the host the track the room is playing
-   (title, artist, album, duration, artwork URL and, for YouTube Music tracks,
-   the video id) plus a position in the song.
-   It carries no account cookie, no OAuth token, no e-mail, no device
-   identifier and no play history, and it sends nothing about tracks you never
-   start. The relay holds room state only for as long as the room has members;
-   there is no user account to build a profile against and nothing is written to
-   a database you could later be identified from. Leaving a session stops all of
-   it, and the rest of the app never touches this server.
-7. **Animated Reel covers** — a cover video is **streamed and never stored**:
-   no cache, no download, no disk write. In this build the YouTube Music
-   provider currently supplies none (it would need a field the app already
-   receives, and it does not), so what you may see is your own picked file
-   (kept in app-private storage until you remove it) or the generated cover.
-   The Google Play build contains no animated-cover code from YouTube at all.
-   Covers wait for Wi-Fi unless you allow mobile data in Settings.
+- **Google / YouTube official services.** The official YouTube Data API v3 uses
+  `www.googleapis.com` for search and catalogue requests when that source is
+  configured. Official embedded playback loads YouTube's player and related
+  YouTube resources in a WebView. Optional Google Sign-In is present only in
+the `gms` build and requests the YouTube read-only scope; its short-lived OAuth
+token is held in memory and sent to Google's API, not persisted by Spartial
+Music. The account email is stored locally in app preferences. Google's handling
+is covered by its own
+  [Privacy Policy](https://policies.google.com/privacy) and YouTube terms.
+- **YouTube Music (unofficial InnerTube client).** This source contacts
+  `music.youtube.com` for catalogue, account and playback-resolution requests.
+  Streamed playback and images may also contact the media or image hosts returned
+  by YouTube. When signed out, requests do not include the user's account cookie.
+  This unofficial integration is not covered by the YouTube API Services Terms;
+  see [YOUTUBE.md](YOUTUBE.md). YouTube media is not downloaded, cached to disk,
+  or re-encoded, and ads are not skipped.
+- **Google Account / YouTube Music sign-in.** If you choose to sign in to the
+  unofficial YouTube Music source, a Google login page is opened in a WebView.
+  After validation, the resulting YouTube Music site cookie is stored in
+  encrypted preferences using a key protected by Android Keystore. It is sent
+  to `music.youtube.com` for that unofficial service's requests; it is not sent
+  to a Spartial Music server or included in backups. Signing out removes the
+  stored session and WebView cookies. This differs from the official API OAuth
+  flow above; the unofficial InnerTube requests are not official YouTube API
+  calls.
+- **Artwork and media CDNs.** Artwork URLs returned by a provider are loaded by
+  Coil. Audio streams are played directly from the provider's returned stream
+  URL. The app does not operate a proxy or relay for these requests.
+- **Lyrics services.** When lyrics are requested, enabled providers can receive
+  the track title, artist, album, duration, and, for some providers, the
+  YouTube Music video ID. The built-in providers include LRCLIB (`lrclib.net`),
+  SimpMusic (`api-lyrics.simpmusic.org`), NetEase (`music.163.com`), KuGou
+  (`mobileservice.kugou.com` / `lyrics.kugou.com`), Lyrics.ovh (`api.lyrics.ovh`),
+  BetterLyrics (`lyrics-api.boidu.dev`), LyricsPlus community mirrors, and
+  Paxsenix (`lyrics.paxsenix.org`); YouTube captions may also be requested from
+  YouTube. Local lyric files are checked on-device. NetEase, KuGou, and Paxsenix
+  are grouped as additional third-party sources and are off by default; enabling
+  one in Settings permits its requests. Paxsenix also reads a public token from
+  Apple's public Music web-player page and uses its lyrics service; no Apple
+  account is used. No app account cookie or listening history is sent to lyrics
+  providers. See [docs/LYRICS.md](docs/LYRICS.md) for details.
+- **Listen Together relay.** Shared listening is optional and does not connect
+  until you select a server and accept the notice. The app includes a third-party
+  relay address, and also permits entering another server. While connected, the
+  chosen relay receives the room code, the nickname you enter, and session
+  events. Playback events can include the current track's title, artist, album,
+  duration, artwork URL and YouTube video ID, plus playback position/state. The
+  audio itself, account credentials, library, search history, and general play
+  history are not sent. Use a `wss://` server where possible; a custom `ws://`
+  address does not encrypt session data in transit. The relay is not operated
+  by Spartial Music; its own operator's retention and privacy practices apply.
+  Leaving the room closes the connection.
+- **GitHub.** The app links to GitHub-hosted source, documentation, and releases.
+  It does not poll GitHub Releases for updates or send usage data to GitHub in
+  the background. Opening a link or downloading a release uses your browser and
+  GitHub's own services.
 
-The unofficial YouTube Music source (Settings → YouTube Music) is on by default
-in this build. It calls YouTube's private `youtubei` endpoints on
-`music.youtube.com` for home, search, playlists and audio URLs. Signed out, those
-requests are anonymous: no account cookie, no OAuth token, no identifier beyond
-what any request to youtube.com carries (your IP address and the request itself).
-Liking a YouTube Music track syncs to your YouTube account **only while signed
-in**, using the same session the app already holds; signed out, or for local and
-Jamendo tracks, a like is a database row on this device and nothing leaves it.
-A like that could not be synced is retried later from a small local table.
-Following artists is local-first: a follow is a row in this app's database and
-is never sent to any provider.
+The app includes no Firebase Crashlytics, Sentry, analytics, advertising, or
+ad-ID SDK. There is no automatic telemetry or automatic crash upload.
 
-Signing in to YouTube Music (Settings → YouTube Music account) opens Google's own
-login page in a WebView and keeps the resulting site cookie, which is what the
-music site itself uses. The cookie is stored encrypted, is sent only to
-`music.youtube.com` with the `SAPISIDHASH` header the site expects, and is never
-logged, backed up or shared with any other host. This mode is outside the YouTube
-API Services Terms — see YOUTUBE.md.
+## Backups and deletion
 
-Spartial Music sends no identifiers of its own, no device fingerprint, no advertising ID,
-and no usage events. Uninstalling the app removes all local data.
+Android backup is enabled for the app's Room database. That database includes
+both library tables and the `remote_cache` catalogue-response table, so Android
+backup or device transfer may copy that metadata when enabled in your device
+settings. The app's explicit backup rules do not include app-private files or
+DataStore preferences. The separate encrypted YouTube Music session preferences
+are explicitly excluded. Android's backup/transfer service is controlled by
+your OS and account settings, not by a Spartial Music server.
 
-## Permissions and why
+Settings → Data → Backup lets you export a JSON library backup using Android's
+document picker. It contains library information (including playlists, liked
+tracks, and optionally play history) and selected non-secret profile settings.
+It does not include audio, cached media files, API keys, OAuth tokens, or the
+YouTube Music session cookie. This user-selected export is separate from
+Android's automatic app-data backup. The file is saved to the location you choose; if you
+choose a cloud-backed document provider, that provider may sync it under its own
+terms. Import reads and merges the selected file locally.
 
-| Permission | Why |
-| --- | --- |
-| `INTERNET`, `ACCESS_NETWORK_STATE` | stream and load metadata |
-| `READ_MEDIA_AUDIO` / `READ_EXTERNAL_STORAGE` (≤32) | list audio already on the device |
-| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | keep playback alive with a media notification |
-| `POST_NOTIFICATIONS` | show that media notification |
-| `WAKE_LOCK` | keep playing with the screen off |
+You can delete selected disposable data in Settings → Data: artwork/thumbnails,
+fetched lyrics, catalogue responses, search history, or all three cache stores.
+Clearing those caches does not delete playlists, likes, or audio already on your
+device. Use **Settings → Data → Clear search history** for searches. Use the
+account controls in Settings to sign out and remove a YouTube Music session.
+Android Settings → Apps → Spartial Music → Storage → Clear storage/data removes
+the app's local data. Uninstalling also removes app-specific local data; files
+you explicitly exported to shared storage or a cloud-backed provider are not
+removed by uninstalling.
 
-Declining audio permission does not break the app: local browsing is disabled and
-remote sources still work.
+## Permissions
 
-## Your controls
+The app requests Internet and network-state access for streaming and metadata,
+local audio-read access to browse audio already on the device, and foreground
+media playback/notification and wake-lock permissions to continue playback.
+It does not request broad all-files access or permission to write streamed audio
+to the public Music directory.
 
-- **Settings → Cache → Clear cached responses** deletes cached provider payloads
-  and search history.
-- **Settings → YouTube → Sign out** drops the in-memory token and forgets the
-  email.
-- **Settings → YouTube Music account → Sign out of YouTube Music** deletes the
-  stored cookie and clears the WebView cookies, so the next request is anonymous.
-- Uninstalling, or clearing app data in Android settings, deletes everything.
+## Non-affiliation and trademarks
 
-## Library export and import
+Spartial Music is not affiliated with, funded by, authorized by, endorsed by, or
+in any way associated with YouTube, Google LLC, Metrolist Group LLC, or any of
+their affiliates and subsidiaries. All trademarks, service marks, trade names,
+product names, and intellectual property rights referenced in this project
+belong to their respective owners. Mention of a service or project does not
+imply endorsement or affiliation.
 
-Settings → Backup writes one JSON file with your playlists, liked tracks, play
-history and non-secret settings through Android's document picker: the file is
-saved wherever you choose and never leaves the device by itself. Import reads
-the same file back and merges it by id; nothing is replaced. The file contains
-no credentials — there is no field in it that could hold one — and the
-encrypted YouTube Music session cookie is never part of it.
+## Contact and policy changes
 
-## Children
+For privacy or general questions, use the repository's public GitHub issue
+tracker. Do not post private personal information in a public issue. For
+copyright concerns, use [GitHub's copyright and DMCA removal process](https://docs.github.com/en/site-policy/content-removal-policies/dmca-takedown-policy).
+For security vulnerabilities, follow [SECURITY.md](SECURITY.md).
 
-Spartial Music is not directed at children and collects no personal data.
-
-## Changes
-
-Material changes to this policy will be made in this file in the repository, with
-the date above updated.
-
-## Contact
-
-Open an issue in the repository, or use the security contact in
-[SECURITY.md](SECURITY.md) for anything sensitive.
+Material changes to this policy will be recorded here and the date above updated.

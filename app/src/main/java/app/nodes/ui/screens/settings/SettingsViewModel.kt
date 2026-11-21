@@ -261,7 +261,7 @@ class SettingsViewModel @Inject constructor(
             _message.value = context.getString(R.string.settings_sync_running)
             try {
                 // Only tracks from YouTube Music carry a video id; local files
-                // and Jamendo have nothing to like on YouTube.
+                // have nothing to like on YouTube.
                 val videoIds = library.likedTracks.first().mapNotNull { it.videoId }
                 if (videoIds.isEmpty()) {
                     _message.value = context.getString(R.string.settings_sync_nothing)

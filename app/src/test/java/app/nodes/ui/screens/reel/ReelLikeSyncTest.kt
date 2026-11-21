@@ -33,8 +33,8 @@ class ReelLikeSyncTest {
     }
 
     @Test
-    fun `local and jamendo tracks never push even when signed in`() {
-        for (source in listOf(SourceId.LOCAL, SourceId.JAMENDO, SourceId.YOUTUBE)) {
+    fun `local and youtube tracks never push even when signed in`() {
+        for (source in listOf(SourceId.LOCAL, SourceId.YOUTUBE)) {
             assertEquals(
                 LikeAction.LOCAL_ONLY,
                 likeAction(signedIn = true, sourceId = source, liked = true),

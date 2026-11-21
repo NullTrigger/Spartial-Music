@@ -15,7 +15,6 @@ import kotlinx.serialization.Serializable
  */
 enum class SourceId(val key: String) {
     LOCAL("local"),
-    JAMENDO("jamendo"),
     YOUTUBE("youtube"),
 
     /** Unofficial InnerTube source; off unless the user enables it in Settings. */
@@ -58,9 +57,9 @@ data class Track(
      * instead of trying to play a track that has no video id.
      */
     val collectionId: String? = null,
-    /** Human readable page for attribution (YouTube watch page, Jamendo page). */
+    /** Human readable page for attribution (a YouTube watch page, for example). */
     val externalUrl: String? = null,
-    /** Licence line for CC content, e.g. "CC BY 4.0 · Jamendo". */
+    /** Licence line for openly licensed content, e.g. "CC BY 4.0 · <source>". */
     val licenseNote: String? = null,
     val isExplicit: Boolean = false,
     /**

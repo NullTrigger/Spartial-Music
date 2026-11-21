@@ -11,7 +11,7 @@ A practical tour for contributors. For agent-specific rules see
         └──────┬──────┘                         └────────┬─────────┘
                │ play(track)                             │
         ┌──────▼──────────────┐              ┌───────────┴──────────┐
-        │ PlaybackController  │              │ Local │ Jamendo │ YT │
+        │ PlaybackController  │              │ Local files │ YouTube │
         └──────┬──────────────┘              └──────────────────────┘
                │ Stream(url)                EmbeddedVideo(id)
         ┌──────▼──────┐                    ┌──────────────────────┐

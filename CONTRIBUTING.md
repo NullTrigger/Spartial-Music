@@ -72,7 +72,7 @@ cp local.properties.example local.properties   # SDK path + optional API keys
 ## Reporting bugs
 
 Use the issue template and include: app version, Android version, source
-(local/Jamendo/YouTube), steps to reproduce, and `adb logcat` if the app crashes.
+(local/YouTube), steps to reproduce, and `adb logcat` if the app crashes.
 Redact API keys and tokens.
 
 ## Code of conduct
