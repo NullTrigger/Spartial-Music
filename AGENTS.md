@@ -21,12 +21,16 @@ plugin behind one contract, so the player never knows where a track came from.
    31 October 2026 Mode 2 is the default source by maintainer decision (recorded
    in `YOUTUBE.md`), because Mode 1 cannot show a real music catalogue; Mode 1
    stays registered and selectable, and reversing the decision is a matter of
-   flipping the defaults back. In either mode: never download,
-   cache or re-encode YouTube media, never skip ads, never bundle a PoToken or
-   attestation bypass, never harvest account cookies without a maintainer
-   decision recorded in `YOUTUBE.md`. Mode 2 is outside the YouTube API Services
-   Terms and can break at any time — say so anywhere it is exposed. If a task
-   needs a third mechanism, stop and ask the maintainer.
+   flipping the defaults back. Mode 1 never downloads or caches media. In Mode 2,
+   local app-private offline caching and user-initiated downloads via AndroidX
+   Media3 (`SimpleCache` / `DownloadManager` inside `context.filesDir`) are
+   permitted by maintainer decision recorded in `YOUTUBE.md`. In either mode:
+   never export raw audio files to public external storage, never re-encode
+   YouTube media, never skip ads, never bundle a PoToken or attestation bypass,
+   and never harvest account cookies without a maintainer decision recorded in
+   `YOUTUBE.md`. Mode 2 is outside the YouTube API Services Terms and can break
+   at any time — say so anywhere it is exposed. If a task needs a third
+   mechanism, stop and ask the maintainer.
 2. **No third-party content.** No real artist names, album art, lyrics, audio or
    logos. Placeholder art is generated procedurally; sample data is fictional
    (`DemoCatalog.kt`).
@@ -43,80 +47,3 @@ plugin behind one contract, so the player never knows where a track came from.
     * Copyright (C) 2026 The Spartial Music Authors.
     * Licensed under GPL-3.0-or-later. See LICENSE.
     */
-   ```
-
-6. **Animated covers.** An animated cover provider may only use a public or
-   official API, or files the user supplies. Never add a provider that relies
-   on reverse-engineered private endpoints, another service's login cookie or
-   token, or scraped pages.
-
-## Layout
-
-```
-app/src/main/java/app/nodes/
-  core/
-    model/        Track, Playlist, PlaybackHandle, SourceResult — plain data
-    source/       MusicSource, SourceRegistry, DemoCatalog, providers
-    data/         Room entities/DAOs/database, repositories, cache, quota
-    util/         formatting helpers
-  playback/       Media3 service, controller, UI state
-  di/             Hilt modules
-  ui/
-    theme/        colours, type, glass surfaces
-    components/   reusable composables (Rails, HeroCarousel, MiniPlayer, …)
-    navigation/   NavHost, routes, bottom bar
-    screens/      one package per screen, each with its ViewModel
-```
-
-## How to add a music source
-
-1. Implement `MusicSource` (`core/source/MusicSource.kt`): `search`, `getHome`,
-   `getTrending`, `getPlaylist`, `play`. Return `SourceResult` — never throw for
-   expected failures such as a missing key or an exhausted quota.
-2. Give every track a stable `id` prefixed with the source id (for example,
-   `local:123`) so Room and the queue can tell providers apart.
-3. Choose a `PlaybackHandle`: `Stream(url)` for progressive audio that Media3 can
-   play, `EmbeddedVideo(id)` for the official YouTube player, or `Unavailable`
-   with a reason.
-4. Register it in `SourceRegistry` / `di/SourceModule.kt`.
-5. Document the provider's terms, attribution requirements and rate limits in
-   `docs/` or the relevant markdown file, and add it to
-   `THIRD_PARTY_LICENSES.md` if you add a dependency.
-6. Add a unit test for anything that parses or transforms data.
-
-## Conventions
-
-- Kotlin official style, 4 spaces, trailing commas in multi-line argument lists.
-- Compose: state hoisting, `collectAsStateWithLifecycle`, no business logic in
-  composables; ViewModels expose a single `StateFlow<UiState>`.
-- Coroutines: `Dispatchers.IO` for disk/network, `viewModelScope` for work tied to
-  a screen, `SupervisorJob` where one failure must not cancel siblings.
-- Error messages are friendly and actionable ("YouTube quota reached for today —
-  it resets at midnight Pacific"), never raw stack traces.
-- Every user-visible string goes in `res/values/strings.xml`.
-- Dark theme only; the glass surfaces must stay readable on API 26 (no
-  `Modifier.blur` — use the gradient film + border approach in `Glass.kt`).
-
-## Build and verify
-
-```bash
-./gradlew :app:assembleDebug        # builds both gms and foss debug APKs
-./gradlew :app:testGmsDebugUnitTest :app:testFossDebugUnitTest
-./gradlew.bat :app:lintGmsDebug     # abortOnError = true; lintFossDebug for the other flavour
-```
-
-Windows: `.\gradlew.bat`. JDK 17. Details: [BUILDING.md](BUILDING.md).
-
-## Things that are deliberately incomplete
-
-- Shared listening is implemented (`core/session/`) against the Metrolist room
-  protocol and talks to a relay server - the only server contact the app makes
-  with an endpoint of its own. It is opt-in and `PRIVACY.md` documents exactly
-  what crosses the socket. Do not add a second relay, or route any other feature
-  through it, without a maintainer decision.
-- Mode 2 (unofficial InnerTube) is implemented and is the default source by
-  maintainer decision. Mode 1 (official Data API v3 + embedded player) remains
-  registered and selectable. See [YOUTUBE.md](YOUTUBE.md) for the rationale,
-  limits and legal caveats.
-- Store screenshots must be captured from a real device; see
-  `fastlane/metadata/android/en-US/images/README.md`.
