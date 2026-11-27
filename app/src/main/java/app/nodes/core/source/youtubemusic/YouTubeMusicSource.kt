@@ -12,6 +12,7 @@ import app.nodes.core.model.HomeFeed
 import app.nodes.core.model.PlaybackHandle
 import app.nodes.core.model.Playlist
 import app.nodes.core.model.PlaylistDetail
+import app.nodes.core.model.RadioPage
 import app.nodes.core.model.SourceAvailability
 import app.nodes.core.model.SourceErrorType
 import app.nodes.core.model.SourceId
@@ -419,6 +420,19 @@ class YouTubeMusicSource @Inject constructor(
                 onSuccess = { SourceResult.Success(it.filter { candidate -> candidate.videoId != videoId }) },
                 onFailure = { it.asFailure() },
             )
+    }
+
+    /**
+     * The paged radio: the infinite queue asks for the next page of the same
+     * mix instead of the same first 25 tracks again, which is what lets a queue
+     * keep growing past one batch without falling back to anything.
+     */
+    override suspend fun radioPage(track: Track, continuation: String?, limit: Int): RadioPage? {
+        val videoId = track.videoId ?: return null
+        return runCatching {
+            val page = innerTube.nextPage(videoId, continuation, limit)
+            page.copy(tracks = page.tracks.filter { it.videoId != videoId })
+        }.getOrNull()
     }
 
     override suspend fun prefetch(track: Track) {

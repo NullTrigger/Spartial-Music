@@ -27,6 +27,9 @@ class QueueEditsTest {
     private fun track(id: String, title: String, artist: String) =
         Track(id = id, title = title, artist = artist)
 
+    private fun track(id: String, title: String, artist: String, album: String) =
+        Track(id = id, title = title, artist = artist, album = album)
+
     @Test
     fun `queue serialization round-trips including the unshuffled order`() {
         val original = listOf("a", "b", "c", "d")
@@ -280,12 +283,12 @@ class QueueEditsTest {
     fun `the station takes one track from each seed per round`() {
         val first = listOf(
             track("a1", "A One", "Aster"),
-            track("a2", "A Two", "Aster"),
-            track("a3", "A Three", "Aster"),
+            track("a2", "A Two", "Aspen"),
+            track("a3", "A Three", "Alder"),
         )
         val second = listOf(
             track("b1", "B One", "Birch"),
-            track("b2", "B Two", "Birch"),
+            track("b2", "B Two", "Beech"),
         )
 
         val stream = QueueEdits.stationStream(
@@ -297,6 +300,45 @@ class QueueEditsTest {
 
         // The two radios meet instead of one being appended to the other.
         assertEquals(listOf("a1", "b1", "a2", "b2"), stream.map { it.id })
+    }
+
+    @Test
+    fun `the station keeps one song per artist and per album`() {
+        val station = listOf(
+            track("a1", "A One", "Aster", album = "First"),
+            track("a2", "A Two", "Aster", album = "First"),
+            track("a3", "A Three", "Aster", album = "Second"),
+            track("b1", "B One", "Birch", album = "Third"),
+        )
+
+        val stream = QueueEdits.stationStream(
+            stations = listOf(station),
+            excludedIds = emptySet(),
+            takenNames = emptySet(),
+            limit = 10,
+        )
+
+        // One Aster song, whichever shelf it came from: a radio answer is not
+        // an artist playlist.
+        assertEquals(listOf("a1", "b1"), stream.map { it.id })
+    }
+
+    @Test
+    fun `the station stays off the artists the queue just played`() {
+        val station = listOf(
+            track("a1", "A One", "Aster"),
+            track("b1", "B One", "Birch"),
+        )
+
+        val stream = QueueEdits.stationStream(
+            stations = listOf(station),
+            excludedIds = emptySet(),
+            takenNames = emptySet(),
+            limit = 10,
+            takenArtists = setOf("aster"),
+        )
+
+        assertEquals(listOf("b1"), stream.map { it.id })
     }
 
     @Test
@@ -318,32 +360,4 @@ class QueueEditsTest {
         assertEquals(listOf("live"), stream.map { it.id })
     }
 
-    @Test
-    fun `discovery is dealt through the batch rather than staked at the end`() {
-        val station = (1..10).map { track("s$it", "S $it", "Aster") }
-        val discovery = (1..3).map { track("d$it", "D $it", "Birch") }
-
-        val blended = QueueEdits.blendDiscovery(
-            station = station,
-            discovery = discovery,
-            limit = 10,
-            discoveryShare = 3,
-        )
-
-        assertEquals(10, blended.size)
-        assertEquals(
-            listOf("s1", "d1", "s2", "s3", "d2", "s4", "s5", "d3", "s6", "s7"),
-            blended.map { it.id },
-        )
-    }
-
-    @Test
-    fun `a thin station is topped up by discovery instead of stopping short`() {
-        val station = listOf(track("s1", "S 1", "Aster"))
-        val discovery = listOf(track("d1", "D 1", "Birch"), track("d2", "D 2", "Birch"))
-
-        val blended = QueueEdits.blendDiscovery(station, discovery, limit = 3, discoveryShare = 2)
-
-        assertEquals(listOf("s1", "d1", "d2"), blended.map { it.id })
-    }
 }

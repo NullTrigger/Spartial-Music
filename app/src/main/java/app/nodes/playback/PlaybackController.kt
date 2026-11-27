@@ -31,7 +31,6 @@ import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
 import app.nodes.core.source.MusicSource
 import app.nodes.core.source.SourceRegistry
-import app.nodes.core.suggestions.FeedSuggestions
 import app.nodes.core.util.upgradeThumbnail
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -109,6 +108,12 @@ class PlaybackController @Inject constructor(
      * with extra steps.
      */
     private val stationOffered = LinkedHashSet<String>()
+
+    /**
+     * Where each station seed's radio has been read up to, so the next batch
+     * continues the mix instead of replaying its first page.
+     */
+    private val radioCursors = HashMap<String, String>()
 
     /** The track whose lyrics were last prefetched, so one attempt per song. */
     private var prefetchedLyricsFor: String? = null
@@ -1192,11 +1197,14 @@ class PlaybackController @Inject constructor(
     }
 
     /**
-     * Appends the next handful of tracks to the queue. The candidates are the
-     * track's own related tracks from its source first, then the user's local
-     * listening pool - minus what is queued and what played in the last 50
-     * tracks, so nothing repeats before it has to. Nothing is ever invented:
-     * "queue ended" is only reported when every step comes back empty.
+     * Appends the next handful of tracks to the queue: the playing track's own
+     * radio, continued from where the last batch stopped - minus what is
+     * queued, what played in the last 50 tracks and the artists or albums the
+     * batch already took, so a queue started from one song does not turn into
+     * that song's artist. Only when the radio cannot answer does the local
+     * library stand in; the provider's front page never does. Nothing is ever
+     * invented: "queue ended" is reported only when every step comes back
+     * empty.
      *
      * @param playFirst when true (the end-of-queue safety net) the first new
      *        track is started; otherwise playback continues untouched.
@@ -1295,14 +1303,15 @@ class PlaybackController @Inject constructor(
         suggestionsJob = scope.launch {
             val radio = radioSuggestions(current, SUGGESTION_COUNT * 2)
             val queued = queue.mapTo(HashSet()) { it.id }
-            val picked = radio
-                .filter {
+            val picked = QueueEdits.varyByName(
+                radio.filter {
                     it.id != current.id &&
                         it.id !in queued &&
                         (it.videoId != null || it.mediaUri != null)
-                }
-                .distinctBy { it.id }
-                .take(SUGGESTION_COUNT)
+                }.distinctBy { it.id },
+                takenNames = emptySet(),
+                limit = SUGGESTION_COUNT,
+            )
             // A newer track may have started while this call was in flight.
             if (suggestionsSeedId == current.id) _suggestions.value = picked
         }
@@ -1320,24 +1329,56 @@ class PlaybackController @Inject constructor(
     }.getOrDefault(emptyList())
 
     /**
+     * The station's radio, paged forward.
+     *
+     * A radio is a playlist with a continuation token, not a fixed list. Asking
+     * only for the first page means every batch after the first sees the same
+     * twenty-five songs - all of them already queued - and the queue has to
+     * fall back to something else. The cursor is kept per seed and advanced on
+     * every call, so a long session keeps receiving new tracks from the same
+     * mix; when the radio is finally exhausted the plain first page stands in.
+     */
+    private suspend fun stationRadio(seed: Track, limit: Int): List<Track> {
+        val source = registry.forTrack(seed.sourceId) ?: return emptyList()
+        val key = seed.videoId ?: seed.id
+        repeat(RADIO_PAGE_TRIES) { attempt ->
+            val page = runCatching { source.radioPage(seed, radioCursors[key], limit) }.getOrNull()
+                ?: return radioSuggestions(seed, limit)
+            val next = page.continuation
+            if (next == null) {
+                radioCursors.remove(key)
+            } else {
+                if (radioCursors.size >= RADIO_CURSOR_MEMORY) radioCursors.clear()
+                radioCursors[key] = next
+            }
+            if (page.tracks.isNotEmpty()) return page.tracks
+            // A page with a token but no rows is a skipped segment; the next
+            // page usually has rows. One retry, then the seed is given up.
+            if (next == null || attempt == RADIO_PAGE_TRIES - 1) return emptyList()
+        }
+        return emptyList()
+    }
+
+    /**
      * The next batch, a station rather than a single radio call.
      *
-     * YouTube Music keeps autoplay from looping by growing around whatever is
-     * playing and what played just before it; Spotify leads with the station's
-     * own answer and deals a smaller discovery share through the batch. This is
-     * that idea in one place: two seeds - the playing track and, when it is a
-     * different artist, the one before it - are asked for their radios and
-     * blended round-robin, so one artist's run cannot own the batch; three of
-     * the ten slots then go to the provider's own picks, so the queue keeps
-     * moving outwards instead of circling the same radio.
+     * The batch is the provider's radio and nothing else: two seeds - the
+     * playing track and, when it is a different artist, the one before it -
+     * are asked for their radios, and the answers are blended round-robin.
      *
-     * Only when both radios are dry does the older chain stand in - the For You
-     * feed's suggestions (the queue's own echo first, then the picks, then
-     * variety), then the local pool, then a shuffle of the library. Already
-     * queued, recently played and already-offered tracks never come back, and
-     * the fallback alone is shaped to the queue's mood: a radio answer needs no
-     * such help, while a queue grown from a Malayalam song should not be taken
-     * over by an unrelated pool.
+     * The home feed's picks used to be mixed in as "discovery", three slots in
+     * ten. That is what put the account's trending rails (devotional videos,
+     * regional film songs) inside a queue started from one Punjabi track: the
+     * feed's first rows are the provider's front page, not this song's
+     * neighbours. Discovery is gone; a radio answer is the queue.
+     *
+     * Variety is enforced on top: no song name twice, no artist the queue just
+     * ended on, one song per artist and per album in a batch. Already queued,
+     * recently played and already-offered tracks never come back. Only when
+     * both radios are dry does the local fallback stand in - the queue's own
+     * echo, then the library - and even that is shaped by the queue's mood,
+     * because a queue grown from a Malayalam song should not be taken over by
+     * an unrelated pool.
      */
     private suspend fun fetchMoreTracks(): List<Track> {
         val queuedIds = queue.mapTo(HashSet()) { it.id }
@@ -1349,53 +1390,43 @@ class PlaybackController @Inject constructor(
         val names = queue.mapTo(HashSet()) { QueueEdits.titleKey(it) }
         val seed = _state.value.current ?: queue.lastOrNull()
 
-        val stations = stationSeeds().map { radioSuggestions(it, STATION_RADIO_WINDOW) }
+        val stations = stationSeeds().map { stationRadio(it, STATION_RADIO_WINDOW) }
+        // The artists the queue just played are out for this batch: a station
+        // grown from one song otherwise opens with that same artist again.
+        val tailArtists = queue.takeLast(ARTIST_TAIL)
+            .map { QueueEdits.artistKey(it) }
+            .filter { it.isNotEmpty() }
+            .toHashSet()
         val station = QueueEdits.stationStream(
             stations = stations,
             excludedIds = excludedIds,
             takenNames = names,
             limit = EXTEND_COUNT,
+            takenArtists = tailArtists,
         )
         if (station.isNotEmpty()) {
-            val stationNames = HashSet(names)
-            station.mapTo(stationNames) { QueueEdits.titleKey(it) }
-            val discovery = QueueEdits.varyByName(
-                discoveryPool(offeredIds),
-                stationNames,
-                DISCOVERY_SHARE,
-            )
-            val picked = QueueEdits.blendDiscovery(
-                station = station,
-                discovery = discovery,
-                limit = EXTEND_COUNT,
-                discoveryShare = DISCOVERY_SHARE,
-            )
-            rememberStationOffered(picked)
-            return picked
+            rememberStationOffered(station)
+            return station
         }
 
         val radio = stations.flatten()
         val mood = moodFor(seed)
         val pool = localTrackPool()
-        val shaped = shapedSuggestions(seed)
-        // Before the wider pool: the shaped feed's tracks that echo the queue
-        // itself, so a queue grown from one song keeps sounding like that song.
-        val echo = QueueEdits.echo(queue, shaped?.pool ?: pool, EXTEND_COUNT)
-        val preferred = buildList {
-            addAll(echo)
-            shaped?.let { addAll(it.ordered) }
-        }
+        // The local echo of what the queue is already playing, then the pool.
+        // The provider's front page never stands in here.
+        val echo = QueueEdits.echo(queue, pool, EXTEND_COUNT)
         // A wide net first, then the mood picks its share from it: shaping a
         // shortlist of ten would only reshuffle what the fallbacks happened to
         // return first.
         val candidates = QueueEdits.selectExtension(
-            related = QueueEdits.varyByName(radio + preferred, names, EXTEND_CANDIDATES),
+            related = QueueEdits.varyByName(radio + echo, names, EXTEND_CANDIDATES),
             localPool = QueueEdits.varyByName(pool, names, EXTEND_CANDIDATES),
             queuedIds = excludedIds,
             recentlyPlayedIds = recentlyPlayedIds,
             limit = EXTEND_CANDIDATES,
         )
-        val picked = QueueEdits.shapeByMood(candidates, mood, EXTEND_COUNT)
+        val varied = QueueEdits.varyByArtist(candidates, tailArtists, EXTEND_CANDIDATES)
+        val picked = QueueEdits.shapeByMood(varied, mood, EXTEND_COUNT)
         if (picked.isNotEmpty()) {
             rememberStationOffered(picked)
             return picked
@@ -1403,9 +1434,13 @@ class PlaybackController @Inject constructor(
         // Last step: a shuffle of the whole local library, still minus what is
         // queued, offered or just played.
         val last = QueueEdits.shapeByMood(
-            QueueEdits.varyByName(
-                pool.shuffled().filter { it.id !in excludedIds },
-                names,
+            QueueEdits.varyByArtist(
+                QueueEdits.varyByName(
+                    pool.shuffled().filter { it.id !in excludedIds },
+                    names,
+                    EXTEND_CANDIDATES,
+                ),
+                tailArtists,
                 EXTEND_CANDIDATES,
             ),
             mood,
@@ -1435,22 +1470,6 @@ class PlaybackController @Inject constructor(
             seeds += candidate
         }
         return seeds
-    }
-
-    /**
-     * The discovery half of the station: the provider's own picks for the day,
-     * minus anything the queue already holds. The local catalogue stands in
-     * only when the feed cannot answer, and then only for songs that share an
-     * artist or album with the queue - discovery may wander, not leave the room.
-     */
-    private suspend fun discoveryPool(excludedIds: Set<String>): List<Track> {
-        val seed = _state.value.current
-        val shaped = runCatching { shapedSuggestions(seed) }.getOrNull()
-        val picks = shaped?.let { it.topPicks + it.fresh }.orEmpty()
-            .filterNot { it.id in excludedIds }
-        if (picks.isNotEmpty()) return picks
-        return QueueEdits.echo(queue, localTrackPool(), EXTEND_CANDIDATES)
-            .filterNot { it.id in excludedIds }
     }
 
     /**
@@ -1497,15 +1516,6 @@ class PlaybackController @Inject constructor(
         runCatching { library.recentlyPlayed.first() }.getOrNull()?.let(::addAll)
         runCatching { library.likedTracks.first() }.getOrNull()?.let(::addAll)
         runCatching { library.allTracks.first() }.getOrNull()?.let(::addAll)
-    }
-
-    /**
-     * The For You feed's suggestions around [seed], or null when the provider
-     * cannot answer and the local catalogue has to stand in.
-     */
-    private suspend fun shapedSuggestions(seed: Track?): FeedSuggestions.Shaped? {
-        val source = seed?.let { registry.forTrack(it.sourceId) } ?: registry.primary()
-        return FeedSuggestions.shaped(source, seed)
     }
 
     /** The queue cannot grow forever: at most 100 played tracks stay behind. */
@@ -1770,8 +1780,17 @@ class PlaybackController @Inject constructor(
         /** Radio window asked of each station seed. */
         const val STATION_RADIO_WINDOW = 25
 
-        /** Of the tracks appended at a time, how many are discovery. */
-        const val DISCOVERY_SHARE = 3
+        /** Pages tried per seed before the station treats its radio as dry. */
+        const val RADIO_PAGE_TRIES = 2
+
+        /** Radio cursors remembered at once; clearing only restarts a mix. */
+        const val RADIO_CURSOR_MEMORY = 200
+
+        /**
+         * How many of the queue's last tracks have their artists kept out of
+         * the next batch, so a station never restarts on the same artist.
+         */
+        const val ARTIST_TAIL = 2
 
         /** Bounded station memory, in track ids. */
         const val STATION_MEMORY = 400

@@ -8,6 +8,7 @@ package app.nodes.core.source
 import app.nodes.core.model.HomeFeed
 import app.nodes.core.model.PlaybackHandle
 import app.nodes.core.model.PlaylistDetail
+import app.nodes.core.model.RadioPage
 import app.nodes.core.model.SourceAvailability
 import app.nodes.core.model.SourceId
 import app.nodes.core.model.SourceResult
@@ -72,4 +73,12 @@ interface MusicSource {
      */
     suspend fun getRelated(track: Track, limit: Int): SourceResult<List<Track>> =
         SourceResult.Success(emptyList())
+
+    /**
+     * The next page of [track]'s radio: [continuation] null asks for the first
+     * page, and the returned token asks for the page after it. Sources whose
+     * radio is not paged return null, and [getRelated] keeps answering.
+     * Must never throw.
+     */
+    suspend fun radioPage(track: Track, continuation: String?, limit: Int): RadioPage? = null
 }

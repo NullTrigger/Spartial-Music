@@ -7,6 +7,7 @@ package app.nodes.core.source.youtubemusic
 
 import app.nodes.core.model.HomeSection
 import app.nodes.core.model.Playlist
+import app.nodes.core.model.RadioPage
 import app.nodes.core.model.SourceId
 import app.nodes.core.model.Track
 import kotlinx.serialization.json.Json
@@ -297,8 +298,71 @@ internal object InnerTubeParser {
                 if (seen.add(track.videoId ?: track.id)) out += track
             }
         }
+        walkRenderers(root, "compactVideoRenderer") { renderer ->
+            relatedRow(renderer)?.let { track ->
+                if (seen.add(track.videoId ?: track.id)) out += track
+            }
+        }
 
         return out.take(limit.coerceAtLeast(0))
+    }
+
+    /**
+     * One page of a radio: the rows plus the token that asks for the next page.
+     * The queue panel is checked first for the token - a `next` answer carries
+     * continuations for several panels, and the first one in document order is
+     * not always the queue's.
+     */
+    fun nextPage(root: JsonObject, limit: Int): RadioPage {
+        val tracks = nextTracks(root, limit)
+        var queueToken: String? = null
+        walkRenderers(root, "playlistPanelRenderer") { panel ->
+            if (queueToken == null) queueToken = lastContinuation(panel)
+        }
+        return RadioPage(tracks, queueToken ?: lastContinuation(root))
+    }
+
+    /**
+     * The deepest continuation in [node]: the last one wins, because a radio
+     * page ends with the token for the page after it.
+     */
+    private fun lastContinuation(node: JsonElement): String? {
+        var token: String? = null
+        fun scan(current: JsonElement) {
+            when (current) {
+                is JsonObject -> {
+                    current["nextContinuationData"]?.obj()?.get("continuation")?.string()?.let { token = it }
+                    current["continuationCommand"]?.obj()?.get("token")?.string()?.let { token = it }
+                    current.values.forEach { value -> scan(value) }
+                }
+                is JsonArray -> current.forEach { value -> scan(value) }
+                else -> Unit
+            }
+        }
+        scan(node)
+        return token
+    }
+
+    /**
+     * One related-video row: the layout a `next` answer falls back to when it
+     * does not serve the music queue. It names no album, so only the byline's
+     * artist is known.
+     */
+    private fun relatedRow(row: JsonObject): Track? {
+        val videoId = row["videoId"]?.string() ?: return null
+        val title = row["title"]?.text()?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val runs = row["shortBylineText"]?.obj()?.get("runs") as? JsonArray
+        val artist = subtitleSections(runs).firstOrNull()?.text.orEmpty()
+        return Track(
+            id = "ytmusic-$videoId",
+            title = title,
+            artist = artist,
+            artworkUri = musicThumbnail(row),
+            durationMs = parseClock(row["lengthText"]?.text()?.takeIf { CLOCK.matches(it) }),
+            sourceId = SourceId.YOUTUBE_MUSIC,
+            videoId = videoId,
+            externalUrl = "https://music.youtube.com/watch?v=$videoId",
+        )
     }
 
     /** One `playlistPanelVideoRenderer` radio row. */

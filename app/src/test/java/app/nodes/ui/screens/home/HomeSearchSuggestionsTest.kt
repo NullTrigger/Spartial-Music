@@ -59,6 +59,32 @@ class HomeSearchSuggestionsTest {
     }
 
     @Test
+    fun `recognises rows that answer the query by name`() {
+        val literal = Track(id = "one", title = "One Love (Clapback)", artist = "Chronical Deep")
+        val related = Track(id = "other", title = "Rain On Me", artist = "Kellan Roots")
+
+        assertTrue(answersQuery(literal, listOf("one love")))
+        assertTrue(!answersQuery(related, listOf("one love")))
+        // A mood search still names its own answers, so they are recognised too.
+        assertTrue(answersQuery(Track(id = "sad", title = "Sad Song", artist = "Aster"), listOf("sad song")))
+    }
+
+    @Test
+    fun `fallback only fills a rail the radio left short`() {
+        val discovery = listOf(Track(id = "d1", title = "D1", artist = "Aster"))
+        val fallback = listOf(Track(id = "f1", title = "F1", artist = "Birch"))
+
+        assertEquals(
+            listOf("d1", "f1"),
+            mergeSearchSuggestions(emptyList(), discovery, limit = 4, fallback = fallback).map { it.id },
+        )
+        assertEquals(
+            listOf("d1"),
+            mergeSearchSuggestions(emptyList(), discovery, limit = 1, fallback = fallback).map { it.id },
+        )
+    }
+
+    @Test
     fun `drops discovery that Home already shows`() {
         val merged = mergeSearchSuggestions(
             matches = emptyList(),

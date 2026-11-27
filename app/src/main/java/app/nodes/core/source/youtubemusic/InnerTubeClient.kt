@@ -7,6 +7,7 @@ package app.nodes.core.source.youtubemusic
 
 import app.nodes.core.model.HomeSection
 import app.nodes.core.model.Playlist
+import app.nodes.core.model.RadioPage
 import app.nodes.core.model.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -224,17 +225,59 @@ class InnerTubeClient @Inject constructor(
      * The radio / "up next" answer for a video: YouTube Music's own related
      * tracks, for the infinite queue. Same `next` request the music site makes
      * when a song runs out; no PoToken, no cipher, no other client identity.
+     *
+     * The request names the song's own autoplay playlist (`RDAMVM<videoId>`),
+     * which is what makes YouTube answer with the music queue - the same list
+     * the site autoplays from. Asked for a bare video id, the same endpoint can
+     * instead answer with the watch page's related-video layout, which carries
+     * no music rows at all; the queue then looked empty and fell back to the
+     * home feed, which is why unrelated front-page songs appeared there. When
+     * the radio layout still comes back empty, the plain request is retried.
      */
-    suspend fun next(videoId: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
-        val payload = buildJsonObject {
-            put("context", contextFor(WEB_REMIX))
-            putJsonObject("playerEndpoint") {
-                putJsonObject("watchEndpoint") { put("videoId", videoId) }
+    suspend fun next(videoId: String, limit: Int): List<Track> =
+        nextPage(videoId, continuation = null, limit = limit).tracks
+
+    /**
+     * One page of the song's radio, with the token for the page after it.
+     *
+     * [continuation] null asks for the first page (the autoplay mix of
+     * [videoId]); any other value asks for the next page of that same radio.
+     * This is the call that keeps the infinite queue growing: the radio is a
+     * long playlist and every page names its successor.
+     */
+    suspend fun nextPage(videoId: String, continuation: String?, limit: Int): RadioPage =
+        withContext(Dispatchers.IO) {
+            if (continuation != null) {
+                val payload = buildJsonObject {
+                    put("context", contextFor(WEB_REMIX))
+                    put("continuation", continuation)
+                }
+                val root = withRetry { post("next", payload, WEB_REMIX, authenticated = true) }
+                return@withContext InnerTubeParser.nextPage(root, limit.coerceIn(1, 50))
             }
-            put("videoId", videoId)
+            val radio = runCatching {
+                val root = post("next", nextPayload(videoId, "RDAMVM$videoId"), WEB_REMIX, authenticated = true)
+                InnerTubeParser.nextPage(root, limit.coerceIn(1, 50))
+            }.getOrNull()
+            if (radio != null && radio.tracks.isNotEmpty()) return@withContext radio
+            val plain = withRetry { post("next", nextPayload(videoId, null), WEB_REMIX, authenticated = true) }
+            InnerTubeParser.nextPage(plain, limit.coerceIn(1, 50))
         }
-        val root = withRetry { post("next", payload, WEB_REMIX, authenticated = true) }
-        InnerTubeParser.nextTracks(root, limit.coerceIn(1, 25))
+
+    /** The `next` body: the video, and the autoplay playlist when one is named. */
+    private fun nextPayload(videoId: String, playlistId: String?): JsonObject = buildJsonObject {
+        put("context", contextFor(WEB_REMIX))
+        put("videoId", videoId)
+        if (playlistId != null) {
+            put("playlistId", playlistId)
+            put("isAudioOnly", true)
+        }
+        putJsonObject("playerEndpoint") {
+            putJsonObject("watchEndpoint") {
+                put("videoId", videoId)
+                if (playlistId != null) put("playlistId", playlistId)
+            }
+        }
     }
 
     /**

@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.Locale
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -172,18 +173,25 @@ class HomeViewModel @Inject constructor(
             excludedIds = excluded,
             limit = SEARCH_SUGGESTION_LIMIT,
         )
-        // The local pass answers the search with music the user already has;
-        // the provider then rounds it out with songs around that answer, the
-        // way Spotify's rail does. With nothing local to seed from, the
-        // newest query is asked directly instead, so the rail still answers.
-        val discovery = when {
-            matches.isNotEmpty() -> discoveryAround(matches.first())
-            else -> queries.firstOrNull()?.let { discoveryForQuery(it) }.orEmpty()
-        }
+        // The rail is "more like what you searched", not the search again:
+        // the best local match - or, with nothing local to seed from, the
+        // provider's first answer for the newest query - names a radio, and
+        // that radio is the rail.
+        val seed = matches.firstOrNull()
+            ?: queries.firstOrNull()?.let { query -> discoveryForQuery(query).firstOrNull() }
+        val radio = seed?.let { discoveryAround(it) }.orEmpty()
+        // The rows that answer the query by name are exactly what the user
+        // just failed to want more of: searching "one love" kept filling this
+        // row with songs called One Love. They only appear when the radio has
+        // nothing to put in their place.
+        val other = radio.filterNot { answersQuery(it, queries) }
+        // Fewer slides beats a row of repeats: the literal answers are only
+        // the fallback for a radio that came back empty (offline, for one).
         val suggestions = mergeSearchSuggestions(
-            matches = matches,
-            discovery = discovery,
+            matches = emptyList(),
+            discovery = other,
             excludedIds = excluded,
+            fallback = if (other.isEmpty()) matches else emptyList(),
         )
         _state.update { it.copy(searchSuggestions = suggestions) }
     }
@@ -304,28 +312,73 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Banner carousel source, padded to exactly eight: the provider's hero
-     * rail first (the existing recommendation output), then the user's recent
-     * plays, then the provider's own fallback shelves. Every stage is deduped,
-     * so no song repeats inside the carousel. Fewer than eight only when the
-     * app genuinely knows fewer than eight songs.
+     * Banner carousel source, padded to [BANNER_COUNT] in this order:
+     *
+     *  1. songs by the artists this device actually listens to - the liked
+     *     songs and the last plays are the only taste profile the app keeps,
+     *     and no artist takes more than two slides;
+     *  2. the user's own recent plays;
+     *  3. the rest of the provider's song shelves, rows that name an album
+     *     first;
+     *  4. the provider's hero rail, last: it only pads a short carousel.
+     *
+     * The hero rail used to lead. It is the first five playable rows of the
+     * home page in provider order, so the first slide was whatever that page
+     * happened to open with - often a video row with the song's name burnt into
+     * the frame. A carousel that starts from the user's own history is a
+     * recommendation; one that starts from the provider's page is a copy of
+     * somebody else's home screen.
      *
      * Only playable rows reach the carousel. A home shelf can also carry album
      * and playlist cards, which are [Track]s with a collection id and no video
      * id; tapping Play on one of those answered "This track has no YouTube
      * video id" instead of opening the album it named.
      */
-    private fun banners(feed: HomeFeed, recents: List<Track>): List<Track> {
+    private suspend fun banners(feed: HomeFeed, recents: List<Track>): List<Track> {
         val hero = feed.hero.map { it.track }.filter { it.isPlayable() }
         val recent = recents.filter { it.isPlayable() }
-            .filterNot { track -> track.id in hero.map { it.id }.toSet() }
-        val shelved = feed.sections
-            .flatMap { it.tracks }
-            .filter { it.isPlayable() }
-            .filterNot { track -> track.id in (hero + recent).map { it.id }.toSet() }
-        return (hero + recent + shelved)
+        val shelved = feed.sections.flatMap { it.tracks }.filter { it.isPlayable() }
+        val pool = (shelved + hero).distinctBy { it.id }
+
+        val taste = tasteArtists(recent)
+        val perArtist = HashMap<String, Int>()
+        val byArtist = if (taste.isEmpty()) {
+            emptyList()
+        } else {
+            pool.filter { track ->
+                val artist = track.artist.trim().lowercase(Locale.ROOT)
+                if (artist !in taste) return@filter false
+                val used = perArtist[artist] ?: 0
+                if (used >= SLIDES_PER_ARTIST) return@filter false
+                perArtist[artist] = used + 1
+                true
+            }
+        }
+        // A row that names its album is a catalogue entry; a bare video row is
+        // whatever the page carried, so it only fills a carousel still short.
+        val catalogued = pool.filterNot { it.album.isNullOrBlank() }
+
+        return (byArtist + recent + catalogued + pool + hero)
             .distinctBy { it.id }
             .take(BANNER_COUNT)
+    }
+
+    /**
+     * The artists this device listens to, most-evidenced first: the liked songs
+     * and the last plays, counted per artist. Empty on a fresh install, where
+     * the carousel falls back to the provider's order.
+     */
+    private suspend fun tasteArtists(recent: List<Track>): Set<String> {
+        val liked = runCatching { library.likedTracks.first() }.getOrDefault(emptyList())
+        return (liked + recent)
+            .map { it.artist.trim() }
+            .filter { it.isNotEmpty() }
+            .groupingBy { it.lowercase(Locale.ROOT) }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .take(TASTE_ARTIST_COUNT)
+            .mapTo(HashSet()) { it.key }
     }
 
     /**
@@ -360,6 +413,12 @@ class HomeViewModel @Inject constructor(
 
     private companion object {
         const val BANNER_COUNT = 8
+
+/** How many different artists the carousel's taste picks may draw on. */
+private const val TASTE_ARTIST_COUNT = 8
+
+/** At most this many slides by one artist, so the carousel keeps some variety. */
+private const val SLIDES_PER_ARTIST = 2
 
         /**
          * How stale the rails may be when the app is reopened. Below this, the

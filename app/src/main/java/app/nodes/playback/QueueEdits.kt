@@ -83,6 +83,9 @@ internal object QueueEdits {
 
     private fun String.keyOrNull(): String? = trim().lowercase().takeIf { it.isNotEmpty() }
 
+    /** The artist a queue compares for variety: trimmed and case-folded. */
+    fun artistKey(track: Track): String = track.artist.keyOrNull().orEmpty()
+
     // ------------------------------------------------------------------
     // Name variety
     // ------------------------------------------------------------------
@@ -252,17 +255,29 @@ internal object QueueEdits {
      * one radio's top ten. Tracks already queued or played, ids listed in
      * [excludedIds] and song names the queue already holds are dropped; the
      * first track per name wins.
+     *
+     * Variety is enforced, not hoped for: [takenArtists] - the artists the
+     * queue already ended on - start at [perArtist] and are skipped entirely,
+     * and no artist or album may take more than its cap inside one batch. A
+     * radio answer for one song is mostly that song's artist and album, which
+     * is why a queue started from one track used to keep sounding like it.
      */
     fun stationStream(
         stations: List<List<Track>>,
         excludedIds: Set<String>,
         takenNames: Set<String>,
         limit: Int,
+        takenArtists: Set<String> = emptySet(),
+        perArtist: Int = 1,
+        perAlbum: Int = 1,
     ): List<Track> {
         if (limit <= 0 || stations.isEmpty()) return emptyList()
         val queues = stations.map { ArrayDeque(it) }
         val seenIds = HashSet<String>()
         val seenNames = HashSet(takenNames)
+        val artists = HashMap<String, Int>()
+        takenArtists.filter { it.isNotBlank() }.forEach { artists[it] = perArtist }
+        val albums = HashMap<String, Int>()
         val out = ArrayList<Track>(limit)
         var added = true
         while (out.size < limit && added) {
@@ -273,6 +288,12 @@ internal object QueueEdits {
                     val track = station.removeFirst()
                     if (track.id in excludedIds || !seenIds.add(track.id)) continue
                     if (!seenNames.add(titleKey(track))) continue
+                    val artist = artistKey(track)
+                    if (artist.isNotEmpty() && (artists[artist] ?: 0) >= perArtist) continue
+                    val album = track.album?.keyOrNull().orEmpty()
+                    if (album.isNotEmpty() && (albums[album] ?: 0) >= perAlbum) continue
+                    if (artist.isNotEmpty()) artists[artist] = (artists[artist] ?: 0) + 1
+                    if (album.isNotEmpty()) albums[album] = (albums[album] ?: 0) + 1
                     out += track
                     added = true
                     break
@@ -283,47 +304,19 @@ internal object QueueEdits {
     }
 
     /**
-     * Spotify's autoplay mix: the station's own answer leads and [discovery]
-     * songs are dealt in at spread slots (one every few tracks, not as a block
-     * at the end), so the queue keeps moving outwards instead of circling the
-     * same radio. [discoveryShare] of [limit] slots go to discovery; the rest
-     * is filled from the station, and whatever runs out first is topped up
-     * from the other.
+     * One song per artist, minus the artists the queue already ended on. Used
+     * on the batches that are not built by [stationStream], so every path that
+     * grows the queue obeys the same variety rule.
      */
-    fun blendDiscovery(
-        station: List<Track>,
-        discovery: List<Track>,
-        limit: Int,
-        discoveryShare: Int,
-    ): List<Track> {
+    fun varyByArtist(candidates: List<Track>, takenArtists: Set<String>, limit: Int): List<Track> {
         if (limit <= 0) return emptyList()
-        val seenIds = HashSet<String>()
-        val seenNames = HashSet<String>()
-        fun clean(list: List<Track>): List<Track> =
-            list.filter { seenIds.add(it.id) && seenNames.add(titleKey(it)) }
-        val main = clean(station)
-        val extra = clean(discovery)
-        val share = discoveryShare.coerceIn(0, minOf(limit, extra.size))
-        val every = if (share == 0) limit + 1 else (limit / share).coerceAtLeast(2)
-        val out = ArrayList<Track>(limit)
-        var usedExtra = 0
-        var mainIndex = 0
-        var extraIndex = 0
-        for (slot in 0 until limit) {
-            val dueInSlot = usedExtra < share && slot % every == every / 2
-            val takeExtra = (dueInSlot || mainIndex >= main.size) && extraIndex < extra.size
-            val track = when {
-                takeExtra -> {
-                    usedExtra++
-                    extra[extraIndex++]
-                }
-                mainIndex < main.size -> main[mainIndex++]
-                extraIndex < extra.size -> {
-                    usedExtra++
-                    extra[extraIndex++]
-                }
-                else -> break
-            }
+        val seen = HashSet<String>()
+        takenArtists.filterTo(seen) { it.isNotBlank() }
+        val out = ArrayList<Track>(minOf(limit, candidates.size))
+        for (track in candidates) {
+            if (out.size >= limit) break
+            val artist = artistKey(track)
+            if (artist.isNotEmpty() && !seen.add(artist)) continue
             out += track
         }
         return out

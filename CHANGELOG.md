@@ -47,6 +47,24 @@ All notable changes to Spartial Music are documented here. The format follows
 - Unlike Glossy, the account sync starts off: every part of it writes to a real
   account, so it waits for the switch.
 
+### Fixed
+
+- Home's banner led with the provider's front page, so a promotional video row
+  filled a third of the screen with the song's name burnt into the artwork. The
+  carousel now starts from the artists this device listens to, then recent
+  plays, and only pads from the feed.
+- "From your searches" answered the query instead of continuing it: searching
+  "one love" filled the row with songs called One Love. It is now the radio
+  around the best match, minus every row that answers the query by name.
+- The infinite queue mixed the home feed's first rows into each batch, which is
+  how unrelated trending and devotional videos ended up after one Punjabi song.
+  Queue growth is the playing song's own radio only - no home-feed picks, no
+  song name twice, no artist the queue just played, one song per artist and per
+  album in a batch.
+- "Up next" now asks YouTube Music for the song's own autoplay radio
+  (`RDAMVM…`) rather than a bare video id, which could answer with the watch
+  page's related-video layout and parse to nothing.
+
 ### Security
 
 - Play services auth is `gmsImplementation` only; the `foss` flavour uses a

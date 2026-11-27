@@ -72,6 +72,20 @@ data class Track(
     val isYoutube: Boolean get() = sourceId == SourceId.YOUTUBE
 }
 
+/**
+ * One page of a provider radio, and the token that asks for the next one.
+ *
+ * A radio is a playlist, not a fixed list: YouTube Music answers the first
+ * page with 25 tracks and a continuation, and only the continuation keeps a
+ * queue growing. Without it every later request returns the same first page,
+ * the queue runs out of new tracks, and whatever fallback exists takes over.
+ */
+data class RadioPage(
+    val tracks: List<Track>,
+    /** Null when the radio has been exhausted. */
+    val continuation: String?,
+)
+
 /** A slide in the hero carousel. */
 data class HeroSlide(
     val track: Track,
