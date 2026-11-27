@@ -1,5 +1,4 @@
 
-   
 name: Build Android Release APKs
 
 on:
@@ -57,7 +56,7 @@ jobs:
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building version: $NEW_VERSION"
+          echo "New version: $NEW_VERSION"
 
   build:
     name: Build ${{ matrix.flavor }} APK
@@ -93,7 +92,7 @@ jobs:
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
-          echo "Using Android SDK: $SDK"
+          echo "Android SDK location: $SDK"
 
       - name: Install Android SDK packages
         shell: bash
@@ -101,18 +100,22 @@ jobs:
           set -euo pipefail
 
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SDKMANAGER="$SDK/cmdline-tools/16.0/bin/sdkmanager"
 
-          if [ ! -x "$SDKMANAGER" ]; then
-            echo "::error::sdkmanager not found at $SDKMANAGER"
-            find "$SDK/cmdline-tools" -name sdkmanager -type f || true
+          SDKMANAGER=$(find "$SDK/cmdline-tools" \
+            -type f -name sdkmanager -print -quit)
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::Android sdkmanager was not found."
+            find "$SDK/cmdline-tools" -maxdepth 4 -type f || true
             exit 1
           fi
+
+          echo "Found SDK Manager: $SDKMANAGER"
 
           echo "Accepting Android SDK licenses..."
           yes | "$SDKMANAGER" --licenses
 
-          echo "Installing required Android SDK packages..."
+          echo "Installing Android SDK packages..."
 
           "$SDKMANAGER" \
             "platform-tools" \
