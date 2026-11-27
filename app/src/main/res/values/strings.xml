@@ -1,0 +1,641 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The Spartial Music Authors.
+  Licensed under GPL-3.0-or-later. See LICENSE.
+-->
+<resources>
+    <string name="app_name">Spartial Music</string>
+    <string name="app_tagline">A quiet home for your music</string>
+
+    <!-- First-run wizard. -->
+    <string name="onboarding_links_missing">No browser is available to open that link.</string>
+    <string name="onb_logo_description">Spartial Music</string>
+    <string name="onb_card_quality">High Quality</string>
+    <string name="onb_card_quality_desc">High quality audio</string>
+    <string name="onb_card_sessions">Sessions</string>
+    <string name="onb_card_sessions_desc">Listen Together sessions</string>
+    <string name="onb_card_brand_desc">Spartial Music</string>
+    <string name="onb_dot_selected">Current card</string>
+    <string name="onb_dot_other">Another card</string>
+    <string name="onb_welcome_above">Welcome to</string>
+    <string name="onb_welcome_subtitle">A quieter way to listen. Your local files and optional YouTube Music. No ads, no analytics.</string>
+    <string name="onb_welcome_subtitle_play">A quieter way to listen. Your local files and official YouTube. No ads, no analytics.</string>
+    <string name="onb_sign_in_google">Sign in with Google</string>
+    <string name="onb_continue_guest">Continue as guest</string>
+    <string name="onb_sign_in_cancelled">Sign-in was cancelled. Everything still works without an account.</string>
+    <string name="onb_sign_in_failed">Sign-in did not complete. You can continue as guest and try again later.</string>
+    <string name="onb_footer_credits">Envisioned by M4TRX · Built by Chikku</string>
+    <string name="onb_back">Back</string>
+    <string name="onb_avatar_title">Choose your avatar</string>
+    <string name="onb_guest_line">Guest mode. No account needed.</string>
+    <string name="onb_previous_avatar">Previous avatar</string>
+    <string name="onb_next_avatar">Next avatar</string>
+    <string name="onb_avatar_preview">Your avatar</string>
+    <string name="onb_avatar_caption">Pick the one that feels like you</string>
+    <string name="onb_avatar_option">Avatar %1$d</string>
+    <string name="onb_avatar_selected">Avatar %1$d, selected</string>
+    <string name="onb_username_placeholder">Choose a username</string>
+    <string name="onb_username_helper">Shown to friends in Listen Together. Stored on this device.</string>
+    <string name="onb_username_error">Use 2 to 20 letters, numbers, spaces, dots, underscores or hyphens.</string>
+    <string name="onb_continue">Continue</string>
+    <string name="onb_profile_save">Save</string>
+    <string name="onb_allset_avatar">Your avatar</string>
+    <string name="onb_allset_badge">Profile saved</string>
+    <string name="onb_allset_title">You\'re all set</string>
+    <string name="onb_allset_hello">Welcome, @%1$s. Your profile is saved on this device.</string>
+    <string name="onb_allset_support">Please support Spartial Music by starring the repo or joining the Telegram channel.</string>
+    <string name="onb_community_title">Join the community</string>
+    <string name="onb_community_desc">Updates, help and feedback on Telegram</string>
+    <string name="onb_community_action">Join</string>
+    <string name="onb_github_title">Star us on GitHub</string>
+    <string name="onb_github_desc">Free and open source. A star helps others find it</string>
+    <string name="onb_github_action">Star</string>
+    <string name="onb_allset_note">Both are optional and open in your browser. Spartial Music doesn\'t track whether you tap them.</string>
+    <string name="onb_allset_button">All set</string>
+    <string name="onb_profile_group">Profile</string>
+    <string name="onb_profile_row_title">Avatar and display name</string>
+
+    <!-- A playlist route that arrived without an id. -->
+    <string name="playlist_missing_title">This playlist is not in your library</string>
+    <string name="playlist_missing_body">It may have been deleted, or imported on another device.</string>
+
+    <!-- Community links. -->
+    <string name="community_github_url" translatable="false">https://github.com/NullTrigger/Spartial-Music</string>
+    <string name="community_telegram_url" translatable="false">https://t.me/spartialmusic</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_sessions">Sessions</string>
+    <string name="nav_library">Library</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_expand">Expand navigation bar</string>
+    <string name="cd_open_settings">Open settings</string>
+    <string name="cd_open_history">Open listening stats</string>
+
+    <!-- Home -->
+    <string name="home_title">Home</string>
+    <string name="home_new_songs_title">New Songs You May Like</string>
+    <string name="home_new_songs_open">Open all suggestions</string>
+    <string name="home_search_suggestions_title">From your searches</string>
+    <string name="home_search_suggestions_subtitle">Matches for artists and songs you recently searched</string>
+    <string name="action_play">Play</string>
+    <string name="action_next">Next</string>
+    <string name="action_previous">Previous</string>
+    <string name="action_pause">Pause</string>
+    <string name="continue_playing">Continue Playing</string>
+    <string name="see_all">See all</string>
+    <string name="home_empty">Nothing here yet. Add a source in Settings, or grant audio permission for local tracks.</string>
+
+    <!-- Sources -->
+    <string name="source_needs_key">Add a YouTube Data API key in local.properties to enable this source.</string>
+    <string name="source_quota_exceeded">YouTube API quota for today is used up. It resets at midnight Pacific Time. Cached and local content still works.</string>
+    <string name="source_network_error">Could not reach the source. Check your connection.</string>
+    <string name="source_unauthorized">The source refused the request. Check your API key restrictions.</string>
+    <string name="source_error">Something went wrong while loading this source.</string>
+    <string name="source_not_found">Not found.</string>
+
+    <!-- Trending -->
+    <string name="trending_title">Trending</string>
+    <string name="trending_subtitle">Most popular music right now</string>
+    <string name="new_releases_title">New releases</string>
+    <string name="new_releases_subtitle">Albums and EPs just added to YouTube Music</string>
+    <string name="new_releases_album">Album</string>
+    <string name="home_browse_new_releases">New releases</string>
+    <string name="home_browse_trending">Trending</string>
+    <string name="home_browse_suggestions">For you</string>
+    <string name="home_hero_up_next">Up next</string>
+
+    <!-- Sessions -->
+    <string name="sessions_title">Sessions</string>
+    <string name="sessions_subtitle">Listen Together.</string>
+    <string name="sessions_create">Create Session</string>
+    <string name="sessions_join">Join</string>
+    <string name="sessions_name_placeholder">Yourname</string>
+    <string name="sessions_code_placeholder">Roomcode</string>
+    <string name="sessions_you_avatar">Your avatar in this room</string>
+    <string name="sessions_pending">Waiting for you</string>
+    <string name="sessions_approve">Let in</string>
+    <string name="sessions_decline">Block</string>
+    <string name="sessions_leave_session">Leave Session</string>
+    <string name="sessions_stop">End Session</string>
+    <string name="sessions_ticket_title">%1$s\'s Listening Party</string>
+    <string name="sessions_ticket_members">Member count: %1$d</string>
+    <string name="sessions_ticket_from">From: %1$s</string>
+    <string name="sessions_ticket_playing">Playing Track:</string>
+    <string name="sessions_ticket_none">Nothing playing yet</string>
+    <string name="sessions_host_hint">Your play, pause, seek and skips move everyone in the room.</string>
+    <string name="sessions_guest_hint">The host controls this room. Mute and volume stay yours.</string>
+    <string name="sessions_dismiss">Dismiss</string>
+    <string name="sessions_consent_title">Connect to a third-party server?</string>
+    <string name="sessions_consent_body">Sessions are hosted on a server run by a third party, not by Spartial Music. When you connect, it receives the room code, the display name you typed, and the track the host is playing (title, artist, album, artwork and position). Nothing else - no account, no library, no listening history.</string>
+    <string name="sessions_consent_accept">I understand, connect</string>
+    <string name="sessions_consent_decline">Not now</string>
+    <string name="settings_queue_group">Queue</string>
+    <string name="settings_remember_queue">Remember queue</string>
+    <string name="settings_remember_queue_hint">Keep the play queue across app restarts and restore it paused</string>
+    <string name="settings_remember_shuffle">Remember shuffle</string>
+    <string name="settings_remember_shuffle_hint">Restore the shuffle state together with the queue</string>
+    <string name="settings_autoplay_similar">Autoplay similar songs</string>
+    <string name="settings_autoplay_similar_hint">When the queue runs low, keep going in the same mood: the language you are playing leads, other languages stay a small variety share</string>
+    <string name="player_reshuffled">Upcoming tracks reshuffled</string>
+    <string name="player_reshuffle">Reshuffle upcoming tracks</string>
+    <string name="player_finding_more">Finding more music…</string>
+    <string name="settings_backup_group">Backup</string>
+    <string name="settings_export_library">Export library</string>
+    <string name="settings_export_library_hint">Save playlists, likes, history and settings to a JSON file</string>
+    <string name="settings_import_library">Import library</string>
+    <string name="settings_import_library_hint">Merge a backup file into this device; nothing is replaced</string>
+    <string name="settings_export_done">Library exported</string>
+    <string name="settings_export_failed">Export failed: %1$s</string>
+    <string name="settings_import_done">Imported %1$d playlists and %2$d liked tracks</string>
+    <string name="settings_import_failed">That file could not be read</string>
+    <string name="settings_import_too_large">That file is over 20 MB</string>
+    <string name="settings_import_newer">That backup comes from a newer version of the app</string>
+
+    <!-- Library -->
+    <string name="library_title">Library</string>
+    <string name="library_liked">Liked songs</string>
+    <string name="library_new_playlist">New playlist</string>
+    <string name="library_playlist_name">Playlist name</string>
+    <string name="library_empty_liked">Songs you like will show up here.</string>
+    <string name="library_summary">%1$d playlists · %2$d songs</string>
+    <string name="library_empty_playlists">Create a playlist and it will appear here.</string>
+    <string name="library_empty_recent">Songs you play will show up here.</string>
+    <string name="library_empty_artists">Artists from the songs in your library will show up here.</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_create">Create</string>
+    <string name="action_ok">OK</string>
+
+    <!-- Search -->
+    <string name="search_title">Search</string>
+    <string name="search_hint">Songs, artists, albums</string>
+    <string name="search_idle">Search across your active source.</string>
+    <string name="search_no_results">No results for “%1$s”.</string>
+    <string name="tracks_count">%1$d tracks</string>
+
+    <!-- Player -->
+    <string name="player_queue">Queue</string>
+    <string name="player_lyrics">Lyrics</string>
+    <string name="player_seek_bar">Seek bar</string>
+    <string name="player_youtube_notice">Playing through the official YouTube player. Audio pauses when this screen closes.</string>
+    <string name="player_like">Like</string>
+    <string name="player_add_to_playlist">Add to playlist</string>
+    <string name="player_queue_options">Queue options</string>
+    <string name="player_play_next">Play next</string>
+    <string name="player_add_to_queue">Add to queue</string>
+    <string name="player_remove_from_queue">Remove from queue</string>
+    <string name="player_playing_next">Playing next: %1$s</string>
+    <string name="player_added_to_queue">Added to queue: %1$s</string>
+    <string name="player_already_playing">Already playing this track</string>
+    <string name="player_more">More options</string>
+    <string name="player_view_artist">View artist</string>
+    <string name="player_view_album">View album</string>
+    <string name="player_add_library">Add to library</string>
+    <string name="player_remove_library">Remove from library</string>
+    <string name="player_copy_link">Copy link</string>
+    <string name="player_link_copied">Link copied to the clipboard.</string>
+    <string name="player_repeat">Repeat</string>
+    <string name="player_repeat_off">Repeat off</string>
+    <string name="player_repeat_all">Repeating the queue</string>
+    <string name="player_repeat_one">Repeating this track</string>
+    <string name="player_next">Next</string>
+    <string name="player_previous">Previous</string>
+    <string name="player_shuffle">Shuffle</string>
+    <string name="player_shuffle_on">Shuffle on — the queue is mixed from here on.</string>
+    <string name="player_shuffle_off">Shuffle off — your original order is back.</string>
+    <string name="player_infinite">Infinite queue</string>
+    <string name="player_infinite_on">Infinite queue on — more of your listening is queued automatically.</string>
+    <string name="player_infinite_off">Infinite queue off.</string>
+    <string name="player_queue_ended">Nothing more to queue yet — like more music and it shows up.</string>
+    <string name="player_cast">Cast to a device</string>
+    <string name="player_cast_unsupported">Casting needs the Google Play version of Spartial Music.</string>
+    <string name="player_cast_unavailable">YouTube video tracks play in the embedded player and cannot be cast.</string>
+    <string name="player_cast_chooser_failed">The device list could not be opened on this phone. Playback continues here.</string>
+    <string name="player_output_route">Audio output and volume</string>
+    <string name="player_output_title">Audio output</string>
+    <string name="player_output_volume">Volume</string>
+    <string name="player_output_device_speaker">Phone speaker</string>
+    <string name="player_output_device_wired">Wired headphones</string>
+    <string name="player_output_device_bluetooth">Bluetooth audio</string>
+
+    <!-- Artist / album pages -->
+    <string name="collection_none">Unknown</string>
+    <string name="collection_empty">Nothing cached from this artist yet. Search or play more of their music and it appears here.</string>
+    <string name="collection_kicker_artist">Artist</string>
+    <string name="collection_kicker_album">Album</string>
+    <string name="collection_track_count">%1$d tracks</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_dark_only">Spartial Music is dark by default. Light theme is a work in progress.</string>
+    <string name="settings_audio">Audio</string>
+    <string name="settings_wifi_only">Stream over Wi-Fi only</string>
+    <string name="settings_audio_quality">Prefer high quality audio</string>
+    <string name="settings_youtube_region">Trending region</string>
+    <string name="settings_ytmusic_account">YouTube Music account</string>
+    <string name="settings_ytmusic_signin">Sign in with Google</string>
+    <string name="settings_ytmusic_signout">Sign out of YouTube Music</string>
+    <string name="settings_ytmusic_account_hint">Optional. Shows your own shelves on Home and your playlists in Library. The session is stored encrypted on this device.</string>
+    <string name="settings_ytmusic_signed_in_as">Signed in as %1$s</string>
+    <string name="settings_sync_group">Sync likes to YouTube</string>
+    <string name="settings_sync_title">Sync to YT</string>
+    <string name="settings_sync_running">Syncing…</string>
+    <string name="settings_sync_signed_out">Sign in to YouTube Music first — the sync needs your account login.</string>
+    <string name="settings_sync_nothing">No liked YouTube Music tracks yet. Like some songs and sync again.</string>
+    <string name="settings_sync_done">Pushed %1$d likes to YouTube Music, %2$d failed. You can run this again any time.</string>
+    <string name="settings_sync_subtitle">Adds every track you liked in Spartial Music to your YouTube Music account\'s liked songs.</string>
+    <string name="settings_sync_note">One way only: nothing is pulled back into Spartial Music. Liking a track that is already liked changes nothing, so it is safe to run again. Uses the same unofficial YouTube Music connection as everything else in this app.</string>
+    <string name="login_title">Google sign-in</string>
+    <string name="login_done">Done</string>
+    <string name="login_explainer">Sign in to Google to load your own YouTube Music shelves, playlists and liked songs. The session is saved encrypted on this device and used only for YouTube Music requests.</string>
+    <string name="playlist_load_failed">Could not load this album or playlist.</string>
+    <string name="playlist_kicker">Playlist</string>
+
+    <string name="playlist_tracks">Tracks</string>
+    <string name="playlist_shuffle">Shuffle</string>
+    <string name="playlist_track_count">%1$d tracks</string>
+    <string name="playlist_picker_title">Add to playlist</string>
+    <string name="playlist_added_to">Added to %1$s</string>
+    <string name="playlist_already_in">Already in %1$s</string>
+    <string name="playlist_add_failed">Could not update the playlist.</string>
+    <string name="playlist_remove_track">Remove from playlist</string>
+    <string name="playlist_rename">Rename</string>
+    <string name="playlist_rename_title">Rename playlist</string>
+    <string name="playlist_delete">Delete playlist</string>
+    <string name="playlist_delete_confirm">Delete %1$s? The playlist is gone for good.</string>
+    <string name="playlist_drag_handle">Drag to reorder</string>
+    <string name="eq_title">Equalizer</string>
+    <string name="eq_enable">Enable equalizer</string>
+    <string name="eq_enable_summary">Shape the sound with band, bass and spatial controls</string>
+    <string name="eq_presets">Presets</string>
+    <string name="eq_preset_flat">Flat</string>
+    <string name="eq_preset_bass_boost">Bass Boost</string>
+    <string name="eq_preset_vocal">Vocal</string>
+    <string name="eq_preset_treble">Treble</string>
+    <string name="eq_preset_rock">Rock</string>
+    <string name="eq_preset_classical">Classical</string>
+    <string name="eq_preset_custom">Custom</string>
+    <string name="eq_bands">Bands</string>
+    <string name="eq_effects">Effects</string>
+    <string name="eq_advanced">Advanced</string>
+    <string name="eq_bass_boost">Bass boost</string>
+    <string name="eq_virtualizer">Virtualizer</string>
+    <string name="eq_reset">Reset to flat</string>
+    <string name="eq_open_system">Open system equalizer</string>
+    <string name="eq_band_value">%1$.1f dB</string>
+    <string name="eq_band_hz">%1$.0f Hz</string>
+    <string name="eq_band_khz">%1$.1f kHz</string>
+    <string name="eq_band_talkback">%1$s, %2$.1f decibels</string>
+    <string name="eq_strength_value">%1$d%%</string>
+    <string name="eq_unavailable">The equalizer is not available on this device.</string>
+    <string name="eq_wait_session">Bands appear once playback starts.</string>
+    <string name="eq_embedded_disabled">YouTube-embedded tracks play through YouTube’s own player, which keeps their audio out of the app’s effects. The equalizer comes back for streamed and local tracks.</string>
+    <string name="player_equalizer">Equalizer</string>
+    <string name="playlist_play_all">Play all</string>
+    <string name="playlist_runtime_minutes">%1$d min</string>
+    <string name="playlist_runtime_hours">%1$d hr</string>
+    <string name="playlist_runtime_hours_minutes">%1$d hr %2$d min</string>
+    <string name="cd_back">Back</string>
+
+    <string name="settings_ytmusic_warning">Unofficial. This uses private endpoints outside the YouTube API Services Terms; it can break without notice, and Google may throttle or block it. Only tracks you explicitly save in Mode 2 are downloaded; Mode 1 never downloads or caches media. Ads are not skipped. See YOUTUBE.md.</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_licenses">Licences and credits</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_terms">YouTube Terms of Service</string>
+    <string name="settings_google_privacy">Google Privacy Policy</string>
+    <string name="settings_source_of_truth">Open source under GPL-3.0-or-later</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_checking">Checking GitHub Releases…</string>
+    <string name="update_check_hint">Checks the official Spartial Music GitHub release for this app variant.</string>
+    <string name="update_latest_version">Latest version: %1$s</string>
+    <string name="update_available">Version %1$s is available.</string>
+    <string name="update_release_asset_missing">Version %1$s is available, but its APK asset was not found.</string>
+    <string name="update_check_failed">Could not check GitHub Releases. Try again later.</string>
+    <string name="update_open_release">Open matching APK download</string>
+    <string name="settings_storage">Cache</string>
+    <string name="settings_storage_hint">Temporary artwork, lyrics and catalogue responses, plus user-saved offline audio.</string>
+    <string name="settings_clear_thumbnails">Clear artwork and thumbnail cache</string>
+    <string name="settings_clear_thumbnails_hint">Remove cached cover images. They reload when needed.</string>
+    <string name="settings_thumbnail_cache_cleared">Artwork and thumbnail cache cleared</string>
+    <string name="settings_clear_lyrics">Clear lyrics cache</string>
+    <string name="settings_clear_lyrics_hint">Remove fetched lyrics. Your own .lrc files are kept.</string>
+    <string name="settings_lyrics_cache_cleared">Lyrics cache cleared</string>
+    <string name="settings_clear_songs">Clear catalogue response cache</string>
+    <string name="settings_clear_songs_hint">Remove cached catalogue responses; saved library tracks and offline audio remain.</string>
+    <string name="settings_song_cache_cleared">Catalogue response cache cleared</string>
+    <string name="settings_clear_cache">Clear all caches and offline audio</string>
+    <string name="settings_clear_all_caches_hint">Clear artwork, lyrics, catalogue responses, and saved offline audio. Library data remains.</string>
+    <string name="settings_cache_cleared">Caches and saved offline audio cleared</string>
+
+    <!-- Settings groups and rows -->
+    <string name="settings_group_playback">Playback</string>
+    <string name="settings_group_content">Content</string>
+    <string name="settings_group_data">Privacy &amp; data</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_audio_quality_hint">Uses the best stream the source offers</string>
+    <string name="settings_wifi_only_hint">Mobile data is never used for audio</string>
+    <string name="settings_status_signed_out">Not signed in</string>
+    <string name="settings_status_signed_out_hint">Tap to sign in to YouTube Music</string>
+    <string name="settings_status_signed_in_hint">Signed in to YouTube Music</string>
+    <string name="settings_signed_out">Signed out of YouTube Music. Home is anonymous again.</string>
+    <string name="settings_about_title">About Spartial Music</string>
+    <string name="about_team">Team</string>
+    <string name="about_chikku_name">Chikku</string>
+    <string name="about_chikku_role">Main developer</string>
+    <string name="about_m4trix_name">M4trix</string>
+    <string name="about_m4trix_role">Manager</string>
+    <string name="about_community">Community</string>
+    <string name="about_community_body">Join the community for updates and help. If Spartial Music is useful to you, please star the repo on GitHub - it is the best way to support the project.</string>
+    <string name="about_telegram">Telegram channel</string>
+    <string name="about_telegram_hint">Updates and discussion</string>
+    <string name="about_telegram_url">https://t.me/spartialmusic</string>
+    <string name="about_github">GitHub repository</string>
+    <string name="about_github_hint">Source code, issues and releases</string>
+    <string name="about_star">Star the repo</string>
+    <string name="about_star_hint">Support the project with a star</string>
+    <string name="settings_version_label">This build</string>
+    <string name="settings_legal">Legal</string>
+
+    <!-- Music source -->
+    <string name="settings_source_title">Music source</string>
+    <string name="settings_source_innertube">YouTube Music</string>
+    <string name="settings_source_unofficial">Unofficial</string>
+    <string name="settings_source_hint">Streaming through the InnerTube client</string>
+
+    <!-- Lyrics settings -->
+    <string name="settings_lyrics_title">Lyrics</string>
+    <string name="settings_lyrics_summary">%1$s first · %2$d of %3$d on</string>
+    <string name="settings_lyrics_sources">Sources</string>
+    <string name="settings_lyrics_extra_title">Additional lyric sources (third-party, unlicensed)</string>
+    <string name="settings_lyrics_extra_note">Off unless you switch one on. These ask third-party services for lyrics that may be copyrighted and that this project does not license; a source can stop working at any time. Every request sends the song title and artist.</string>
+    <string name="player_lyrics_credit">Lyrics: %1$s</string>
+    <string name="settings_takedown">Content and takedowns</string>
+    <string name="settings_takedown_hint">Report copyright concerns through GitHub</string>
+    <string name="settings_lyrics_local_hint">Read from the track\'s folder</string>
+    <string name="settings_lyrics_local_value">Always first</string>
+    <string name="settings_lyrics_display">Display</string>
+    <string name="settings_lyrics_prefer_synced">Prefer synced lyrics</string>
+    <string name="settings_lyrics_prefer_synced_hint">Plain text is used only when nothing is timed</string>
+    <string name="settings_lyrics_auto_scroll">Auto-scroll lyrics</string>
+    <string name="settings_lyrics_auto_scroll_hint">Follow the current line while a song plays. Scrolling by hand pauses it until you tap the chip in the player</string>
+    <string name="settings_lyrics_about">How this works</string>
+    <string name="settings_lyrics_about_note">Sources are tried top to bottom. Lyrics are cached on this device and never uploaded. Local files always win because you put them there on purpose.</string>
+    <string name="settings_lyrics_source_on">Used when the source above has nothing</string>
+    <string name="settings_lyrics_source_off">Switched off — nothing is requested</string>
+    <string name="settings_lyrics_move_up">Move up</string>
+    <string name="settings_lyrics_move_down">Move down</string>
+    <string name="lyrics_provider_local">Local files</string>
+    <string name="lyrics_provider_better_lyrics">BetterLyrics (word-synced)</string>
+    <string name="lyrics_provider_lyrics_plus">LyricsPlus (word-synced)</string>
+    <string name="lyrics_provider_paxsenix">Paxsenix (Apple Music, word-synced)</string>
+    <string name="lyrics_provider_lrclib">LRCLIB</string>
+    <string name="lyrics_provider_simp_music">SimpMusic</string>
+    <string name="lyrics_provider_netease">NetEase Cloud Music</string>
+    <string name="lyrics_provider_kugou">KuGou</string>
+    <string name="lyrics_provider_lyrics_ovh">Lyrics.ovh</string>
+    <string name="lyrics_provider_youtube_captions">YouTube captions (fallback)</string>
+    <string name="lyrics_provider_none">No source enabled</string>
+
+    <!-- Search history -->
+    <string name="settings_search_history">Search history</string>
+    <string name="settings_search_history_clear">Clear search history</string>
+    <string name="settings_search_history_count">%1$d recent searches remembered</string>
+    <string name="settings_search_history_empty">Nothing remembered right now</string>
+    <string name="settings_search_history_cleared">Search history cleared</string>
+
+    <string name="settings_group_playback_hint">Speed, skip silence, sleep timer</string>
+    <string name="settings_group_screen">Screen</string>
+    <string name="settings_quality_high">High</string>
+    <string name="settings_quality_low">Low</string>
+    <string name="settings_playback_speed">Playback speed</string>
+    <string name="settings_playback_speed_hint">Applies to the current and next tracks</string>
+    <string name="settings_speed_value">%1$s×</string>
+    <string name="settings_skip_silence">Skip silence</string>
+    <string name="settings_skip_silence_hint">Jumps over silent intros and gaps</string>
+    <string name="settings_sleep_timer">Sleep timer</string>
+    <string name="settings_sleep_timer_hint">Stops playback when the timer ends</string>
+    <string name="settings_sleep_timer_off">Off</string>
+    <string name="settings_sleep_timer_minutes">%1$d minutes</string>
+    <string name="settings_sleep_timer_remaining">%1$d min left</string>
+    <string name="settings_group_background">Background</string>
+    <string name="settings_queue_prevent_duplicates">Keep the queue unique</string>
+    <string name="settings_queue_prevent_duplicates_hint">Adding a track that is already queued moves it instead of listing it twice</string>
+    <string name="settings_stop_music_on_task_clear">Stop music when cleared from recents</string>
+    <string name="settings_stop_music_on_task_clear_hint">Swiping Spartial Music away from recent apps ends playback and removes the notification</string>
+    <string name="settings_keep_screen_on">Keep the screen on in the player</string>
+    <string name="settings_keep_screen_on_hint">Only while Now Playing is open</string>
+    <string name="settings_close">Close</string>
+    <string name="player_sleep_timer_done">Sleep timer stopped playback</string>
+
+    <string name="settings_crash_reports_short">Stored on this device only</string>
+    <string name="settings_crash_reports_toggle">Write a report when Spartial Music crashes</string>
+    <string name="settings_crash_reports_open">Open diagnostics</string>
+
+    <!-- Trending regions -->
+    <string name="region_us">United States</string>
+    <string name="region_gb">United Kingdom</string>
+    <string name="region_ca">Canada</string>
+    <string name="region_au">Australia</string>
+    <string name="region_in">India</string>
+    <string name="region_de">Germany</string>
+    <string name="region_fr">France</string>
+    <string name="region_jp">Japan</string>
+    <string name="region_br">Brazil</string>
+    <string name="region_kr">South Korea</string>
+
+    <string name="playback_could_not_start">This track could not be started. Check your connection and try again.</string>
+    <string name="playback_stream_expired">Stream expired, refreshing…</string>
+    <string name="playback_track_skipped">Skipping a track that would not play.</string>
+
+    <!-- Crash reports -->
+    <string name="crash_title">Spartial Music closed unexpectedly</string>
+    <string name="crash_description">Something went wrong and the app had to stop. The report below stays on this device: nothing is sent anywhere automatically. Copy it or share it if you want help fixing the problem.</string>
+    <string name="crash_none">No crash has been recorded on this device.</string>
+    <string name="crash_share">Share report</string>
+    <string name="crash_share_title">Share crash report</string>
+    <string name="crash_share_subject">Spartial Music crash report</string>
+    <string name="crash_copy">Copy</string>
+    <string name="crash_copied">Crash report copied</string>
+    <string name="settings_crash_reports">Crash reports</string>
+    <string name="settings_crash_reports_subtitle">View and manage crash logs</string>
+    <string name="settings_diagnostics">Diagnostics</string>
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_save_reports">Save crash reports</string>
+    <string name="diagnostics_save_reports_subtitle">Write a text file when Spartial Music crashes.</string>
+    <string name="diagnostics_empty">No crash reports on this device.</string>
+    <string name="diagnostics_copy_last">Copy last crash</string>
+    <string name="diagnostics_delete_all">Delete all</string>
+    <string name="diagnostics_delete">Delete</string>
+    <string name="diagnostics_share">Share</string>
+    <string name="diagnostics_deleted_all">Crash reports deleted</string>
+    <string name="diagnostics_copied">Crash report copied</string>
+    <string name="diagnostics_test_crash">Create a test crash</string>
+    <string name="diagnostics_test_crash_hint">Debug builds only. Spartial Music will close on purpose so the saved report and the next-launch dialog can be checked.</string>
+    <string name="crash_last_time_title">Spartial Music crashed last time</string>
+    <string name="crash_last_time_body">A report was saved on this device. Nothing was sent anywhere. View it, share it, or copy it to Downloads to open it in your file manager.</string>
+    <string name="crash_view">View</string>
+    <string name="crash_save_downloads">Save to Downloads</string>
+    <string name="crash_saved_downloads">Saved to Downloads/Spartial Music</string>
+    <string name="crash_save_failed">Could not save to Downloads. This needs Android 10 or newer.</string>
+    <string name="crash_dismiss">Dismiss</string>
+
+    <!-- Common -->
+    <string name="action_retry">Retry</string>
+    <string name="action_close">Close</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_remove">Remove</string>
+    <string name="label_loading">Loading</string>
+    <string name="disclaimer_short">Not affiliated with, funded by, authorized by, endorsed by, or associated with YouTube, Google LLC, Metrolist Group LLC, or their affiliates and subsidiaries.</string>
+
+    <!-- Listening stats. All numbers come from the local play history. -->
+    <string name="stats_title">Listening stats</string>
+    <string name="stats_subtitle">Counted on this device from your play history</string>
+    <string name="stats_period_this_month">This month</string>
+    <string name="stats_period_last_30">Last 30 days</string>
+    <string name="stats_period_all_time">All time</string>
+    <string name="stats_top_artists">Top artists</string>
+    <string name="stats_top_tracks">Top tracks</string>
+    <string name="stats_headline">You listened for %1$s min</string>
+    <string name="stats_headline_month">You listened for %1$s min in %2$s</string>
+    <string name="stats_headline_zero">No minutes to count yet</string>
+    <string name="stats_empty">Nothing here yet — play something and your minutes will start counting up.</string>
+    <string name="stats_note">Minutes are estimated from track lengths: a play that ended early still counts in full.</string>
+    <plurals name="stats_plays">
+        <item quantity="one">%1$d play</item>
+        <item quantity="other">%1$d plays</item>
+    </plurals>
+
+    <!-- Redesigned UI: shared actions and new destinations -->
+    <string name="action_download">Download</string>
+    <string name="action_download_unavailable">Download is not available for this track</string>
+    <string name="offline_download">Save offline</string>
+    <string name="offline_download_starting">Preparing download…</string>
+    <string name="offline_download_cancel">Cancel download</string>
+    <string name="offline_download_remove">Remove offline copy</string>
+    <string name="offline_download_error">Could not save this track. Check your connection and try again.</string>
+    <string name="offline_download_unavailable">Offline saving is available only for Mode 2 YouTube Music tracks.</string>
+    <string name="offline_download_progress">Saving offline… %1$d%%</string>
+    <string name="offline_download_queued">Queued for offline saving</string>
+    <string name="offline_download_saved">Saved for offline playback</string>
+    <string name="action_star">Save to your library</string>
+    <string name="action_unstar">Remove from your library</string>
+    <string name="playlist_remote_kicker">YouTube Music</string>
+    <string name="playlist_sync_youtube">Copy to YouTube Music</string>
+    <string name="playlist_sync_done">Copied %1$d of %2$d songs to a private YouTube Music playlist</string>
+    <string name="playlist_sync_signed_out">Sign in to YouTube Music first (Settings → YouTube)</string>
+    <string name="playlist_sync_failed">Couldn\'t copy this playlist to YouTube Music. Try again later.</string>
+    <string name="settings_automix">Automix</string>
+    <string name="settings_automix_hint">Fade the end of a song into the start of the next one instead of cutting</string>
+    <string name="settings_crossfade">Crossfade length</string>
+    <string name="settings_crossfade_hint">How long one song fades out and the next fades in. The next song is loaded ahead, so the change has no gap.</string>
+    <string name="settings_crossfade_value">%1$d s</string>
+    <string name="nav_reel">Reel</string>
+    <string name="reel_title">Spartial Reel</string>
+    <string name="reel_search">Search</string>
+    <string name="reel_tab_for_you">For you</string>
+    <string name="reel_tab_following">Following</string>
+    <string name="reel_action_like">Like</string>
+    <string name="reel_action_playlist">Playlist</string>
+    <string name="reel_action_share">Share</string>
+    <string name="reel_action_save">Save</string>
+    <string name="reel_up_next">Up next</string>
+    <string name="reel_finding_more">Finding more music…</string>
+    <string name="reel_set_cover">Set animated cover for this track</string>
+    <string name="reel_remove_cover">Remove animated cover</string>
+    <string name="reel_embedded_title">Reel needs the streaming source</string>
+    <string name="reel_embedded_body">The official YouTube player cannot run inside the Reel feed. Switch the YouTube source to the streaming one in Settings, or keep using the player as it is.</string>
+    <string name="reel_open_settings">Open settings</string>
+    <string name="reel_following_empty">Follow artists to fill this tab</string>
+    <string name="reel_find_artists">Find artists</string>
+    <string name="reel_like_unsynced">Saved on this device, couldn\'t sync to YouTube Music</string>
+    <string name="follow">Follow</string>
+    <string name="following">Following</string>
+    <string name="follow_stopped">Unfollowed %1$s</string>
+    <string name="settings_animated_covers_group">Animated covers</string>
+    <string name="settings_animated_covers">Animated covers</string>
+    <string name="settings_animated_covers_hint">Loop a moving cover behind Reel tracks when one is available</string>
+    <string name="settings_animated_covers_mobile">Load animated covers on mobile data</string>
+    <string name="settings_animated_covers_mobile_hint">Off: animated covers stream only over Wi-Fi</string>
+    <string name="settings_animated_covers_note">Covers come from your own files and, in the full build, from YouTube Music. They are streamed and never saved.</string>
+
+
+    <string name="player_playing_from_label">Playing from</string>
+    <string name="player_playing_from_queue">Your queue</string>
+    <string name="player_playing_next_label">Playing Next:</string>
+    <string name="player_now_playing">Now playing</string>
+    <string name="player_lyrics_retry">Try again</string>
+    <string name="player_lyrics_options">Lyrics options</string>
+    <string name="player_lyrics_refetch">Re-fetch lyrics</string>
+    <string name="player_lyrics_provider_header">Ask first for this song</string>
+    <string name="player_lyrics_empty_title">No lyrics yet</string>
+    <string name="player_lyrics_empty_body">Synced lyrics will appear here when a source has them.</string>
+    <string name="player_lyrics_resync">Back to current line</string>
+    <string name="player_queue_empty_title">The queue is empty</string>
+    <string name="player_queue_empty_body">Play a song or add one to the queue.</string>
+    <string name="player_reorder_up">Move up</string>
+    <string name="player_reorder_down">Move down</string>
+    <string name="player_source_local">Local device</string>
+    <string name="player_source_youtube">YouTube</string>
+    <string name="player_source_youtube_music">YouTube Music</string>
+
+    <string name="search_your_genres">Your Genres</string>
+    <string name="search_browse_music">Browse New Music</string>
+    <string name="search_filter_all">All Results</string>
+    <string name="search_filter_artists">Artists</string>
+    <string name="search_filter_albums">Albums</string>
+    <string name="search_group_artists">Artists</string>
+    <string name="search_group_songs">Songs</string>
+    <string name="search_group_albums">Albums</string>
+    <string name="search_genre_pop">Pop</string>
+    <string name="search_genre_rock">Rock</string>
+    <string name="search_genre_hiphop">Hip-hop</string>
+    <string name="search_genre_electronic">Electronic</string>
+    <string name="search_genre_jazz">Jazz</string>
+    <string name="search_genre_classical">Classical</string>
+    <string name="search_genre_lofi">Lo-fi</string>
+    <string name="search_genre_indie">Indie</string>
+    <string name="search_browse_new_releases">New Releases</string>
+    <string name="search_browse_charts">Charts</string>
+    <string name="search_browse_chill">Chill</string>
+    <string name="search_browse_focus">Focus</string>
+    <string name="search_browse_workout">Workout</string>
+    <string name="search_browse_discover">Discover</string>
+
+    <string name="library_pins">Pins</string>
+    <string name="library_playlists_section">Playlists</string>
+    <string name="library_recently_added">Recently Added</string>
+    <string name="library_artists">Artists</string>
+    <string name="library_search">Search library</string>
+    <string name="library_all_songs">All songs</string>
+    <string name="library_sort_recent">Recently played</string>
+    <string name="library_sort_title">Title</string>
+    <string name="library_sort_artist">Artist</string>
+    <string name="library_empty_search">Nothing in your library matches “%1$s”.</string>
+
+    <string name="songs_title">Songs</string>
+    <string name="songs_search">Search songs</string>
+    <string name="songs_empty">No songs in your library yet. Like a song or play something and it will appear here.</string>
+
+    <string name="suggestions_title">Suggestions</string>
+    <string name="suggestions_subtitle">Made for you from what you play</string>
+    <string name="suggestions_top_picks">Top picks</string>
+    <string name="suggestions_because_recent">Because you played %1$s</string>
+    <string name="suggestions_fresh">Fresh discoveries</string>
+    <string name="suggestions_empty">Play a few songs and suggestions will start appearing here.</string>
+
+    <string name="playlist_more">More playlist options</string>
+    <string name="action_pin">Pin to top of library</string>
+    <string name="action_unpin">Unpin from library</string>
+    <string name="playlist_description_empty">A playlist for the songs you keep coming back to.</string>
+    <string name="playlist_created">Created %1$s</string>
+    <string name="playlist_featuring">Featuring %1$s</string>
+
+    <string name="album_description">Songs from %1$s, collected from your listening.</string>
+
+    <string name="artist_star">Save artist</string>
+    <string name="artist_top_songs">Top Songs</string>
+    <string name="artist_songs_count">%1$d songs</string>
+</resources>

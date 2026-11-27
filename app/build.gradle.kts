@@ -1,0 +1,325 @@
+/*
+ * Copyright (C) 2026 The Spartial Music Authors.
+ * Licensed under GPL-3.0-or-later. See LICENSE.
+ */
+
+import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+}
+
+/**
+ * Secrets never live in the repository. They come from a git-ignored
+ * local.properties file, or from the environment (CI). See
+ * local.properties.example and YOUTUBE.md.
+ */
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
+fun secret(name: String): String = (localProperties.getProperty(name) ?: System.getenv(name) ?: "")
+    .trim()
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+
+/**
+ * Every APK says which build it came from. CI exports GITHUB_RUN_NUMBER and
+ * GITHUB_SHA, so a nightly reads `0.1.0-debug.<run>.<sha>`; a local build falls
+ * back to `local`. versionCode is derived from versionName
+ * (major*10000 + minor*100 + patch), so 0.1.0 is 100 and 1.2.3 is 10203; the
+ * stamp is the only way to answer "which APK is this?" once a phone has held
+ * more than one of them.
+ */
+fun buildStamp(): String {
+    val run = (System.getenv("GITHUB_RUN_NUMBER") ?: "").trim()
+    val sha = (System.getenv("GITHUB_SHA") ?: "").trim().take(7)
+    return when {
+        run.isNotEmpty() && sha.isNotEmpty() -> "$run.$sha"
+        sha.isNotEmpty() -> sha
+        else -> "local"
+    }
+}
+
+/**
+ * Release signing lives in a git-ignored keystore.properties (see
+ * keystore.properties.example and BUILDING.md). Without it the release build
+ * falls back to the debug key so forks can still build; never distribute an APK
+ * signed that way.
+ */
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
+android {
+    namespace = "app.nodes"
+    // Compose 1.12 / Navigation 2.10 / Hilt-Compose 1.4 require API 37 to
+    // compile. targetSdk stays 36 until the new runtime behaviour is tested.
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "app.nodes"
+        minSdk = 26
+        targetSdk = 36
+        versionCode = run {
+            val parts = "0.1.0".split('.')
+            (parts.getOrNull(0)?.toIntOrNull() ?: 0) * 10_000 +
+                (parts.getOrNull(1)?.toIntOrNull() ?: 0) * 100 +
+                (parts.getOrNull(2)?.toIntOrNull() ?: 0)
+        }
+        versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "YOUTUBE_API_KEY", "\"${secret("YOUTUBE_API_KEY")}\"")
+        buildConfigField("String", "YOUTUBE_OAUTH_CLIENT_ID", "\"${secret("YOUTUBE_OAUTH_CLIENT_ID")}\"")
+    }
+
+    /**
+     * The store dimension splits the build into the two distribution
+     * channels: gms bundles Google Play services (Cast), while foss is the
+     * Free-Software flavour without any Play services binary.
+     *
+     * Files with the same relative path in `src/gms/java` override their
+     * `src/main/java` counterpart per variant; see CastRouteButton and
+     * SessionPlayerFactory.
+     */
+    flavorDimensions += "store"
+    productFlavors {
+        create("gms") {
+            dimension = "store"
+        }
+        create("foss") {
+            dimension = "store"
+        }
+    }
+
+    signingConfigs {
+        /**
+         * A committed, stable debug key. CI and local builds sign identically,
+         * so an APK from GitHub installs over the previous one instead of
+         * Android reporting a package conflict with the installed one. The
+         * credentials are the well-known Android debug credentials (the same
+         * ones every SDK's auto-generated debug keystore carries), so this is
+         * a continuity key for side-loaded updates, not a secret - anyone can
+         * build this repository anyway.
+         */
+        create("stableDebug") {
+            storeFile = rootProject.file("keystores/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(
+                    requireNotNull(keystoreProperties.getProperty("storeFile")) {
+                        "keystore.properties is missing storeFile"
+                    },
+                )
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug.${buildStamp()}"
+            // Not the per-machine debug key: the committed one, so every build
+            // - here or on CI - is an in-place update of every other.
+            signingConfig = signingConfigs.getByName("stableDebug")
+        }
+        release {
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning == null) {
+                logger.warn(
+                    "keystore.properties not found: the release build is signed with the " +
+                        "stable debug key and must not be distributed. See BUILDING.md.",
+                )
+            }
+            // The stable key, not the platform default: a release APK built on
+            // CI without keystore.properties stays updatable over the debug
+            // builds distributed beside it.
+            signingConfig = releaseSigning ?: signingConfigs.getByName("stableDebug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
+    packaging {
+        resources {
+            excludes += setOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/DEPENDENCIES",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+            )
+        }
+    }
+
+    lint {
+        abortOnError = true
+        warningsAsErrors = false
+        checkDependencies = true
+        disable += setOf("GradleDependency", "AndroidGradlePluginVersion", "NewerVersionAvailable")
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        // Robolectric Compose tests need the merged resources and manifest.
+        unitTests.isIncludeAndroidResources = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+        freeCompilerArgs.addAll("-Xjvm-default=all")
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
+}
+
+// ---- Robolectric runtime, resolved through Gradle -------------------------
+// Robolectric fetches its Android runtime ("android-all-instrumented") from
+// Maven Central inside the test JVM at run time. On CI runners where that
+// fetch is unreliable, every Robolectric test class dies at setup with a
+// ConnectException before a single assertion runs. Resolving the same jar
+// through Gradle and running Robolectric in offline mode makes the unit tests
+// hermetic: one dependency path, cacheable, no runtime networking.
+val robolectricSdk by configurations.creating
+
+val robolectricDepsDir = layout.buildDirectory.dir("robolectric-deps")
+
+val prepareRobolectricSdk = tasks.register<Copy>("prepareRobolectricSdk") {
+    from(robolectricSdk)
+    into(robolectricDepsDir)
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(prepareRobolectricSdk)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", robolectricDepsDir.get().asFile.absolutePath)
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.navigation.compose)
+
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.datasource.okhttp)
+    implementation(libs.androidx.media3.datasource)
+    implementation(libs.androidx.media3.database)
+
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.security.crypto)
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
+
+    implementation(libs.coil.compose)
+    // Backdrop blur for the floating bar and mini player (API 31+, scrim
+    // fallback below). Haze is Apache-2.0, see THIRD_PARTY_LICENSES.md.
+    implementation(libs.haze)
+
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.android)
+
+    implementation(libs.youtube.player)
+    // Google Sign-In is a Play services surface like Cast, so it only exists in
+    // the gms flavour: the FOSS build must never pull in a Google binary. The
+    // gms/foss YouTubeSignIn pair keeps the same public API either way.
+    "gmsImplementation"(libs.play.services.auth)
+
+    // androidx.mediarouter shows the cast route chooser as a DialogFragment, and
+    // it reaches the FragmentManager through the host activity: MediaRouteButton
+    // throws "The activity must be a subclass of FragmentActivity" for any other
+    // base class (crash report 2026-11-12). MainActivity is compiled once for
+    // both flavours, so this cannot live in the gms-only block below.
+    implementation(libs.androidx.fragment)
+
+    // Cast is a Play services surface, so it only exists in the gms flavour:
+    // the FOSS build must never pull in a Google binary it cannot use.
+    "gmsImplementation"(libs.androidx.media3.cast)
+    "gmsImplementation"(libs.play.services.cast.framework)
+    "gmsImplementation"(libs.androidx.mediarouter)
+    // AppCompat views (the cast route button) read their colours from the
+    // AppCompat theme attributes, which Theme.Spartial (platform Material) never
+    // defines; the overlay plus this dependency is the crash fix. FOSS has
+    // no cast button, so it does not carry the dependency.
+    "gmsImplementation"(libs.androidx.appcompat)
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    // The SDK 34 sandbox Robolectric 4.16.1 loads for @Config(sdk = [34]);
+    // copied into build/robolectric-deps for Robolectric's offline mode.
+    add("robolectricSdk", "org.robolectric:android-all-instrumented:14-robolectric-10818077-i7")
+    testImplementation(libs.androidx.test.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.espresso)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+}

@@ -1,0 +1,33 @@
+<resources>
+    <!--
+      Copyright (C) 2026 The Spartial Music Authors.
+      Licensed under GPL-3.0-or-later. See LICENSE.
+
+      MediaRouter's route chooser is hosted by MainActivity's FragmentManager,
+      so it resolves theme attributes from the activity context, not just the
+      MediaRouteButton's ContextThemeWrapper. The platform-only app theme leaves
+      AppCompat's colorBackground unresolved (#00000000), making
+      MediaRouterThemeHelper throw "background can not be translucent" when the
+      chooser opens. GMS uses this solid AppCompat activity theme; FOSS remains
+      on the platform theme. The button keeps its own wrapper as well.
+    -->
+    <style name="Theme.Spartial" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/nodes_background</item>
+        <item name="colorPrimaryDark">@color/nodes_background</item>
+        <item name="colorAccent">@color/nodes_teal</item>
+        <item name="android:colorBackground">@color/nodes_background</item>
+        <item name="android:windowBackground">@color/nodes_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+
+    <style name="Theme.Spartial.Cast" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/nodes_background</item>
+        <item name="colorPrimaryDark">@color/nodes_background</item>
+        <item name="colorAccent">@color/nodes_teal</item>
+        <item name="android:colorBackground">@color/nodes_background</item>
+        <item name="android:windowBackground">@color/nodes_background</item>
+    </style>
+</resources>

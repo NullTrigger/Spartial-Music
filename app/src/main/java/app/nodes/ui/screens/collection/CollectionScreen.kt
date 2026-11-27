@@ -1,0 +1,564 @@
+/*
+ * Copyright (C) 2026 The Spartial Music Authors.
+ * Licensed under GPL-3.0-or-later. See LICENSE.
+ */
+
+package app.nodes.ui.screens.collection
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.compose.foundation.layout.width
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import app.nodes.R
+import app.nodes.core.data.LibraryRepository
+import app.nodes.core.model.SourceResult
+import app.nodes.core.model.Track
+import app.nodes.core.source.SourceRegistry
+import app.nodes.ui.components.Artwork
+import app.nodes.ui.components.CircleIconButton
+import app.nodes.ui.components.DetailTopBar
+import app.nodes.ui.components.EmptyState
+import app.nodes.ui.components.LoadingRows
+import app.nodes.ui.components.MetaRow
+import app.nodes.ui.components.PillButton
+import app.nodes.ui.components.PillStyle
+import app.nodes.ui.components.AddToPlaylistBus
+import app.nodes.ui.components.SongRow
+import app.nodes.ui.components.TintedBackdrop
+import app.nodes.ui.components.TrackMenuButton
+import app.nodes.ui.components.runtimeLabel
+import app.nodes.ui.screens.player.PlayerViewModel
+import app.nodes.ui.theme.SpartialGrey
+import app.nodes.ui.theme.SpartialSpacing
+import app.nodes.ui.theme.SpartialWhite
+import app.nodes.ui.theme.rememberArtworkTint
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+/**
+ * Which collection a [CollectionScreen] shows. Both are plain Room joins over
+ * the cached tracks table - the same data search and playlists read.
+ */
+enum class CollectionKind(val key: String) {
+    ARTIST("artist"),
+    ALBUM("album"),
+    ;
+
+    companion object {
+        fun from(key: String): CollectionKind =
+            entries.firstOrNull { it.key == key } ?: ARTIST
+    }
+}
+
+data class CollectionUiState(
+    val tracks: List<Track> = emptyList(),
+    val loading: Boolean = true,
+)
+
+/**
+ * One ViewModel serves both kinds: the route carries which one it is, the
+ * repository picks the matching column.
+ */
+@HiltViewModel
+class CollectionViewModel @Inject constructor(
+    saved: SavedStateHandle,
+    private val library: LibraryRepository,
+    private val follows: app.nodes.core.data.FollowRepository,
+    private val sources: SourceRegistry,
+) : ViewModel() {
+
+    val kind: CollectionKind = CollectionKind.from(saved.get<String>("kind") ?: "artist")
+    val name: String = saved.get<String>("name").orEmpty()
+
+    private val _state = MutableStateFlow(CollectionUiState())
+    val state: StateFlow<CollectionUiState> = _state.asStateFlow()
+    private var artistLookupComplete = kind != CollectionKind.ARTIST
+    // Every song the cache holds for this artist, before the page ranks and
+    // caps it. Kept so a re-rank never needs another Room round-trip.
+    private var cachedTracks: List<Track> = emptyList()
+    // The artist's songs in the order the source returned them. That order is
+    // the ranking: a music search answers with the best-known songs first,
+    // while Room can only order by recency.
+    private var artistTopIds: List<String> = emptyList()
+
+    val likedIds: StateFlow<Set<String>> = library.likedTracks
+        .map { tracks -> tracks.mapTo(HashSet()) { it.id } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /**
+     * Follow state for artist pages. The artist identity is the page name -
+     * these pages are name-keyed everywhere. Follows are local-first, so the
+     * identity column is LOCAL for every follow the UI can make today; the
+     * sourceId stays in the key so a future provider-side follow can coexist.
+     */
+    val isFollowing: StateFlow<Boolean> = if (kind == CollectionKind.ARTIST && name.isNotBlank()) {
+        follows.isFollowing(
+            app.nodes.core.data.FollowRepository.artistIdFor(name),
+            app.nodes.core.model.SourceId.LOCAL,
+        )
+    } else {
+        MutableStateFlow(false)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** True right after an unfollow, while the Undo window is open. */
+    var lastUnfollow by mutableStateOf<app.nodes.core.data.FollowedArtist?>(null)
+        private set
+
+    fun followArtist() {
+        if (kind != CollectionKind.ARTIST || name.isBlank()) return
+        viewModelScope.launch {
+            val image = _state.value.tracks.firstNotNullOfOrNull { it.artworkUri }
+            follows.follow(
+                artistId = app.nodes.core.data.FollowRepository.artistIdFor(name),
+                sourceId = app.nodes.core.model.SourceId.LOCAL,
+                name = name,
+                imageUrl = image,
+            )
+        }
+    }
+
+    /** Unfollow now; [undoLastUnfollow] puts it back inside the snackbar window. */
+    fun unfollowArtist() {
+        if (kind != CollectionKind.ARTIST || name.isBlank()) return
+        val artistId = app.nodes.core.data.FollowRepository.artistIdFor(name)
+        viewModelScope.launch {
+            val source = app.nodes.core.model.SourceId.LOCAL
+            lastUnfollow = app.nodes.core.data.FollowedArtist(
+                artistId = artistId,
+                sourceId = source,
+                name = name,
+                imageUrl = _state.value.tracks.firstNotNullOfOrNull { it.artworkUri },
+                followedAt = System.currentTimeMillis(),
+            )
+            follows.unfollow(artistId, source)
+        }
+    }
+
+    fun undoLastUnfollow() {
+        val artist = lastUnfollow ?: return
+        lastUnfollow = null
+        viewModelScope.launch {
+            follows.follow(artist.artistId, artist.sourceId, artist.name, artist.imageUrl)
+        }
+    }
+
+    fun dismissUnfollowPrompt() {
+        lastUnfollow = null
+    }
+
+    init {
+        viewModelScope.launch {
+            val flow = if (kind == CollectionKind.ARTIST) {
+                library.artistTracks(name)
+            } else {
+                library.albumTracks(name)
+            }
+            flow.collect { tracks ->
+                cachedTracks = tracks
+                publish()
+            }
+        }
+        if (kind == CollectionKind.ARTIST && name.isNotBlank()) {
+            // The page shows the artist's top songs, not every song that ever
+            // passed through the cache. Slightly more candidates than the page
+            // needs are fetched, because the search also answers with other
+            // artists under this name and those are dropped below.
+            viewModelScope.launch {
+                try {
+                    when (val result = sources.primary().search(name, ARTIST_SEARCH_LIMIT)) {
+                        is SourceResult.Success -> {
+                            val matching = result.data.filter { track ->
+                                track.artist.split(',').any { it.trim().equals(name, ignoreCase = true) }
+                            }
+                            artistTopIds = matching.map { it.id }
+                            library.cacheTracks(matching)
+                        }
+                        is SourceResult.Failure -> Unit
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Keep showing already-cached tracks if a lookup or cache write fails.
+                } finally {
+                    artistLookupComplete = true
+                    // The cache write normally re-emits, but a failed or empty
+                    // lookup does not: publish anyway so the page settles.
+                    publish()
+                }
+            }
+        }
+    }
+
+    /** Rebuilds the visible list from the cache and whatever ranking is known. */
+    private fun publish() {
+        val shown = if (kind == CollectionKind.ARTIST) topArtistTracks(cachedTracks) else cachedTracks
+        _state.value = CollectionUiState(
+            tracks = shown,
+            loading = shown.isEmpty() && !artistLookupComplete,
+        )
+    }
+
+    /**
+     * The artist's [ARTIST_VISIBLE_LIMIT] top songs. Ranked candidates come
+     * first in source order; songs the search did not return only fill the
+     * remaining slots, which keeps the page usable offline or when a lookup
+     * fails.
+     */
+    private fun topArtistTracks(cached: List<Track>): List<Track> {
+        if (cached.isEmpty() || artistTopIds.isEmpty()) return cached.take(ARTIST_VISIBLE_LIMIT)
+        val top = artistTopIds.toSet()
+        val byId = cached.associateBy { it.id }
+        val ranked = artistTopIds.mapNotNull { byId[it] }
+        val spare = cached.filterNot { it.id in top }
+        return (ranked + spare).take(ARTIST_VISIBLE_LIMIT)
+    }
+
+    fun toggleLike(track: Track) {
+        viewModelScope.launch { library.toggleLike(track) }
+    }
+
+    fun setAllLiked(liked: Boolean) {
+        val tracks = _state.value.tracks
+        viewModelScope.launch {
+            tracks.forEach { library.setLiked(it, liked) }
+        }
+    }
+
+    private companion object {
+        /** Candidates asked for, a little more than the page shows. */
+        const val ARTIST_SEARCH_LIMIT = 15
+
+        /** Songs an artist page lists. */
+        const val ARTIST_VISIBLE_LIMIT = 5
+    }
+}
+
+/**
+ * An artist or album page. Both reuse the artwork tint, a cover, a compact
+ * action row and a bare list of every matching track already in the local cache.
+ */
+@Composable
+fun CollectionScreen(
+    onBack: () -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onOpenAlbum: (String, String?) -> Unit,
+    viewModel: CollectionViewModel = hiltViewModel(),
+    playerViewModel: PlayerViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val likedIds by viewModel.likedIds.collectAsStateWithLifecycle()
+    val playerState by playerViewModel.state.collectAsStateWithLifecycle()
+    val tracks = state.tracks
+    val title = viewModel.name.ifBlank { stringResource(R.string.collection_none) }
+    val artworkUri = tracks.firstNotNullOfOrNull { it.artworkUri }
+    val tint = rememberArtworkTint(artworkUri, title)
+    val allLiked = tracks.isNotEmpty() && tracks.all { it.id in likedIds }
+
+    val playAll: () -> Unit = {
+        tracks.firstOrNull()?.let { playerViewModel.play(it, tracks) }
+    }
+    val shuffle: () -> Unit = {
+        val shuffled = tracks.shuffled()
+        shuffled.firstOrNull()?.let { playerViewModel.play(it, shuffled) }
+    }
+
+    TintedBackdrop(tint = tint) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+            contentPadding = PaddingValues(bottom = SpartialSpacing.dockSpace),
+        ) {
+            item(key = "top") {
+                DetailTopBar(onBack = onBack)
+            }
+
+            item(key = "header") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = SpartialSpacing.gutter),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(10.dp))
+                    Artwork(
+                        artworkUri = artworkUri,
+                        title = title,
+                        modifier = Modifier.size(if (viewModel.kind == CollectionKind.ARTIST) 156.dp else 190.dp),
+                        shape = if (viewModel.kind == CollectionKind.ARTIST) {
+                            CircleShape
+                        } else {
+                            RoundedCornerShape(26.dp)
+                        },
+                        targetPx = 900,
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        text = stringResource(
+                            if (viewModel.kind == CollectionKind.ARTIST) {
+                                R.string.collection_kicker_artist
+                            } else {
+                                R.string.collection_kicker_album
+                            },
+                        ).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SpartialGrey,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = SpartialWhite,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    MetaRow(
+                        parts = when (viewModel.kind) {
+                            CollectionKind.ARTIST -> listOf(
+                                stringResource(R.string.artist_songs_count, tracks.size),
+                            )
+
+                            CollectionKind.ALBUM -> listOf(
+                                tracks.firstOrNull()?.artist.orEmpty(),
+                                stringResource(R.string.collection_track_count, tracks.size),
+                                runtimeLabel(tracks.sumOf { it.durationMs }),
+                            )
+                        },
+                    )
+                    if (viewModel.kind == CollectionKind.ARTIST && viewModel.name.isNotBlank()) {
+                        val following by viewModel.isFollowing.collectAsStateWithLifecycle()
+                        Spacer(Modifier.height(10.dp))
+                        PillButton(
+                            text = stringResource(
+                                if (following) R.string.following else R.string.follow,
+                            ),
+                            onClick = {
+                                if (following) {
+                                    viewModel.unfollowArtist()
+                                } else {
+                                    viewModel.followArtist()
+                                }
+                            },
+                            contentDescription = stringResource(
+                                if (following) R.string.following else R.string.follow,
+                            ),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        )
+                        if (viewModel.lastUnfollow != null) {
+                            LaunchedEffect(viewModel.lastUnfollow) {
+                                delay(5_000)
+                                viewModel.dismissUnfollowPrompt()
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(R.string.follow_stopped, viewModel.name),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SpartialGrey,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        viewModel.undoLastUnfollow()
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.action_undo))
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    // A description only where there is something to say: the
+                    // album line names the release's artist. The artist page
+                    // shows the follow button and the songs themselves, so it
+                    // carries no explainer text.
+                    if (viewModel.kind == CollectionKind.ALBUM) {
+                        Text(
+                            text = stringResource(
+                                R.string.album_description,
+                                tracks.firstOrNull()?.artist ?: title,
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SpartialGrey,
+                            textAlign = TextAlign.Center,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(Modifier.height(18.dp))
+                }
+            }
+
+            if (tracks.isNotEmpty()) {
+                item(key = "actions") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = SpartialSpacing.gutter),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PillButton(
+                            text = stringResource(R.string.playlist_play_all),
+                            onClick = playAll,
+                            icon = Icons.Rounded.PlayArrow,
+                            modifier = Modifier.weight(1f),
+                        )
+                        PillButton(
+                            text = stringResource(R.string.playlist_shuffle),
+                            onClick = shuffle,
+                            icon = Icons.Rounded.Shuffle,
+                            style = PillStyle.Glass,
+                        )
+                        CircleIconButton(
+                            icon = if (allLiked) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                            contentDescription = stringResource(
+                                if (viewModel.kind == CollectionKind.ARTIST) {
+                                    R.string.artist_star
+                                } else {
+                                    if (allLiked) R.string.action_unstar else R.string.action_star
+                                },
+                            ),
+                            onClick = { viewModel.setAllLiked(!allLiked) },
+                            tint = if (allLiked) SpartialWhite else SpartialGrey,
+                            filled = true,
+                        )
+                    }
+                }
+
+                item(key = "tracks-head") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = SpartialSpacing.gutter,
+                                end = SpartialSpacing.gutter,
+                                top = 22.dp,
+                                bottom = 6.dp,
+                            ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (viewModel.kind == CollectionKind.ARTIST) {
+                                    R.string.artist_top_songs
+                                } else {
+                                    R.string.playlist_tracks
+                                },
+                            ).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SpartialGrey,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            text = stringResource(R.string.playlist_track_count, tracks.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SpartialGrey,
+                        )
+                    }
+                }
+
+                itemsIndexed(items = tracks, key = { _, track -> track.id }) { index, track ->
+                    SongRow(
+                        track = track,
+                        onClick = { playerViewModel.play(track, tracks) },
+                        onLongClick = { AddToPlaylistBus.request(track) },
+                        position = index + 1,
+                        supportingText = if (viewModel.kind == CollectionKind.ARTIST) {
+                            track.album ?: track.artist
+                        } else {
+                            null
+                        },
+                        isLiked = track.id in likedIds,
+                        onToggleLike = { viewModel.toggleLike(track) },
+                        showDownload = false,
+                        active = track.id == playerState.current?.id,
+                        activePlaying = track.id == playerState.current?.id &&
+                            playerState.isPlaying,
+                        menu = {
+                            TrackMenuButton(
+                                onPlayNext = { playerViewModel.playNext(track) },
+                                onAddToQueue = { playerViewModel.addToQueue(track) },
+                                downloadTrack = track,
+                                onAddToPlaylist = { AddToPlaylistBus.request(track) },
+                                onViewArtist = if (track.artist.isNotBlank() &&
+                                    track.artist != viewModel.name
+                                ) {
+                                    { onOpenArtist(track.artist) }
+                                } else {
+                                    null
+                                },
+                                onViewAlbum = track.album?.takeIf {
+                                    it.isNotBlank() && it != viewModel.name
+                                }?.let { album ->
+                                    { onOpenAlbum(album, track.albumId) }
+                                },
+                            )
+                        },
+                    )
+                }
+            }
+
+            when {
+                state.loading && tracks.isEmpty() -> item(key = "loading") {
+                    LoadingRows()
+                }
+
+                !state.loading && tracks.isEmpty() -> item(key = "empty") {
+                    EmptyState(
+                        title = title,
+                        description = stringResource(R.string.collection_empty),
+                    )
+                }
+            }
+
+            item(key = "bottom") { Spacer(Modifier.height(8.dp)) }
+        }
+    }
+}

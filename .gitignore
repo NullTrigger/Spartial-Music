@@ -1,0 +1,40 @@
+# Gradle / Android
+.gradle/
+.kotlin/
+build/
+*/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Secrets and keys
+*.jks
+*.keystore
+!keystores/debug.keystore
+keystore.properties
+secrets.properties
+google-services.json
+.env
+.env.*
+!.env.example
+.androidkeys/
+*.pem
+*.p12
+
+# Local Android SDK used for CI-less builds
+.androidsdk/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs
+*.log
+.ref-glossy/

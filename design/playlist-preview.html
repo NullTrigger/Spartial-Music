@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nodes — Playlist screen concepts</title>
+<style>
+  :root {
+    --black: #050506;
+    --black-elevated: #0a0b0d;
+    --surface: #101115;
+    --surface-high: #17191e;
+    --surface-highest: #202329;
+    --white: #f6f7f7;
+    --grey: #9a9da4;
+    --grey-dim: #6b6e75;
+    --teal: #14b3a1;
+    --teal-deep: #0c7d71;
+    --glass-top: rgba(255,255,255,.15);
+    --glass-bottom: rgba(255,255,255,.05);
+    --glass-border: rgba(255,255,255,.14);
+    --glass-border-strong: rgba(255,255,255,.24);
+    --radius-xl: 28px;
+    --font: "Inter", "SF Pro Display", -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 600px at 12% -10%, rgba(20,179,161,.10), transparent 60%),
+      radial-gradient(900px 500px at 92% 8%, rgba(90,59,87,.16), transparent 60%),
+      var(--black);
+    color: var(--white);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 32px 80px;
+  }
+
+  .page-head { max-width: 1500px; margin: 0 auto 34px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--teal); font-weight: 600; margin-bottom: 10px;
+  }
+  .page-head h1 {
+    font-size: 40px; line-height: 1.05; letter-spacing: -.03em;
+    margin: 0 0 12px; font-weight: 700;
+  }
+  .page-head p {
+    margin: 0; max-width: 720px; color: var(--grey);
+    font-size: 15px; line-height: 1.55;
+  }
+  .page-head code {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 12.5px; color: var(--white);
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 6px; padding: 1px 5px;
+  }
+
+  .tokens { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 20px; }
+  .token { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--grey); }
+  .swatch {
+    width: 14px; height: 14px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.18);
+  }
+
+  .rail {
+    display: flex; gap: 40px; align-items: flex-start;
+    max-width: 1500px; margin: 0 auto;
+    overflow-x: auto; padding: 6px 2px 26px;
+    scroll-snap-type: x proximity;
+  }
+  .rail::-webkit-scrollbar { height: 8px; }
+  .rail::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+
+  .concept { flex: 0 0 auto; width: 390px; scroll-snap-align: start; }
+
+  .concept-head { min-height: 128px; margin-bottom: 16px; }
+  .concept-head .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+    font-weight: 600; color: var(--grey);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px; padding: 5px 10px; margin-bottom: 12px;
+  }
+  .concept-head .tag.current { color: var(--grey-dim); }
+  .concept-head .tag.rec { color: #041312; background: var(--teal); border-color: var(--teal); }
+  .concept-head h2 {
+    font-size: 20px; letter-spacing: -.02em; margin: 0 0 6px; font-weight: 650;
+  }
+  .concept-head p {
+    margin: 0; color: var(--grey); font-size: 13px; line-height: 1.5; max-width: 360px;
+  }
+
+  .phone {
+    width: 390px; height: 844px; border-radius: 46px;
+    padding: 10px;
+    background: linear-gradient(160deg, #23262c, #0b0c0e 40%, #1a1d22);
+    box-shadow: 0 34px 70px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.10);
+  }
+  .screen {
+    position: relative; width: 100%; height: 100%; border-radius: 38px;
+    background: var(--black); overflow: hidden; isolation: isolate;
+  }
+
+  .statusbar {
+    height: 46px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 26px 0 30px; font-size: 12.5px; font-weight: 600; letter-spacing: .01em;
+    color: var(--white); position: relative; z-index: 5;
+  }
+  .statusbar .sig { display: flex; align-items: center; gap: 5px; opacity: .9; }
+  .sig i { display: block; background: currentColor; }
+  .sig .bar { width: 3px; border-radius: 1px; }
+  .sig .bar:nth-child(1) { height: 4px; }
+  .sig .bar:nth-child(2) { height: 7px; }
+  .sig .bar:nth-child(3) { height: 10px; }
+  .sig .battery {
+    width: 20px; height: 10px; border-radius: 3px; border: 1.4px solid currentColor;
+    background: transparent; position: relative;
+  }
+  .sig .battery::after {
+    content: ""; position: absolute; inset: 2px; right: 6px;
+    background: currentColor; border-radius: 1px;
+  }
+
+  .ico { width: 18px; height: 18px; display: block; }
+  .ico.small { width: 14px; height: 14px; }
+
+  .nav-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: grid; place-items: center; color: var(--white);
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10);
+  }
+
+  .glass {
+    background: linear-gradient(180deg, var(--glass-top), var(--glass-bottom));
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(14px);
+  }
+
+  .rowlist { padding: 4px 0 0; }
+  .row {
+    display: grid; align-items: center;
+    grid-template-columns: 52px 1fr auto;
+    column-gap: 14px;
+    padding: 9px 22px;
+  }
+  .row.numbered { grid-template-columns: 22px 52px 1fr auto; column-gap: 12px; }
+  .row.artless  { grid-template-columns: 22px 1fr auto; column-gap: 14px; padding: 11px 24px; }
+
+  .art {
+    width: 52px; height: 52px; border-radius: 13px;
+    background: linear-gradient(135deg, #2e4a62, #5a3b57 60%, #17191e);
+    position: relative; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.07);
+  }
+  .art::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(70% 60% at 22% 12%, rgba(255,255,255,.20), transparent 60%);
+  }
+  .art.a1 { background: linear-gradient(135deg, #2e4a62, #23433c 62%, #101115); }
+  .art.a2 { background: linear-gradient(135deg, #5a3b57, #3b3f63 58%, #101115); }
+  .art.a3 { background: linear-gradient(135deg, #23433c, #2f4b4f 60%, #101115); }
+  .art.a4 { background: linear-gradient(135deg, #5b4636, #553a3a 60%, #101115); }
+  .art.a5 { background: linear-gradient(135deg, #3b3f63, #46406b 60%, #101115); }
+  .art.a6 { background: linear-gradient(135deg, #2f4b4f, #2e4a62 60%, #101115); }
+  .art.a7 { background: linear-gradient(135deg, #553a3a, #5a3b57 60%, #101115); }
+  .art.a8 { background: linear-gradient(135deg, #46406b, #3b3f63 60%, #101115); }
+
+  .rowtext { min-width: 0; }
+  .ttl {
+    font-size: 14px; font-weight: 600; letter-spacing: -.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sub {
+    font-size: 12px; color: var(--grey); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dur { font-size: 11px; color: var(--grey-dim); font-variant-numeric: tabular-nums; }
+  .idx {
+    font-size: 12px; color: var(--grey-dim); font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .playing .ttl { color: var(--teal); }
+  .playing .idx { color: var(--teal); }
+  .playing .art { box-shadow: 0 0 0 1px rgba(20,179,161,.45), 0 8px 20px rgba(20,179,161,.16); }
+
+  /* tiny equaliser for the active row */
+  .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; margin-left: 7px; vertical-align: -1px; }
+  .eq span {
+    width: 2.5px; background: var(--teal); border-radius: 2px;
+    animation: bounce 1.1s ease-in-out infinite;
+  }
+  .eq span:nth-child(1) { height: 5px; animation-delay: -.2s; }
+  .eq span:nth-child(2) { height: 11px; animation-delay: -.55s; }
+  .eq span:nth-child(3) { height: 7px; animation-delay: -.85s; }
+  @keyframes bounce { 0%,100% { transform: scaleY(.5); } 50% { transform: scaleY(1); } }
+
+  /* ---------- 0 · current ---------- */
+  .cur-head { padding: 4px 22px 10px; }
+  .navrow { display: flex; align-items: center; gap: 12px; }
+  .navrow h3 { font-size: 22px; letter-spacing: -.02em; margin: 0; font-weight: 650; }
+  .navrow .nsub { font-size: 12px; color: var(--grey); margin-top: 2px; }
+  .playpill {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin: 16px 22px 8px; padding: 10px 20px;
+    border-radius: 999px; font-size: 13px; font-weight: 600;
+  }
+
+  /* ---------- A · editorial ---------- */
+  .hero {
+    position: relative; height: 318px; margin-bottom: 6px;
+    background:
+      radial-gradient(120% 90% at 18% 0%, rgba(20,179,161,.30), transparent 55%),
+      linear-gradient(155deg, #2e4a62 0%, #5a3b57 46%, #101115 82%, #050506 100%);
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(80% 55% at 75% 8%, rgba(255,255,255,.16), transparent 62%);
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(5,5,6,.55) 0%, rgba(5,5,6,0) 34%, rgba(5,5,6,.55) 62%, rgba(5,5,6,.96) 100%);
+  }
+  .hero-top {
+    position: absolute; top: 54px; left: 20px; right: 20px;
+    display: flex; justify-content: space-between; z-index: 2;
+  }
+  .hero-body { position: absolute; left: 24px; right: 22px; bottom: 20px; z-index: 2; }
+  .kicker {
+    font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--teal); font-weight: 700; margin-bottom: 8px;
+  }
+  .hero-body h3 {
+    font-size: 38px; line-height: 1.02; letter-spacing: -.035em;
+    margin: 0 0 10px; font-weight: 750; max-width: 300px;
+  }
+  .meta { font-size: 12px; color: var(--grey); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--grey-dim); display: inline-block; }
+  .actions { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+  .play-big {
+    width: 58px; height: 58px; border-radius: 50%;
+    background: var(--teal); color: #041312;
+    display: grid; place-items: center;
+    box-shadow: 0 12px 30px rgba(20,179,161,.32);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 38px; padding: 0 16px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 600; color: var(--white);
+  }
+  .sectionbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px 6px;
+  }
+  .sectionbar .label {
+    font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--grey); font-weight: 600;
+  }
+  .sortchip {
+    font-size: 11px; color: var(--grey); border: 1px solid rgba(255,255,255,.14);
+    border-radius: 999px; padding: 4px 10px; display: inline-flex; gap: 6px; align-items: center;
+  }
+
+  /* ---------- B · glass ledger ---------- */
+  .ledger-bg {
+    position: absolute; inset: 0; z-index: -2;
+    background:
+      radial-gradient(90% 50% at 15% 0%, rgba(90,59,87,.55), transparent 65%),
+      radial-gradient(80% 45% at 90% 6%, rgba(20,179,161,.28), transparent 60%),
+      linear-gradient(180deg, #14161b, #050506 52%);
+  }
+  .ledger-head { padding: 4px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+  .cover-row { display: flex; gap: 16px; align-items: flex-end; padding: 18px 22px 20px; }
+  .cover {
+    width: 152px; height: 152px; border-radius: 22px; flex: 0 0 auto;
+    background: linear-gradient(150deg, #2e4a62, #5a3b57 55%, #2f4b4f);
+    box-shadow: 0 22px 44px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.14);
+    position: relative; overflow: hidden;
+  }
+  .cover::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(60% 45% at 20% 8%, rgba(255,255,255,.22), transparent 60%),
+      radial-gradient(70% 50% at 85% 95%, rgba(0,0,0,.55), transparent 70%);
+  }
+  .cover::after {
+    content: "N"; position: absolute; inset: auto 0 14px; text-align: center;
+    font-size: 46px; font-weight: 800; color: rgba(255,255,255,.22); letter-spacing: -.04em;
+  }
+  .cover-meta { min-width: 0; padding-bottom: 4px; }
+  .cover-meta h3 { font-size: 24px; line-height: 1.1; letter-spacing: -.025em; margin: 0 0 8px; font-weight: 700; }
+  .cover-meta .sub2 { font-size: 12px; color: var(--grey); line-height: 1.5; }
+  .cover-meta .liked {
+    margin-top: 10px; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--teal); font-weight: 700;
+  }
+  .slab {
+    margin: 0 14px; border-radius: 26px; overflow: hidden;
+    background: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.025));
+    border: 1px solid rgba(255,255,255,.12);
+    backdrop-filter: blur(18px);
+  }
+  .slab-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 8px;
+  }
+  .slab-head .label {
+    font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--grey); font-weight: 600;
+  }
+  .slab .row { padding: 8px 16px; }
+  .slab .art { width: 44px; height: 44px; border-radius: 11px; }
+  .slab .row { grid-template-columns: 44px 1fr auto; }
+  .row.active {
+    background: linear-gradient(90deg, rgba(20,179,161,.16), rgba(20,179,161,0) 70%);
+    box-shadow: inset 2px 0 0 var(--teal);
+  }
+  .bottom-bar {
+    position: absolute; left: 14px; right: 14px; bottom: 18px;
+    height: 62px; border-radius: 22px; z-index: 4;
+    display: flex; align-items: center; gap: 12px; padding: 0 12px 0 18px;
+    background: linear-gradient(180deg, rgba(32,35,41,.92), rgba(16,17,21,.92));
+    border: 1px solid rgba(255,255,255,.13);
+    box-shadow: 0 18px 40px rgba(0,0,0,.6);
+    backdrop-filter: blur(20px);
+  }
+  .bottom-bar .txt { flex: 1; min-width: 0; }
+  .bottom-bar .txt b { font-size: 12.5px; letter-spacing: -.01em; }
+  .bottom-bar .txt span { display: block; font-size: 11px; color: var(--grey); margin-top: 2px; }
+  .bar-play {
+    width: 42px; height: 42px; border-radius: 50%; background: var(--teal);
+    color: #041312; display: grid; place-items: center;
+  }
+
+  /* ---------- C · mosaic poster ---------- */
+  .poster { position: relative; padding: 0 0 8px; }
+  .mosaic {
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    height: 300px; gap: 2px;
+  }
+  .mosaic div { position: relative; overflow: hidden; }
+  .mosaic div::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(70% 60% at 25% 15%, rgba(255,255,255,.16), transparent 62%);
+  }
+  .mosaic .m1 { background: linear-gradient(140deg, #2e4a62, #23433c); }
+  .mosaic .m2 { background: linear-gradient(140deg, #5a3b57, #3b3f63); }
+  .mosaic .m3 { background: linear-gradient(140deg, #2f4b4f, #2e4a62); }
+  .mosaic .m4 { background: linear-gradient(140deg, #5b4636, #553a3a); }
+  .poster-fade {
+    position: absolute; left: 0; right: 0; top: 130px; height: 260px;
+    background: linear-gradient(180deg, rgba(5,5,6,0) 0%, rgba(5,5,6,.65) 52%, var(--black) 92%);
+  }
+  .poster-top { position: absolute; top: 54px; left: 20px; right: 20px; display: flex; justify-content: space-between; z-index: 3; }
+  .poster-type { position: absolute; left: 24px; right: 24px; top: 188px; z-index: 3; }
+  .poster-type .kicker { margin-bottom: 6px; }
+  .poster-type h3 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 46px; line-height: .98; letter-spacing: -.03em; margin: 0 0 12px; font-weight: 700;
+  }
+  .poster-type h3 em { font-style: normal; color: var(--teal); }
+  .poster-meta { font-size: 12px; color: var(--grey); display: flex; align-items: center; gap: 8px; }
+  .poster-list { padding-top: 24px; }
+  .fab {
+    position: absolute; right: 22px; bottom: 26px; z-index: 6;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: var(--teal); color: #041312;
+    display: grid; place-items: center;
+    box-shadow: 0 16px 34px rgba(20,179,161,.35);
+  }
+
+  .fade-bottom {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 120px; z-index: 3;
+    background: linear-gradient(180deg, rgba(5,5,6,0), var(--black));
+    pointer-events: none;
+  }
+
+  .notes {
+    max-width: 1500px; margin: 34px auto 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
+  }
+  .note {
+    border: 1px solid rgba(255,255,255,.10); border-radius: 18px;
+    background: rgba(255,255,255,.03); padding: 18px 20px;
+  }
+  .note h4 { margin: 0 0 8px; font-size: 13px; letter-spacing: .02em; }
+  .note p { margin: 0 0 10px; font-size: 12.5px; color: var(--grey); line-height: 1.55; }
+  .note ul { margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--grey); line-height: 1.7; }
+  .note .effort {
+    display: inline-block; margin-top: 12px; font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--teal); font-weight: 700;
+  }
+  footer {
+    max-width: 1500px; margin: 34px auto 0; color: var(--grey-dim);
+    font-size: 12px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="eyebrow">Nodes · design exploration</div>
+  <h1>Playlist screen, four directions</h1>
+  <p>
+    The same playlist in every frame: <strong>“Late night drives”</strong>, 24 tracks, YouTube Music.
+    Titles and artists are the fictional <code>DemoCatalog</code> entries, and every colour comes from
+    <code>Color.kt</code> — no real artwork, and no <code>Modifier.blur</code>: the backdrops are gradient
+    films with glass borders, exactly like <code>Glass.kt</code>. Scroll the row sideways.
+  </p>
+  <div class="tokens">
+    <span class="token"><span class="swatch" style="background:#050506"></span>NodesBlack</span>
+    <span class="token"><span class="swatch" style="background:#101115"></span>Surface</span>
+    <span class="token"><span class="swatch" style="background:#17191e"></span>SurfaceHigh</span>
+    <span class="token"><span class="swatch" style="background:#14b3a1"></span>NodesTeal</span>
+    <span class="token"><span class="swatch" style="background:#9a9da4"></span>NodesGrey</span>
+    <span class="token"><span class="swatch" style="background:rgba(255,255,255,.14)"></span>GlassBorder</span>
+  </div>
+</header>
+
+<main class="rail">
+
+  <!-- ============ 0 · current ============ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="tag current">00 · what ships now</span>
+      <h2>Flat list</h2>
+      <p>Header, a glass Play pill, then undifferentiated rows. Correct, but the playlist has no identity.</p>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="sig">
+            <i class="bar"></i><i class="bar"></i><i class="bar"></i>
+            <span class="battery"></span>
+          </span>
+        </div>
+
+        <div class="cur-head">
+          <div class="navrow">
+            <span class="nav-btn">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </span>
+            <div>
+              <h3>Late night drives</h3>
+              <div class="nsub">24 tracks</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="playpill glass">
+          <svg class="ico small" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Play
+        </div>
+
+        <div class="rowlist">
+          <div class="row">
+            <div class="art a1"></div>
+            <div class="rowtext"><div class="ttl">Midnight Static</div><div class="sub">Sample Ensemble · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">3:12</div>
+          </div>
+          <div class="row">
+            <div class="art a2"></div>
+            <div class="rowtext"><div class="ttl">Paper Lanterns</div><div class="sub">Placeholder Trio · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">2:58</div>
+          </div>
+          <div class="row">
+            <div class="art a3"></div>
+            <div class="rowtext"><div class="ttl">Slow Orbit</div><div class="sub">Nodes Studio · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">4:05</div>
+          </div>
+          <div class="row">
+            <div class="art a4"></div>
+            <div class="rowtext"><div class="ttl">Velvet Rooms</div><div class="sub">Sample Ensemble · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">3:41</div>
+          </div>
+          <div class="row">
+            <div class="art a5"></div>
+            <div class="rowtext"><div class="ttl">Low Tide</div><div class="sub">Placeholder Trio · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">3:27</div>
+          </div>
+          <div class="row">
+            <div class="art a6"></div>
+            <div class="rowtext"><div class="ttl">Neon Rain</div><div class="sub">Nodes Studio · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">4:12</div>
+          </div>
+          <div class="row">
+            <div class="art a7"></div>
+            <div class="rowtext"><div class="ttl">Afterglow</div><div class="sub">Sample Ensemble · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">3:05</div>
+          </div>
+          <div class="row">
+            <div class="art a8"></div>
+            <div class="rowtext"><div class="ttl">Glass Corridor</div><div class="sub">Placeholder Trio · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">3:58</div>
+          </div>
+          <div class="row">
+            <div class="art a1"></div>
+            <div class="rowtext"><div class="ttl">Northern Line</div><div class="sub">Nodes Studio · Placeholder Sessions Vol. 1</div></div>
+            <div class="dur">4:20</div>
+          </div>
+        </div>
+        <div class="fade-bottom"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ A · editorial ============ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="tag rec">A · recommended</span>
+      <h2>Editorial hero</h2>
+      <p>The playlist becomes a cover story: gradient hero, oversized title, play + shuffle, numbered tracks.</p>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="sig"><i class="bar"></i><i class="bar"></i><i class="bar"></i><span class="battery"></span></span>
+        </div>
+
+        <div class="hero">
+          <div class="hero-top">
+            <span class="nav-btn" style="background:rgba(5,5,6,.35)">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </span>
+            <span class="nav-btn" style="background:rgba(5,5,6,.35)">
+              <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </span>
+          </div>
+
+          <div class="hero-body">
+            <div class="kicker">Playlist · YouTube Music</div>
+            <h3>Late night drives</h3>
+            <div class="meta">
+              <span>24 tracks</span><span class="dot"></span><span>1 hr 42 min</span><span class="dot"></span><span>Updated today</span>
+            </div>
+            <div class="actions">
+              <span class="play-big">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              </span>
+              <span class="pill glass">
+                <svg class="ico small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
+                Shuffle
+              </span>
+              <span class="pill glass" style="width:38px; padding:0; justify-content:center">
+                <svg class="ico small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.4-7 10-7 10Z"/></svg>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sectionbar">
+          <span class="label">Tracks</span>
+          <span class="sortchip">
+            <svg class="ico small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>
+            Custom order
+          </span>
+        </div>
+
+        <div class="rowlist">
+          <div class="row numbered">
+            <div class="idx">01</div>
+            <div class="art a1"></div>
+            <div class="rowtext"><div class="ttl">Midnight Static</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:12</div>
+          </div>
+          <div class="row numbered">
+            <div class="idx">02</div>
+            <div class="art a2"></div>
+            <div class="rowtext"><div class="ttl">Paper Lanterns</div><div class="sub">Placeholder Trio</div></div>
+            <div class="dur">2:58</div>
+          </div>
+          <div class="row numbered playing">
+            <div class="idx">03</div>
+            <div class="art a3"></div>
+            <div class="rowtext">
+              <div class="ttl">Slow Orbit<span class="eq"><span></span><span></span><span></span></span></div>
+              <div class="sub">Nodes Studio</div>
+            </div>
+            <div class="dur">4:05</div>
+          </div>
+          <div class="row numbered">
+            <div class="idx">04</div>
+            <div class="art a4"></div>
+            <div class="rowtext"><div class="ttl">Velvet Rooms</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:41</div>
+          </div>
+          <div class="row numbered">
+            <div class="idx">05</div>
+            <div class="art a5"></div>
+            <div class="rowtext"><div class="ttl">Low Tide</div><div class="sub">Placeholder Trio</div></div>
+            <div class="dur">3:27</div>
+          </div>
+          <div class="row numbered">
+            <div class="idx">06</div>
+            <div class="art a6"></div>
+            <div class="rowtext"><div class="ttl">Neon Rain</div><div class="sub">Nodes Studio</div></div>
+            <div class="dur">4:12</div>
+          </div>
+          <div class="row numbered">
+            <div class="idx">07</div>
+            <div class="art a7"></div>
+            <div class="rowtext"><div class="ttl">Afterglow</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:05</div>
+          </div>
+        </div>
+        <div class="fade-bottom"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ B · glass ledger ============ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="tag">B</span>
+      <h2>Cover + glass ledger</h2>
+      <p>A floating cover art card, then the whole queue inside one glass slab with a persistent action bar.</p>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="ledger-bg"></div>
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="sig"><i class="bar"></i><i class="bar"></i><i class="bar"></i><span class="battery"></span></span>
+        </div>
+
+        <div class="ledger-head">
+          <span class="nav-btn">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </span>
+          <span class="nav-btn">
+            <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </span>
+        </div>
+
+        <div class="cover-row">
+          <div class="cover"></div>
+          <div class="cover-meta">
+            <div class="kicker">Playlist</div>
+            <h3>Late night<br>drives</h3>
+            <div class="sub2">24 tracks · 1 hr 42 min<br>YouTube Music</div>
+            <div class="liked">♥ Liked by you</div>
+          </div>
+        </div>
+
+        <div class="slab">
+          <div class="slab-head">
+            <span class="label">Up next</span>
+            <span class="label" style="letter-spacing:.04em; text-transform:none; color:var(--grey-dim)">24 tracks</span>
+          </div>
+
+          <div class="row">
+            <div class="art a1"></div>
+            <div class="rowtext"><div class="ttl">Midnight Static</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:12</div>
+          </div>
+          <div class="row">
+            <div class="art a2"></div>
+            <div class="rowtext"><div class="ttl">Paper Lanterns</div><div class="sub">Placeholder Trio</div></div>
+            <div class="dur">2:58</div>
+          </div>
+          <div class="row active">
+            <div class="art a3"></div>
+            <div class="rowtext">
+              <div class="ttl" style="color:var(--teal)">Slow Orbit<span class="eq"><span></span><span></span><span></span></span></div>
+              <div class="sub" style="color:rgba(20,179,161,.7)">Nodes Studio</div>
+            </div>
+            <div class="dur">4:05</div>
+          </div>
+          <div class="row">
+            <div class="art a4"></div>
+            <div class="rowtext"><div class="ttl">Velvet Rooms</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:41</div>
+          </div>
+          <div class="row">
+            <div class="art a5"></div>
+            <div class="rowtext"><div class="ttl">Low Tide</div><div class="sub">Placeholder Trio</div></div>
+            <div class="dur">3:27</div>
+          </div>
+          <div class="row">
+            <div class="art a6"></div>
+            <div class="rowtext"><div class="ttl">Neon Rain</div><div class="sub">Nodes Studio</div></div>
+            <div class="dur">4:12</div>
+          </div>
+          <div class="row">
+            <div class="art a7"></div>
+            <div class="rowtext"><div class="ttl">Afterglow</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:05</div>
+          </div>
+        </div>
+
+        <div class="bottom-bar">
+          <span class="bar-play">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <div class="txt"><b>Play all</b><span>Starts at the top · shuffle off</span></div>
+          <span class="nav-btn" style="width:38px;height:38px;background:transparent;border-color:transparent">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ C · mosaic poster ============ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="tag">C</span>
+      <h2>Mosaic poster</h2>
+      <p>Four tracks become the cover. Serif wordmark, hairline list with no thumbnails, floating play button.</p>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="statusbar" style="position:absolute; left:0; right:0; top:0;">
+          <span>9:41</span>
+          <span class="sig"><i class="bar"></i><i class="bar"></i><i class="bar"></i><span class="battery"></span></span>
+        </div>
+
+        <div class="poster">
+          <div class="mosaic">
+            <div class="m1"></div><div class="m2"></div><div class="m3"></div><div class="m4"></div>
+          </div>
+          <div class="poster-fade"></div>
+
+          <div class="poster-top">
+            <span class="nav-btn" style="background:rgba(5,5,6,.32)">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </span>
+            <span class="nav-btn" style="background:rgba(5,5,6,.32)">
+              <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </span>
+          </div>
+
+          <div class="poster-type">
+            <div class="kicker">Playlist · 24 tracks</div>
+            <h3>Late night<br><em>drives</em></h3>
+            <div class="poster-meta"><span>1 hr 42 min</span><span class="dot"></span><span>Sample Ensemble, Placeholder Trio, Nodes Studio</span></div>
+          </div>
+        </div>
+
+        <div class="poster-list">
+          <div class="row artless">
+            <div class="idx">01</div>
+            <div class="rowtext"><div class="ttl">Midnight Static</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:12</div>
+          </div>
+          <div class="row artless">
+            <div class="idx">02</div>
+            <div class="rowtext"><div class="ttl">Paper Lanterns</div><div class="sub">Placeholder Trio</div></div>
+            <div class="dur">2:58</div>
+          </div>
+          <div class="row artless playing">
+            <div class="idx">03</div>
+            <div class="rowtext">
+              <div class="ttl">Slow Orbit<span class="eq"><span></span><span></span><span></span></span></div>
+              <div class="sub">Nodes Studio</div>
+            </div>
+            <div class="dur">4:05</div>
+          </div>
+          <div class="row artless">
+            <div class="idx">04</div>
+            <div class="rowtext"><div class="ttl">Velvet Rooms</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:41</div>
+          </div>
+          <div class="row artless">
+            <div class="idx">05</div>
+            <div class="rowtext"><div class="ttl">Low Tide</div><div class="sub">Placeholder Trio</div></div>
+            <div class="dur">3:27</div>
+          </div>
+          <div class="row artless">
+            <div class="idx">06</div>
+            <div class="rowtext"><div class="ttl">Neon Rain</div><div class="sub">Nodes Studio</div></div>
+            <div class="dur">4:12</div>
+          </div>
+          <div class="row artless">
+            <div class="idx">07</div>
+            <div class="rowtext"><div class="ttl">Afterglow</div><div class="sub">Sample Ensemble</div></div>
+            <div class="dur">3:05</div>
+          </div>
+        </div>
+
+        <div class="fab">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="fade-bottom"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="notes">
+  <div class="note">
+    <h4>A · Editorial hero</h4>
+    <p>Borrows the Home hero's composition and gives a playlist the identity it currently lacks. The hero
+      scrolls away and the title collapses into the header, so long playlists still browse well.</p>
+    <ul>
+      <li>Needs a playlist aggregate: total runtime, source name</li>
+      <li>Hero gradient derived from the first track's artwork (or GeneratedArt seed)</li>
+      <li>Numbered rows with the active track in teal + equaliser</li>
+      <li>Shuffle and Like become reachable instead of hidden</li>
+    </ul>
+    <span class="effort">Effort · medium</span>
+  </div>
+
+  <div class="note">
+    <h4>B · Cover + glass ledger</h4>
+    <p>The calmest of the four. One glass slab holds the queue, and a bottom action bar keeps "Play all"
+      reachable without a floating button covering a row.</p>
+    <ul>
+      <li>Cover card = generated art for the playlist, no new assets</li>
+      <li>Active row gets a teal rail + tinted wash, no layout jump</li>
+      <li>Bottom bar mirrors the MiniPlayer's glass treatment</li>
+      <li>Works unchanged for YouTube playlists without cover art</li>
+    </ul>
+    <span class="effort">Effort · medium</span>
+  </div>
+
+  <div class="note">
+    <h4>C · Mosaic poster</h4>
+    <p>The most distinctive, and the most opinionated: the playlist's first four tracks are its cover, and
+      the list becomes typographic rather than thumbnail-driven. Best for a curated, editorial feel.</p>
+    <ul>
+      <li>Mosaic from four GeneratedArt tiles, no image downloads</li>
+      <li>Serif display title matches the app's existing serif face</li>
+      <li>No row artwork, so rows are taller and easier to scan</li>
+      <li>Heaviest change: new header layout and a FAB in the list area</li>
+    </ul>
+    <span class="effort">Effort · larger</span>
+  </div>
+</div>
+
+<footer>
+  Mockup only — nothing here is wired into the app yet. All cover art is CSS gradient placeholder art derived
+  from <code>ArtAccents</code>; track titles are the invented entries in <code>DemoCatalog.kt</code>.
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The Spartial Music Authors.
+  Licensed under GPL-3.0-or-later. See LICENSE.
+  Backups include the Room database (including remote-cache metadata) and
+  shared preferences, but exclude the encrypted YouTube Music session cookie.
+-->
+<full-backup-content>
+    <!-- The Room database (including remote-cache metadata) and shared
+         preferences are included. App-private files are not included by these
+         rules, so nothing needs to exclude the offline audio or its Media3
+         index there - an exclude for a path that is never included is a lint
+         error (FullBackupContent). The encrypted YouTube Music session cookie
+         (innertube_session) is excluded so a backup never carries that account
+         session. -->
+    <exclude domain="database" path="exoplayer_internal.db" />
+    <include domain="database" path="." />
+    <include domain="sharedpref" path="." />
+    <exclude domain="sharedpref" path="innertube_session.xml" />
+</full-backup-content>
