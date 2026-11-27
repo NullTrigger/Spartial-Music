@@ -132,12 +132,37 @@ Everything listed here is in the code today:
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="31%" alt="Home screen with hero artwork, recently played and recommendations">
-  <img src="docs/screenshots/now-playing.png" width="31%" alt="Now Playing screen with tinted artwork, controls and queue">
-  <img src="docs/screenshots/library.png" width="31%" alt="Library screen with playlists, liked songs, recents and artists">
+  <img src="docs/screenshots/overview.jpeg" width="100%" alt="Spartial Music across its screens: onboarding, avatar, Home, Reel, Sessions, Search, Library, the player, queue and lyrics">
 </p>
 
-<p align="center"><sub>Design previews of the current interface. Device screenshots are captured from a real build before each store release.</sub></p>
+<table>
+  <tr>
+    <td><img src="docs/screenshots/onboarding.jpeg" alt="Welcome screen: local files and YouTube, no ads, no analytics"></td>
+    <td><img src="docs/screenshots/avatar.jpeg" alt="Choose your avatar, stored on the device only"></td>
+    <td><img src="docs/screenshots/home.jpeg" alt="Home with hero artwork, new releases and trending"></td>
+    <td><img src="docs/screenshots/search-genres.jpeg" alt="Search with genres and browse new music"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/search-results.jpeg" alt="Search results across songs, artists and albums"></td>
+    <td><img src="docs/screenshots/reel-feed.jpeg" alt="Reel feed of short-form music videos"></td>
+    <td><img src="docs/screenshots/reel-player.jpeg" alt="Reel player with like, playlist, share and save"></td>
+    <td><img src="docs/screenshots/library.jpeg" alt="Library with playlists, liked songs and recents"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/now-playing.jpeg" alt="Now Playing with tinted artwork and controls"></td>
+    <td><img src="docs/screenshots/queue.jpeg" alt="Playing Next queue"></td>
+    <td><img src="docs/screenshots/lyrics.jpeg" alt="Synced lyrics view"></td>
+    <td><img src="docs/screenshots/sessions.jpeg" alt="Sessions: listen together, guest mode"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/session-room.jpeg" alt="Session room with room code"></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>
+
+<p align="center"><sub>Captured from a real device build. The player shows YouTube Music playback through the embedded official card, as required by <a href="YOUTUBE.md">YOUTUBE.md</a>.</sub></p>
 
 ## The interface
 
