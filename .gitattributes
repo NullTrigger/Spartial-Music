@@ -12,3 +12,8 @@
 *.jpg binary
 *.keystore binary
 *.jks binary
+
+# Markup only lives here as design previews and screenshots, never as code the
+# repository is written in. Without this a saved web page reads as 43% of the
+# project's languages; linguist skips documentation files.
+*.html linguist-documentation
