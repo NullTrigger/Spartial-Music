@@ -43,6 +43,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          submodules: recursive
 
       - name: Calculate next version
         id: version
@@ -122,6 +123,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          submodules: recursive
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -133,10 +135,25 @@ jobs:
         uses: android-actions/setup-android@v4
         with:
           log-accepted-android-sdk-licenses: false
-          packages: |
-            platform-tools
-            platforms;android-37
-            build-tools;37.0.0
+
+      - name: Install Android SDK packages
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/22.0/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(command -v sdkmanager)
+          fi
+
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
+            "platform-tools" \
+            "platforms;android-37" \
+            "build-tools;37.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -159,7 +176,7 @@ jobs:
 
           content, name_count = re.subn(
               r'(versionName\s*=\s*")[^"]+(")',
-              rf'\g<1>{new_version}\g',
+              rf'\g<1>{new_version}\g<2>',
               content,
               count=1,
           )
