@@ -1,13 +1,8 @@
-## Copyright (C) 2026 The Spartial Music Authors.
 # Licensed under GPL-3.0-or-later. See LICENSE.
 #
 # Manual APK build workflow for Spartial Music.
 # Builds and signs GMS and FOSS release APKs, then uploads them as workflow
 # artifacts. It does not publish a GitHub Release, push a tag, or commit changes.
-
-
-
-
 
 name: Spartial Music Build
 
@@ -59,13 +54,11 @@ jobs:
           import re
 
           path = "app/build.gradle.kts"
-
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
 
           code_match = re.search(r'versionCode\s*=\s*(\d+)', content)
           name_match = re.search(r'versionName\s*=\s*"(\d+)\.(\d+)\.(\d+)"', content)
-
           if not code_match or not name_match:
               raise SystemExit(
                   "Could not find versionCode or MAJOR.MINOR.PATCH versionName "
@@ -77,7 +70,6 @@ jobs:
           current_version = f"{major}.{minor}.{patch}"
 
           release_type = os.environ["RELEASE_TYPE"]
-
           if release_type == "patch":
               patch += 1
           elif release_type == "minor":
@@ -91,16 +83,16 @@ jobs:
               raise SystemExit("Invalid release type")
 
           new_version = f"{major}.{minor}.{patch}"
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
               f.write(f"current_version={current_version}\n")
               f.write(f"new_version={new_version}\n")
               f.write(f"version_code={version_code}\n")
 
-          summary = os.environ["GITHUB_STEP_SUMMARY"]
-          with open(summary, "a") as f:
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
               f.write("# Spartial Music Release Preview\n\n")
-              f.write(f"| Detail | Value |\n")
-              f.write(f"|---|---|\n")
+              f.write("| Detail | Value |\n")
+              f.write("|---|---|\n")
               f.write(f"| Current version | `{current_version}` |\n")
               f.write(f"| Release type | **{release_type.capitalize()}** |\n")
               f.write(f"| New version | **`{new_version}`** |\n")
@@ -125,7 +117,6 @@ jobs:
           - variant: GMS
             gradle_variant: Gms
             apk_name: Spartial-Music-GMS.apk
-
           - variant: FOSS
             gradle_variant: Foss
             apk_name: Spartial-Music-FOSS.apk
@@ -134,6 +125,7 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@v4
         with:
+          ref: main
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -162,7 +154,6 @@ jobs:
           import re
 
           path = "app/build.gradle.kts"
-
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
 
@@ -172,14 +163,12 @@ jobs:
               content,
               count=1
           )
-
           content, name_count = re.subn(
               r'versionName\s*=\s*"[^"]+"',
               f'versionName = "{os.environ["VERSION"]}"',
               content,
               count=1
           )
-
           if code_count != 1 or name_count != 1:
               raise SystemExit("Could not update versionCode/versionName")
 
@@ -191,7 +180,7 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
-          echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY" > local.properties
+          echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY" >> local.properties
 
       - name: Build and lint ${{ matrix.variant }}
         run: |
@@ -220,9 +209,7 @@ jobs:
             echo "Signed APK was not found."
             exit 1
           fi
-
           cp "$SIGNED_FILE" "$APK_NAME"
-
           echo "APK: $APK_NAME"
           ls -lh "$APK_NAME"
 
@@ -233,7 +220,6 @@ jobs:
           path: ${{ matrix.apk_name }}
           if-no-files-found: error
           retention-days: 30
-
 
   build-summary:
     name: Build Complete (Manual Publishing)
