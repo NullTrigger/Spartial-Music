@@ -78,7 +78,7 @@ android {
                 (parts.getOrNull(1)?.toIntOrNull() ?: 0) * 100 +
                 (parts.getOrNull(2)?.toIntOrNull() ?: 0)
         }
-        versionName = "0.1.0"
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${secret("YOUTUBE_API_KEY")}\"")
@@ -154,8 +154,8 @@ android {
             // CI without keystore.properties stays updatable over the debug
             // builds distributed beside it.
             signingConfig = releaseSigning ?: signingConfigs.getByName("stableDebug")
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
