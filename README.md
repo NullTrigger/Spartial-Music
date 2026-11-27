@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="branding/hero-banner.jpg" alt="Spartial Music — Discover Your Rhythm, More than a normal Music app, Listen Together in Sessions, Download Spartial available on GitHub" width="100%">
+</p>
+
 # Spartial Music
 
 <p align="center">
