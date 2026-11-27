@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: "Version increment"
+        description: Version increment
         required: true
         type: choice
         options:
@@ -23,7 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
-      version_code: ${{ steps.version.outputs.version_code }}
 
     steps:
       - name: Checkout repository
@@ -56,13 +55,8 @@ jobs:
 
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
-          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
-
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
-
-          echo "Building version: $NEW_VERSION"
-          echo "Version code: $VERSION_CODE"
+          echo "New version: $NEW_VERSION"
 
   build:
     name: Build ${{ matrix.flavor }} APK
@@ -100,29 +94,57 @@ jobs:
             "platform-tools" \
             "build-tools;36.0.0"
 
-          if sdkmanager --list | grep -q "platforms;android-37"; then
+          echo "Checking Android SDK 37 availability..."
+
+          if sdkmanager --list | grep -Fq "platforms;android-37"; then
             sdkmanager "platforms;android-37"
           else
             echo "::error::Android SDK platform 37 is unavailable."
-            echo "Check whether Android SDK 37 has been released to the configured SDK repository."
+            echo "The project requires compileSdk 37. Check the SDK repository or command-line tools version."
             exit 1
           fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Set version
+      - name: Update application version
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare-version.outputs.version }}
         run: |
           set -euo pipefail
 
-          sed -i \
-            "s/versionName = \"[^\"]*\"/versionName = \"${{ needs.prepare-version.outputs.version }}\"/" \
-            app/build.gradle.kts
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
 
-          sed -i \
-            "s/versionCode = run {/versionCode = ${{ needs.prepare-version.outputs.version_code }} \/\/ run {/" \
-            app/build.gradle.kts
+          path = Path("app/build.gradle.kts")
+          content = path.read_text()
+          version = os.environ["RELEASE_VERSION"]
+
+          content, version_name_count = re.subn(
+              r'versionName = "[^"]+"',
+              f'versionName = "{version}"',
+              content,
+              count=1
+          )
+
+          content, parts_count = re.subn(
+              r'(val parts = ")[^"]+(")',
+              rf'\g<1>{version}\g<2>',
+              content,
+              count=1
+          )
+
+          if version_name_count != 1 or parts_count != 1:
+              raise SystemExit(
+                  "Could not safely update versionName and versionCode calculation."
+              )
+
+          path.write_text(content)
+          print(f"Updated application version to {version}")
+          PY
 
       - name: Configure YouTube API
         shell: bash
@@ -164,8 +186,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          ./gradlew --no-daemon ":app:lint${{ matrix.flavor == 'gms' && 'Gms' || 'Foss' }}Release" \
-            ":app:assemble${{ matrix.flavor == 'gms' && 'Gms' || 'Foss' }}Release"
+          FLAVOR="${{ matrix.flavor }}"
+          TASK_FLAVOR="$(echo "$FLAVOR" | sed 's/./\U&/')"
+
+          ./gradlew --no-daemon \
+            ":app:lint${TASK_FLAVOR}Release" \
+            ":app:assemble${TASK_FLAVOR}Release"
 
       - name: Sign release APK
         uses: ilharp/sign-android-release@v2
@@ -178,7 +204,7 @@ jobs:
           keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
           buildToolsVersion: "36.0.0"
 
-      - name: Upload APK artifact
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
           name: Spartial-Music-${{ matrix.flavor }}-${{ needs.prepare-version.outputs.version }}
