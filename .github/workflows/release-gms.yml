@@ -57,15 +57,10 @@ jobs:
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
 
-          code_match = re.search(r'versionCode\s*=\s*(\d+)', content)
           name_match = re.search(r'versionName\s*=\s*"(\d+)\.(\d+)\.(\d+)"', content)
-          if not code_match or not name_match:
-              raise SystemExit(
-                  "Could not find versionCode or MAJOR.MINOR.PATCH versionName "
-                  "in app/build.gradle.kts"
-              )
+          if not name_match:
+              raise SystemExit("Could not find MAJOR.MINOR.PATCH versionName in app/build.gradle.kts")
 
-          version_code = int(code_match.group(1)) + 1
           major, minor, patch = map(int, name_match.groups())
           current_version = f"{major}.{minor}.{patch}"
 
@@ -83,6 +78,7 @@ jobs:
               raise SystemExit("Invalid release type")
 
           new_version = f"{major}.{minor}.{patch}"
+          version_code = major * 10000 + minor * 100 + patch
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
               f.write(f"current_version={current_version}\n")
@@ -157,20 +153,28 @@ jobs:
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
 
-          content, code_count = re.subn(
-              r'versionCode\s*=\s*\d+',
-              f'versionCode = {os.environ["VERSION_CODE"]}',
-              content,
-              count=1
-          )
+          new_version = os.environ["VERSION"]
+          version_code = os.environ["VERSION_CODE"]
+
           content, name_count = re.subn(
-              r'versionName\s*=\s*"[^"]+"',
-              f'versionName = "{os.environ["VERSION"]}"',
+              r'(versionName\s*=\s*")[^"]+(")',
+              rf'\g<1>{new_version}\g<2>',
               content,
-              count=1
+              count=1,
           )
-          if code_count != 1 or name_count != 1:
-              raise SystemExit("Could not update versionCode/versionName")
+
+          content, code_count = re.subn(
+              r'versionCode\s*=\s*run\s*\{.*?\n\s*\}',
+              f'versionCode = {version_code}',
+              content,
+              count=1,
+              flags=re.DOTALL,
+          )
+
+          if name_count != 1 or code_count != 1:
+              raise SystemExit(
+                  f"Could not update version fields (versionName={name_count}, versionCode={code_count})"
+              )
 
           with open(path, "w", encoding="utf-8") as f:
               f.write(content)
@@ -182,70 +186,4 @@ jobs:
         run: |
           echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY" >> local.properties
 
-      - name: Build and lint ${{ matrix.variant }}
-        run: |
-          chmod +x gradlew
-          ./gradlew \
-            :app:lint${{ matrix.gradle_variant }}Release \
-            :app:assemble${{ matrix.gradle_variant }}Release
-
-      - name: Sign APK
-        id: sign
-        uses: ilharp/sign-android-release@v2
-        with:
-          releaseDir: app/build/outputs/apk/${{ matrix.variant == 'GMS' && 'gms' || 'foss' }}/release
-          signingKey: ${{ secrets.KEYSTORE }}
-          keyAlias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-          buildToolsVersion: "37.0.0"
-
-      - name: Prepare APK
-        env:
-          SIGNED_FILE: ${{ steps.sign.outputs.signedFile }}
-          APK_NAME: ${{ matrix.apk_name }}
-        run: |
-          if [ -z "$SIGNED_FILE" ] || [ ! -f "$SIGNED_FILE" ]; then
-            echo "Signed APK was not found."
-            exit 1
-          fi
-          cp "$SIGNED_FILE" "$APK_NAME"
-          echo "APK: $APK_NAME"
-          ls -lh "$APK_NAME"
-
-      - name: Upload signed APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.variant == 'GMS' && 'Spartial-Music-GMS' || 'Spartial-Music-FOSS' }}
-          path: ${{ matrix.apk_name }}
-          if-no-files-found: error
-          retention-days: 30
-
-  build-summary:
-    name: Build Complete (Manual Publishing)
-    needs:
-      - prepare-version
-      - build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Show artifact instructions
-        env:
-          VERSION: ${{ needs.prepare-version.outputs.new_version }}
-          VERSION_CODE: ${{ needs.prepare-version.outputs.version_code }}
-        run: |
-          {
-            echo "# APK Build Complete"
-            echo ""
-            echo "**Version:** $VERSION"
-            echo ""
-            echo "**Version code:** $VERSION_CODE"
-            echo ""
-            echo "## Downloaded artifacts"
-            echo "- \`Spartial-Music-GMS\` — signed GMS APK"
-            echo "- \`Spartial-Music-FOSS\` — signed FOSS APK"
-            echo ""
-            echo "## Manual publishing"
-            echo "Download the two APK artifacts from this workflow run, then create your GitHub Release manually and attach the APK files."
-            echo ""
-            echo "This workflow does not create a GitHub Release, push a tag, or commit version changes."
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name
