@@ -135,7 +135,7 @@ jobs:
           log-accepted-android-sdk-licenses: false
           packages: |
             platform-tools
-            platforms;android-37.0
+            platforms;android-37
             build-tools;37.0.0
 
       - name: Set up Gradle
@@ -159,7 +159,7 @@ jobs:
 
           content, name_count = re.subn(
               r'(versionName\s*=\s*")[^"]+(")',
-              rf'\g{new_version}\g<2>',
+              rf'\g<1>{new_version}\g',
               content,
               count=1,
           )
