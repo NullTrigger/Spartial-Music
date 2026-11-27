@@ -17,3 +17,7 @@
 # repository is written in. Without this a saved web page reads as 43% of the
 # project's languages; linguist skips documentation files.
 *.html linguist-documentation
+
+# CI and release plumbing are configuration the project ships with, not a
+# language the app is written in.
+*.yml linguist-documentation
