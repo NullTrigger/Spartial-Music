@@ -186,4 +186,70 @@ jobs:
         run: |
           echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY" >> local.properties
 
-      - name
+      - name: Build and lint ${{ matrix.variant }}
+        run: |
+          chmod +x gradlew
+          ./gradlew \
+            :app:lint${{ matrix.gradle_variant }}Release \
+            :app:assemble${{ matrix.gradle_variant }}Release
+
+      - name: Sign APK
+        id: sign
+        uses: ilharp/sign-android-release@v2
+        with:
+          releaseDir: app/build/outputs/apk/${{ matrix.variant == 'GMS' && 'gms' || 'foss' }}/release
+          signingKey: ${{ secrets.KEYSTORE }}
+          keyAlias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          buildToolsVersion: "37.0.0"
+
+      - name: Prepare APK
+        env:
+          SIGNED_FILE: ${{ steps.sign.outputs.signedFile }}
+          APK_NAME: ${{ matrix.apk_name }}
+        run: |
+          if [ -z "$SIGNED_FILE" ] || [ ! -f "$SIGNED_FILE" ]; then
+            echo "Signed APK was not found."
+            exit 1
+          fi
+          cp "$SIGNED_FILE" "$APK_NAME"
+          echo "APK: $APK_NAME"
+          ls -lh "$APK_NAME"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.variant == 'GMS' && 'Spartial-Music-GMS' || 'Spartial-Music-FOSS' }}
+          path: ${{ matrix.apk_name }}
+          if-no-files-found: error
+          retention-days: 30
+
+  build-summary:
+    name: Build Complete (Manual Publishing)
+    needs:
+      - prepare-version
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show artifact instructions
+        env:
+          VERSION: ${{ needs.prepare-version.outputs.new_version }}
+          VERSION_CODE: ${{ needs.prepare-version.outputs.version_code }}
+        run: |
+          {
+            echo "# APK Build Complete"
+            echo ""
+            echo "**Version:** $VERSION"
+            echo ""
+            echo "**Version code:** $VERSION_CODE"
+            echo ""
+            echo "## Downloaded artifacts"
+            echo "- \`Spartial-Music-GMS\` — signed GMS APK"
+            echo "- \`Spartial-Music-FOSS\` — signed FOSS APK"
+            echo ""
+            echo "## Manual publishing"
+            echo "Download the two APK artifacts from this workflow run, then create your GitHub Release manually and attach the APK files."
+            echo ""
+            echo "This workflow does not create a GitHub Release, push a tag, or commit version changes."
+          } >> "$GITHUB_STEP_SUMMARY"
