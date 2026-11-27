@@ -115,7 +115,7 @@ jobs:
           echo "Accepting Android SDK licenses..."
 
           set +o pipefail
-          yes 2>/dev/null | "$SDKMANAGER" --licenses
+          yes 2>/dev/null | "$SDKMANAGER" --sdk_root="$SDK" --licenses
           LICENSE_STATUS=${PIPESTATUS[1]}
           set -o pipefail
 
@@ -126,13 +126,24 @@ jobs:
 
           echo "Installing Android SDK packages..."
 
-          "$SDKMANAGER" \
+          "$SDKMANAGER" --sdk_root="$SDK" \
             "platform-tools" \
             "build-tools;37.0.0" \
             "platforms;android-37.0"
 
+          echo "Configuring Android 37 platform compatibility..."
+
+          if [ ! -d "$SDK/platforms/android-37.0" ]; then
+            echo "::error::Android SDK Platform 37.0 was not installed."
+            exit 1
+          fi
+
+          if [ ! -e "$SDK/platforms/android-37" ]; then
+            ln -s android-37.0 "$SDK/platforms/android-37"
+          fi
+
           echo "Installed SDK packages:"
-          "$SDKMANAGER" --list_installed
+          "$SDKMANAGER" --sdk_root="$SDK" --list_installed
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -226,6 +237,22 @@ jobs:
             ":app:lint${{ matrix.task_flavor }}Release" \
             ":app:assemble${{ matrix.task_flavor }}Release"
 
+      - name: Verify APK exists
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK_DIR="app/build/outputs/apk/${{ matrix.flavor }}/release"
+
+          if ! find "$APK_DIR" -maxdepth 1 -type f -name "*.apk" | grep -q .; then
+            echo "::error::No release APK found in $APK_DIR"
+            find app/build/outputs/apk -type f || true
+            exit 1
+          fi
+
+          echo "Release APK found:"
+          find "$APK_DIR" -maxdepth 1 -type f -name "*.apk"
+
       - name: Sign release APK
         uses: ilharp/sign-android-release@v2
         id: sign
@@ -237,10 +264,29 @@ jobs:
           keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
           buildToolsVersion: "37.0.0"
 
+      - name: Verify signed APK
+        shell: bash
+        env:
+          SIGNED_FILE: ${{ steps.sign.outputs.signedFile }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SIGNED_FILE:-}" ]; then
+            echo "::error::Signing action did not return signedFile."
+            exit 1
+          fi
+
+          if [ ! -f "$SIGNED_FILE" ]; then
+            echo "::error::Signed APK not found: $SIGNED_FILE"
+            exit 1
+          fi
+
+          echo "Signed APK verified: $SIGNED_FILE"
+
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
           name: Spartial-Music-${{ matrix.flavor }}-${{ needs.prepare-version.outputs.version }}
-          path: ${{ steps.sign.outputs.signedReleaseFile }}
+          path: ${{ steps.sign.outputs.signedFile }}
           if-no-files-found: error
           retention-days: 30
