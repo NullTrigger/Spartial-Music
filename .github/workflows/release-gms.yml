@@ -1,23 +1,17 @@
-# Copyright (C) 2026 The Spartial Music Authors.
+## Copyright (C) 2026 The Spartial Music Authors.
 # Licensed under GPL-3.0-or-later. See LICENSE.
 #
-# Release workflow for the GMS APK. A standalone file on purpose, so each APK
-# is built and published by its own workflow instead of one file building two
-# APKs in a row: this one builds the gms flavour only —
-# `nodes-gms-<version>.apk` — with Play services and Cast. The FOSS APK is
-# built by .github/workflows/release.yml. Both workflows sign with the same
-# KEYSTORE_* secrets, need the YOUTUBE_* keys for
-# `local.properties`, run on the same `v*` tags, and attach their APK plus
-# its sha256 to the same GitHub Release.
+# Manual APK build workflow for Spartial Music.
+# Builds and signs GMS and FOSS release APKs, then uploads them as workflow
+# artifacts. It does not publish a GitHub Release, push a tag, or commit changes.
 
 
 
 
 
+name: Spartial Music Build
 
-name: Spartial Music Release
-
-run-name: Spartial Music Release (${{ inputs.release_type }})
+run-name: Spartial Music Build (${{ inputs.release_type }})
 
 on:
   workflow_dispatch:
@@ -33,7 +27,7 @@ on:
           - major
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: spartial-music-release
@@ -48,8 +42,6 @@ jobs:
       current_version: ${{ steps.version.outputs.current_version }}
       new_version: ${{ steps.version.outputs.new_version }}
       version_code: ${{ steps.version.outputs.version_code }}
-      tag: ${{ steps.version.outputs.tag }}
-      base_sha: ${{ steps.version.outputs.base_sha }}
 
     steps:
       - name: Checkout main
@@ -65,7 +57,6 @@ jobs:
           python3 - <<'PY'
           import os
           import re
-          import subprocess
 
           path = "app/build.gradle.kts"
 
@@ -100,17 +91,10 @@ jobs:
               raise SystemExit("Invalid release type")
 
           new_version = f"{major}.{minor}.{patch}"
-          tag = f"v{new_version}"
-          base_sha = subprocess.check_output(
-              ["git", "rev-parse", "HEAD"], text=True
-          ).strip()
-
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"current_version={current_version}\n")
               f.write(f"new_version={new_version}\n")
               f.write(f"version_code={version_code}\n")
-              f.write(f"tag={tag}\n")
-              f.write(f"base_sha={base_sha}\n")
 
           summary = os.environ["GITHUB_STEP_SUMMARY"]
           with open(summary, "a") as f:
@@ -121,14 +105,12 @@ jobs:
               f.write(f"| Release type | **{release_type.capitalize()}** |\n")
               f.write(f"| New version | **`{new_version}`** |\n")
               f.write(f"| New versionCode | `{version_code}` |\n")
-              f.write(f"| Git tag | `{tag}` |\n")
           PY
 
       - name: Show release version
         run: |
           echo "Current: ${{ steps.version.outputs.current_version }}"
           echo "New: ${{ steps.version.outputs.new_version }}"
-          echo "Tag: ${{ steps.version.outputs.tag }}"
 
   build:
     name: Build ${{ matrix.variant }} APK
@@ -152,7 +134,6 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.prepare-version.outputs.base_sha }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -253,123 +234,32 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  finalize-version:
-    name: Update Version and Create Tag
+
+  build-summary:
+    name: Build Complete (Manual Publishing)
     needs:
       - prepare-version
       - build
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout release source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare-version.outputs.base_sha }}
-          fetch-depth: 0
-
-      - name: Update version in Gradle
+      - name: Show artifact instructions
         env:
           VERSION: ${{ needs.prepare-version.outputs.new_version }}
           VERSION_CODE: ${{ needs.prepare-version.outputs.version_code }}
         run: |
-          python3 - <<'PY'
-          import os
-          import re
-
-          path = "app/build.gradle.kts"
-
-          with open(path, "r", encoding="utf-8") as f:
-              content = f.read()
-
-          content, code_count = re.subn(
-              r'versionCode\s*=\s*\d+',
-              f'versionCode = {os.environ["VERSION_CODE"]}',
-              content,
-              count=1
-          )
-
-          content, name_count = re.subn(
-              r'versionName\s*=\s*"[^"]+"',
-              f'versionName = "{os.environ["VERSION"]}"',
-              content,
-              count=1
-          )
-
-          if code_count != 1 or name_count != 1:
-              raise SystemExit("Could not update versionCode/versionName")
-
-          with open(path, "w", encoding="utf-8") as f:
-              f.write(content)
-          PY
-
-      - name: Commit version and create tag
-        env:
-          VERSION: ${{ needs.prepare-version.outputs.new_version }}
-          TAG: ${{ needs.prepare-version.outputs.tag }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add app/build.gradle.kts
-          git commit -m "chore: release v$VERSION"
-
-          git tag -a "$TAG" -m "Spartial Music $VERSION"
-
-          git push --atomic origin HEAD:main "refs/tags/$TAG"
-
-  publish-release:
-    name: Publish GitHub Release
-    needs:
-      - prepare-version
-      - finalize-version
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download GMS APK
-        uses: actions/download-artifact@v4
-        with:
-          name: Spartial-Music-GMS
-          path: artifacts/gms
-
-      - name: Download FOSS APK
-        uses: actions/download-artifact@v4
-        with:
-          name: Spartial-Music-FOSS
-          path: artifacts/foss
-
-      - name: Verify APK files
-        run: |
-          test -s artifacts/gms/Spartial-Music-GMS.apk
-          test -s artifacts/foss/Spartial-Music-FOSS.apk
-
-          ls -lh artifacts/gms/
-          ls -lh artifacts/foss/
-
-      - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.prepare-version.outputs.new_version }}
-          TAG: ${{ needs.prepare-version.outputs.tag }}
-        run: |
-          gh release create "$TAG" \
-            artifacts/gms/Spartial-Music-GMS.apk \
-            artifacts/foss/Spartial-Music-FOSS.apk \
-            --title "Spartial Music $VERSION" \
-            --generate-notes \
-            --latest
-
-      - name: Release summary
-        env:
-          VERSION: ${{ needs.prepare-version.outputs.new_version }}
-          TAG: ${{ needs.prepare-version.outputs.tag }}
-        run: |
           {
-            echo "# Release Published"
+            echo "# APK Build Complete"
             echo ""
             echo "**Version:** $VERSION"
             echo ""
-            echo "**Tag:** $TAG"
+            echo "**Version code:** $VERSION_CODE"
             echo ""
-            echo "- Spartial-Music-GMS.apk"
-            echo "- Spartial-Music-FOSS.apk"
+            echo "## Downloaded artifacts"
+            echo "- \`Spartial-Music-GMS\` — signed GMS APK"
+            echo "- \`Spartial-Music-FOSS\` — signed FOSS APK"
+            echo ""
+            echo "## Manual publishing"
+            echo "Download the two APK artifacts from this workflow run, then create your GitHub Release manually and attach the APK files."
+            echo ""
+            echo "This workflow does not create a GitHub Release, push a tag, or commit version changes."
           } >> "$GITHUB_STEP_SUMMARY"
