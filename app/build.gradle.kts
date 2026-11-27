@@ -78,7 +78,7 @@ android {
                 (parts.getOrNull(1)?.toIntOrNull() ?: 0) * 100 +
                 (parts.getOrNull(2)?.toIntOrNull() ?: 0)
         }
-        versionName = "1.0.0"
+        versionName = "0.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${secret("YOUTUBE_API_KEY")}\"")
