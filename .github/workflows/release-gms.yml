@@ -211,6 +211,12 @@ jobs:
 
           echo "All signing secrets are configured."
 
+      - name: Grant Gradle wrapper permission
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+
       - name: Build release APK
         shell: bash
         run: |
