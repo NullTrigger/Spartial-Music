@@ -43,4 +43,32 @@ class HomeSearchSuggestionsTest {
 
         assertTrue(suggestions.isEmpty())
     }
+
+    @Test
+    fun `keeps local matches first and fills with discovery one artist at a time`() {
+        val matches = listOf(Track(id = "local", title = "Silver Fields", artist = "Aster"))
+        val discovery = listOf(
+            Track(id = "a1", title = "Aster One", artist = "Aster"),
+            Track(id = "a2", title = "Aster Two", artist = "Aster"),
+            Track(id = "b1", title = "Birch One", artist = "Birch"),
+        )
+
+        val merged = mergeSearchSuggestions(matches, discovery, limit = 4)
+
+        assertEquals(listOf("local", "a1", "b1", "a2"), merged.map { it.id })
+    }
+
+    @Test
+    fun `drops discovery that Home already shows`() {
+        val merged = mergeSearchSuggestions(
+            matches = emptyList(),
+            discovery = listOf(
+                Track(id = "dup", title = "Dup", artist = "Aster"),
+                Track(id = "ok", title = "Ok", artist = "Birch"),
+            ),
+            excludedIds = setOf("dup"),
+        )
+
+        assertEquals(listOf("ok"), merged.map { it.id })
+    }
 }

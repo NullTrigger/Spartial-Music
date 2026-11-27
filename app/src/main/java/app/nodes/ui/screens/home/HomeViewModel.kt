@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -64,6 +66,24 @@ class HomeViewModel @Inject constructor(
 
     /** When the rails on screen were fetched; 0 until the first load. */
     private var lastLoadAtMs = 0L
+
+    /**
+     * Serialises the search-suggestion derive. Its three collectors (history,
+     * library, recents) fire in bursts, and each derive may ask the provider
+     * once, so overlapping runs would duplicate that call without adding
+     * anything to the rail.
+     */
+    private val searchMutex = Mutex()
+
+    /** The last provider answer for a search seed, and when it was fetched. */
+    private var discoverySeedId: String? = null
+    private var discoveryFetchedAtMs = 0L
+    private var discoveryTracks: List<Track> = emptyList()
+
+    /** The last provider answer for a bare query, cached the same way. */
+    private var queryText: String? = null
+    private var queryFetchedAtMs = 0L
+    private var queryTracks: List<Track> = emptyList()
 
     /** The signed-in YouTube Music account, if any; drives the avatar initial. */
     val account: StateFlow<InnerTubeAccount?> = musicAuth.account
@@ -140,21 +160,86 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { load(_state.value.sourceId) }
     }
 
-    private suspend fun refreshSearchSuggestions() {
+    private suspend fun refreshSearchSuggestions() = searchMutex.withLock {
         val queries = searchHistory.recent.first()
         val cached = library.allTracks.first()
         val current = _state.value
         val excluded = (current.banners + current.feed.sections.flatMap { it.tracks } + current.recents)
             .mapTo(HashSet()) { it.id }
-        val suggestions = searchHistorySuggestions(
+        val matches = searchHistorySuggestions(
             recentQueries = queries,
             cachedTracks = cached,
+            excludedIds = excluded,
+            limit = SEARCH_SUGGESTION_LIMIT,
+        )
+        // The local pass answers the search with music the user already has;
+        // the provider then rounds it out with songs around that answer, the
+        // way Spotify's rail does. With nothing local to seed from, the
+        // newest query is asked directly instead, so the rail still answers.
+        val discovery = when {
+            matches.isNotEmpty() -> discoveryAround(matches.first())
+            else -> queries.firstOrNull()?.let { discoveryForQuery(it) }.orEmpty()
+        }
+        val suggestions = mergeSearchSuggestions(
+            matches = matches,
+            discovery = discovery,
             excludedIds = excluded,
         )
         _state.update { it.copy(searchSuggestions = suggestions) }
     }
 
+    /**
+     * The provider's radio for [seed]: more of what the user searched for,
+     * starting from the one track the app can name. Cached per seed for
+     * [SEARCH_DISCOVERY_TTL_MS], because the library collector fires on every
+     * play and the rail must not turn that into a request per tap.
+     */
+    private suspend fun discoveryAround(seed: Track): List<Track> {
+        val now = System.currentTimeMillis()
+        if (discoverySeedId == seed.id && now - discoveryFetchedAtMs < SEARCH_DISCOVERY_TTL_MS) {
+            return discoveryTracks
+        }
+        val source = registry.byId(seed.sourceId) ?: registry.primary()
+        val tracks = runCatching {
+            (source.getRelated(seed, SEARCH_DISCOVERY_COUNT) as? SourceResult.Success)?.data
+        }.getOrNull().orEmpty()
+        if (tracks.isNotEmpty()) {
+            discoverySeedId = seed.id
+            discoveryFetchedAtMs = now
+            discoveryTracks = tracks
+        }
+        return tracks
+    }
+
+    /** The provider's own answer for a query the local cache cannot match. */
+    private suspend fun discoveryForQuery(query: String): List<Track> {
+        val now = System.currentTimeMillis()
+        if (queryText == query && now - queryFetchedAtMs < SEARCH_DISCOVERY_TTL_MS) {
+            return queryTracks
+        }
+        val source = registry.byId(_state.value.sourceId) ?: registry.primary()
+        val tracks = runCatching {
+            (source.search(query, SEARCH_DISCOVERY_COUNT) as? SourceResult.Success)?.data
+        }.getOrNull().orEmpty()
+        if (tracks.isNotEmpty()) {
+            queryText = query
+            queryFetchedAtMs = now
+            queryTracks = tracks
+        }
+        return tracks
+    }
+
     private suspend fun load(sourceId: SourceId) {
+        if (_state.value.sourceId != sourceId) {
+            // A different provider owns a different catalogue, so the cached
+            // search radios are no longer answers to these searches.
+            discoverySeedId = null
+            discoveryFetchedAtMs = 0L
+            discoveryTracks = emptyList()
+            queryText = null
+            queryFetchedAtMs = 0L
+            queryTracks = emptyList()
+        }
         _state.update { it.copy(loading = true, error = null, sourceId = sourceId) }
         val source = registry.byId(sourceId) ?: registry.primary()
         val recent = _state.value.recents.ifEmpty { library.recentlyPlayed.first() }
@@ -283,6 +368,12 @@ class HomeViewModel @Inject constructor(
          */
         const val HOME_REFRESH_AFTER_MS = 60_000L
         const val NEW_SONG_COUNT = 10
+
+        /** How much of a radio answer the search rail blends in. */
+        const val SEARCH_DISCOVERY_COUNT = 20
+
+        /** How long a search's radio answer stays usable before refetching. */
+        const val SEARCH_DISCOVERY_TTL_MS = 10 * 60 * 1000L
     }
 }
 

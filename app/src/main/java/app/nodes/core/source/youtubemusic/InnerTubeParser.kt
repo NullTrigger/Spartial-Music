@@ -35,6 +35,12 @@ internal object InnerTubeParser {
         val ciphered: Boolean,
         val mimeType: String?,
         val bitrate: Int,
+        /**
+         * The telemetry URL a play has to be reported to, which is what puts
+         * the track into the account's YouTube Music history. Null when the
+         * response did not offer one.
+         */
+        val trackingUrl: String? = null,
     )
 
     /**
@@ -631,6 +637,10 @@ internal object InnerTubeParser {
             ciphered = false,
             mimeType = chosen.first["mimeType"]?.string(),
             bitrate = chosen.first["bitrate"]?.int() ?: 0,
+            trackingUrl = (root["playbackTracking"] as? JsonObject)
+                ?.get("videostatsPlaybackUrl")?.let { it as? JsonObject }
+                ?.get("baseUrl")?.string()
+                ?.takeIf { it.startsWith("http") },
         )
     }
 

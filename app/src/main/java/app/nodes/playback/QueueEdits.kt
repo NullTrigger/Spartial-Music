@@ -247,6 +247,89 @@ internal object QueueEdits {
     }
 
     /**
+     * Blends the radio answers of several seeds into one stream: one track
+     * from each station per round, so a batch reads like a station rather than
+     * one radio's top ten. Tracks already queued or played, ids listed in
+     * [excludedIds] and song names the queue already holds are dropped; the
+     * first track per name wins.
+     */
+    fun stationStream(
+        stations: List<List<Track>>,
+        excludedIds: Set<String>,
+        takenNames: Set<String>,
+        limit: Int,
+    ): List<Track> {
+        if (limit <= 0 || stations.isEmpty()) return emptyList()
+        val queues = stations.map { ArrayDeque(it) }
+        val seenIds = HashSet<String>()
+        val seenNames = HashSet(takenNames)
+        val out = ArrayList<Track>(limit)
+        var added = true
+        while (out.size < limit && added) {
+            added = false
+            for (station in queues) {
+                if (out.size >= limit) break
+                while (station.isNotEmpty()) {
+                    val track = station.removeFirst()
+                    if (track.id in excludedIds || !seenIds.add(track.id)) continue
+                    if (!seenNames.add(titleKey(track))) continue
+                    out += track
+                    added = true
+                    break
+                }
+            }
+        }
+        return out
+    }
+
+    /**
+     * Spotify's autoplay mix: the station's own answer leads and [discovery]
+     * songs are dealt in at spread slots (one every few tracks, not as a block
+     * at the end), so the queue keeps moving outwards instead of circling the
+     * same radio. [discoveryShare] of [limit] slots go to discovery; the rest
+     * is filled from the station, and whatever runs out first is topped up
+     * from the other.
+     */
+    fun blendDiscovery(
+        station: List<Track>,
+        discovery: List<Track>,
+        limit: Int,
+        discoveryShare: Int,
+    ): List<Track> {
+        if (limit <= 0) return emptyList()
+        val seenIds = HashSet<String>()
+        val seenNames = HashSet<String>()
+        fun clean(list: List<Track>): List<Track> =
+            list.filter { seenIds.add(it.id) && seenNames.add(titleKey(it)) }
+        val main = clean(station)
+        val extra = clean(discovery)
+        val share = discoveryShare.coerceIn(0, minOf(limit, extra.size))
+        val every = if (share == 0) limit + 1 else (limit / share).coerceAtLeast(2)
+        val out = ArrayList<Track>(limit)
+        var usedExtra = 0
+        var mainIndex = 0
+        var extraIndex = 0
+        for (slot in 0 until limit) {
+            val dueInSlot = usedExtra < share && slot % every == every / 2
+            val takeExtra = (dueInSlot || mainIndex >= main.size) && extraIndex < extra.size
+            val track = when {
+                takeExtra -> {
+                    usedExtra++
+                    extra[extraIndex++]
+                }
+                mainIndex < main.size -> main[mainIndex++]
+                extraIndex < extra.size -> {
+                    usedExtra++
+                    extra[extraIndex++]
+                }
+                else -> break
+            }
+            out += track
+        }
+        return out
+    }
+
+    /**
      * The next batch for an infinite queue, in preference order:
      * source-related tracks first, then the local candidate pool. Anything
      * already queued or played in the last [recentlyPlayedIds] is excluded,

@@ -217,6 +217,7 @@ fun NowPlayingScreen(
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
+    val suggestions by playerViewModel.suggestions.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val lyricsLoading by viewModel.lyricsLoading.collectAsStateWithLifecycle()
     val liked by viewModel.liked.collectAsStateWithLifecycle()
@@ -241,6 +242,12 @@ fun NowPlayingScreen(
     }
 
     BackHandler(enabled = mode != PlayerMode.CONTROLS) { mode = PlayerMode.CONTROLS }
+
+    // Opening the queue while paused asks for the similar shelf directly; while
+    // playing the controller keeps it current on its own.
+    LaunchedEffect(mode) {
+        if (mode == PlayerMode.QUEUE) playerViewModel.requestSuggestions()
+    }
 
     if (track == null) {
         Column(
@@ -504,11 +511,15 @@ fun NowPlayingScreen(
                         PlayerMode.QUEUE -> QueueMode(
                             state = playerState,
                             queueTitle = queueTitle,
+                            suggestions = suggestions,
                             onPlayIndex = playerViewModel::playQueueIndex,
                             onMove = playerViewModel::moveInQueue,
                             onRemove = playerViewModel::removeFromQueue,
                             onPlayNext = playerViewModel::playNext,
                             onAddToQueue = playerViewModel::addToQueue,
+                            onPlaySuggestion = playerViewModel::playNextSuggestion,
+                            onAddSuggestion = playerViewModel::addSuggestionToQueue,
+                            onAddAllSuggestions = playerViewModel::addAllSuggestions,
                             onOpenArtist = onOpenArtist,
                             onOpenAlbum = onOpenAlbum,
                             onOpenControls = { mode = PlayerMode.CONTROLS },
@@ -908,11 +919,15 @@ private fun Modifier.lyricBlur(radiusDp: Float): Modifier = graphicsLayer {
 private fun QueueMode(
     state: PlayerUiState,
     queueTitle: String,
+    suggestions: List<Track>,
     onPlayIndex: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onRemove: (Int) -> Unit,
     onPlayNext: (Track) -> Unit,
     onAddToQueue: (Track) -> Unit,
+    onPlaySuggestion: (Track) -> Unit,
+    onAddSuggestion: (Track) -> Unit,
+    onAddAllSuggestions: () -> Unit,
     onOpenArtist: (String) -> Unit,
     onOpenAlbum: (String, String?) -> Unit,
     onOpenControls: () -> Unit,
@@ -998,6 +1013,134 @@ private fun QueueMode(
                 },
             )
         }
+        // Glossy's "Similar content": the playing track's radio, offered under
+        // the queue and folded in only when asked. It is never appended by
+        // itself, and it is not the list the track happened to be tapped from.
+        if (suggestions.isNotEmpty()) {
+            item(key = "similar-head") {
+                SimilarHeader(onAddAll = onAddAllSuggestions)
+            }
+            itemsIndexed(
+                items = suggestions,
+                key = { _, track -> "similar-${track.id}" },
+            ) { _, track ->
+                SimilarRow(
+                    track = track,
+                    onPlayNext = { onPlaySuggestion(track) },
+                    onAddToQueue = { onAddSuggestion(track) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Header of the queue's similar shelf. "Add all" is the one deliberate
+ * shortcut: the radio answer is a menu, not a fait accompli.
+ */
+@Composable
+private fun SimilarHeader(onAddAll: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 16.dp, top = 20.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.player_similar_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = SpartialWhite.copy(alpha = 0.92f),
+            )
+            Text(
+                text = stringResource(R.string.player_similar_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = SpartialWhite.copy(alpha = 0.56f),
+            )
+        }
+        Text(
+            text = stringResource(R.string.player_similar_add_all),
+            style = MaterialTheme.typography.labelLarge,
+            color = SpartialWhite.copy(alpha = 0.86f),
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable(role = Role.Button, onClick = onAddAll)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+    }
+}
+
+/** One row of the similar shelf: play next or append, never play now. */
+@Composable
+private fun SimilarRow(
+    track: Track,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .padding(start = 8.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Artwork(
+            artworkUri = track.artworkUri,
+            title = track.title,
+            modifier = Modifier.size(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            targetPx = 256,
+        )
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = track.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = SpartialWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = track.artist,
+                style = MaterialTheme.typography.bodySmall,
+                color = SpartialWhite.copy(alpha = 0.64f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        SimilarAction(
+            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+            description = stringResource(R.string.player_play_next),
+            onClick = onPlayNext,
+        )
+        SimilarAction(
+            icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+            description = stringResource(R.string.player_add_to_queue),
+            onClick = onAddToQueue,
+        )
+    }
+}
+
+@Composable
+private fun SimilarAction(
+    icon: ImageVector,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = SpartialWhite.copy(alpha = 0.72f),
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 

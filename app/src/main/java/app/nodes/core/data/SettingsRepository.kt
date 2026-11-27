@@ -76,8 +76,11 @@ data class AppSettings(
     val rememberQueue: Boolean = true,
     /** Persist the shuffle state with the queue. */
     val rememberShuffle: Boolean = true,
-    /** Keep the queue going with related tracks when it runs low. */
-    val autoplaySimilar: Boolean = false,
+    /**
+     * Keep the queue going when it runs low, with the provider's own radio for
+     * the playing track (Glossy's mechanism). On by default.
+     */
+    val autoplaySimilar: Boolean = true,
     val skipSilence: Boolean = false,
     /** Animated Reel covers: user loops and provider videos. On by default. */
     val animatedCovers: Boolean = true,
@@ -98,6 +101,15 @@ data class AppSettings(
     val stopMusicOnTaskClear: Boolean = false,
     /** Epoch millis at which the sleep timer pauses playback; 0 means off. */
     val sleepTimerEndsAt: Long = 0L,
+    /**
+     * Glossy's "Auto-sync with account": while on, and while an account is
+     * signed in, likes, listening history and copied playlists are kept in
+     * step with YouTube Music without the user asking. Off by default, because
+     * every part of it writes to the account.
+     */
+    val syncYouTube: Boolean = false,
+    /** Epoch millis of the last completed automatic sync; 0 means never. */
+    val lastYouTubeSyncAt: Long = 0L,
 )
 
 private const val DEFAULT_AVATAR_ID = 1
@@ -135,7 +147,7 @@ class SettingsRepository @Inject constructor(
             playbackSpeed = prefs[KEY_PLAYBACK_SPEED] ?: 1f,
             rememberQueue = prefs[KEY_REMEMBER_QUEUE] ?: true,
             rememberShuffle = prefs[KEY_REMEMBER_SHUFFLE] ?: true,
-            autoplaySimilar = prefs[KEY_AUTOPLAY_SIMILAR] ?: false,
+            autoplaySimilar = prefs[KEY_AUTOPLAY_SIMILAR] ?: true,
             skipSilence = prefs[KEY_SKIP_SILENCE] ?: false,
             animatedCovers = prefs[KEY_ANIMATED_COVERS] ?: true,
             animatedCoversOnMobile = prefs[KEY_ANIMATED_COVERS_MOBILE] ?: false,
@@ -145,6 +157,8 @@ class SettingsRepository @Inject constructor(
             keepScreenOn = prefs[KEY_KEEP_SCREEN_ON] ?: false,
             stopMusicOnTaskClear = prefs[KEY_STOP_MUSIC_ON_TASK_CLEAR] ?: false,
             sleepTimerEndsAt = prefs[KEY_SLEEP_TIMER_ENDS_AT] ?: 0L,
+            syncYouTube = prefs[KEY_SYNC_YOUTUBE] ?: false,
+            lastYouTubeSyncAt = prefs[KEY_LAST_YOUTUBE_SYNC] ?: 0L,
         )
     }
 
@@ -242,6 +256,18 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setAutoplaySimilar(enabled: Boolean) =
         dataStore.edit { it[KEY_AUTOPLAY_SIMILAR] = enabled }
+
+    /**
+     * The auto-sync switch. The timestamp is left alone: turning the switch on
+     * runs a sync straight away (the settings screen asks for one), and the
+     * next pass then starts from what that pass already pushed rather than
+     * replaying the whole liked list.
+     */
+    suspend fun setSyncYouTube(enabled: Boolean) =
+        dataStore.edit { it[KEY_SYNC_YOUTUBE] = enabled }
+
+    suspend fun setLastYouTubeSyncAt(at: Long) =
+        dataStore.edit { it[KEY_LAST_YOUTUBE_SYNC] = at }
 
     /** Whether the Listen Together privacy notice has been accepted once. */
     val sessionsConsentShown: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -351,6 +377,8 @@ class SettingsRepository @Inject constructor(
         val KEY_REMEMBER_QUEUE = booleanPreferencesKey("remember_queue")
         val KEY_REMEMBER_SHUFFLE = booleanPreferencesKey("remember_shuffle")
         val KEY_AUTOPLAY_SIMILAR = booleanPreferencesKey("autoplay_similar")
+        val KEY_SYNC_YOUTUBE = booleanPreferencesKey("sync_youtube")
+        val KEY_LAST_YOUTUBE_SYNC = longPreferencesKey("last_youtube_sync")
         val KEY_SESSIONS_CONSENT = booleanPreferencesKey("sessions_consent_shown")
         val KEY_FOLLOWS_IMPORT_PROMPT = booleanPreferencesKey("follows_import_prompt_shown")
 

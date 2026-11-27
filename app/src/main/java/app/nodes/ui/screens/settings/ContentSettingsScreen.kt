@@ -5,6 +5,7 @@
 
 package app.nodes.ui.screens.settings
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -73,12 +74,19 @@ fun ContentSettingsScreen(
 
         item(key = "sync") {
             SettingsGroup(stringResource(R.string.settings_sync_group)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_sync_title),
+                    subtitle = stringResource(R.string.settings_sync_subtitle),
+                    checked = settings.syncYouTube,
+                    onCheckedChange = viewModel::setSyncYouTube,
+                )
+                SettingsDivider()
                 SettingsActionRow(
                     title = stringResource(
-                        if (syncing) R.string.settings_sync_running else R.string.settings_sync_title,
+                        if (syncing) R.string.settings_sync_running else R.string.settings_sync_now,
                     ),
-                    subtitle = stringResource(R.string.settings_sync_subtitle),
-                    onClick = viewModel::syncLikesToYouTube,
+                    subtitle = syncStatus(settings.lastYouTubeSyncAt),
+                    onClick = viewModel::syncNow,
                 )
                 SettingsDivider()
                 SettingsNote(stringResource(R.string.settings_sync_note))
@@ -107,4 +115,15 @@ fun ContentSettingsScreen(
             }
         }
     }
+}
+
+/** "Last synced 5 minutes ago", so the loop's effect is visible at a glance. */
+@Composable
+private fun syncStatus(lastSyncAt: Long): String = if (lastSyncAt > 0L) {
+    stringResource(
+        R.string.settings_sync_last,
+        DateUtils.getRelativeTimeSpanString(lastSyncAt),
+    )
+} else {
+    stringResource(R.string.settings_sync_never)
 }

@@ -8,8 +8,11 @@ package app.nodes.core.source.youtubemusic
 import app.nodes.core.model.HomeSection
 import app.nodes.core.model.Playlist
 import app.nodes.core.model.Track
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -24,6 +27,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.Base64
+import kotlin.random.Random
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -110,6 +114,12 @@ class InnerTubeClient @Inject constructor(
      * answers are stored; a Refused answer is re-tried on the next play.
      */
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
+
+    /**
+     * Playback pings outlive the call that noticed the play: a track must not
+     * wait on telemetry before it starts.
+     */
+    private val playbackScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * Clients that have already served a URL the CDN accepted. Their later
@@ -285,10 +295,17 @@ class InnerTubeClient @Inject constructor(
      * one that works is asked - which is felt as the wait before a song makes
      * a sound.
      */
-    suspend fun audioUrl(videoId: String, preferHighQuality: Boolean): InnerTubeStream =
+    suspend fun audioUrl(
+        videoId: String,
+        preferHighQuality: Boolean,
+        /** Report the play to YouTube, which is what makes it show up in the
+         *  account's history. Off for prefetches: nothing was played. */
+        reportToHistory: Boolean = false,
+    ): InnerTubeStream =
         withContext(Dispatchers.IO) {
             val key = streamCacheKey(videoId, preferHighQuality)
             streamCache[key]?.takeIf { it.isFresh() }?.let { cached ->
+                if (reportToHistory) reportPlayback(cached.trackingUrl)
                 return@withContext InnerTubeStream.Playable(cached.url, cached.client, cached.userAgent)
             }
 
@@ -331,7 +348,9 @@ class InnerTubeClient @Inject constructor(
                         client = profile.name,
                         userAgent = profile.userAgent,
                         mintedAt = System.currentTimeMillis(),
+                        trackingUrl = pick.trackingUrl,
                     )
+                    if (reportToHistory) reportPlayback(pick.trackingUrl)
                     return@withContext InnerTubeStream.Playable(url, profile.name, profile.userAgent)
                 }
 
@@ -347,11 +366,79 @@ class InnerTubeClient @Inject constructor(
         streamCache.keys.removeAll { it.startsWith("$videoId:") }
     }
 
+    // ------------------------------------------------------------------
+    // Playback reporting (history)
+    // ------------------------------------------------------------------
+
+    /**
+     * Tells YouTube that a track started playing.
+     *
+     * This is not a write to the library: it is the same page-view ping the
+     * music site fires when audio begins, sent to the URL the `player` answer
+     * carried in `playbackTracking`. YouTube turns that ping into the entry
+     * the account sees under History - there is no other way to write history,
+     * and nothing in the app's own history is read back from it.
+     *
+     * Fire and forget: a play must never wait on telemetry, and a ping that
+     * fails costs a history row, never the audio.
+     */
+    fun reportPlayback(trackingUrl: String?) {
+        if (trackingUrl == null) return
+        playbackScope.launch {
+            runCatching { getTracked(withTelemetry(trackingUrl)) }
+        }
+    }
+
+    /** The play ping with the three parameters the web client adds itself. */
+    private fun withTelemetry(baseUrl: String): String {
+        val separator = if ('?' in baseUrl) '&' else '?'
+        return buildString {
+            append(baseUrl)
+            append(separator)
+            append("c=").append(WEB_REMIX.name)
+            append("&cpn=").append(playbackCpn())
+            append("&ver=").append(PLAYBACK_TELEMETRY_VER)
+        }
+    }
+
+    /** A 16-character client playback nonce, as the web player generates one. */
+    private fun playbackCpn(): String = buildString(CPN_LENGTH) {
+        repeat(CPN_LENGTH) { append(CPN_ALPHABET[Random.nextInt(CPN_ALPHABET.length)]) }
+    }
+
+    /**
+     * A GET against an absolute URL, with the session headers the telemetry
+     * endpoints require. Separate from [buildRequest] because that one always
+     * addresses the InnerTube JSON API under [BASE_URL].
+     */
+    private suspend fun getTracked(url: String): Boolean {
+        val visitor = auth.ensureVisitorData()
+        val builder = Request.Builder()
+            .url(url)
+            .get()
+            .header("Accept", "*/*")
+            .header("User-Agent", WEB_REMIX.userAgent)
+            .header("X-YouTube-Client-Name", WEB_REMIX.clientId)
+            .header("X-YouTube-Client-Version", WEB_REMIX.version)
+            .header("X-Origin", ORIGIN)
+            .header("Referer", "$ORIGIN/")
+
+        visitor?.let { builder.header("X-Goog-Visitor-Id", it) }
+        auth.cookie()?.let { cookie ->
+            builder.header("Cookie", cookie)
+            auth.authorization()?.let { builder.header("Authorization", it) }
+            builder.header("X-Goog-AuthUser", "0")
+        }
+
+        return client.newCall(builder.build()).execute().use { it.isSuccessful }
+    }
+
     private class CachedStream(
         val url: String,
         val client: String,
         val userAgent: String,
         val mintedAt: Long,
+        val trackingUrl: String?,
     ) {
         fun isFresh(): Boolean =
             System.currentTimeMillis() - mintedAt < STREAM_CACHE_TTL_MS
@@ -443,6 +530,17 @@ class InnerTubeClient @Inject constructor(
             val playlistId = InnerTubeParser.createdPlaylistId(created) ?: return@withContext null
             appendToPlaylist(playlistId, videoIds)
             playlistId
+        }
+
+    /**
+     * Appends [videoIds] to a playlist the account already owns, which is how a
+     * copied playlist is kept current instead of being duplicated. Returns true
+     * when every chunk was accepted.
+     */
+    suspend fun addToPlaylist(playlistId: String, videoIds: List<String>): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!auth.isSignedIn || videoIds.isEmpty()) return@withContext false
+            appendToPlaylist(playlistId, videoIds)
         }
 
     /** Appends videos to one of the account's playlists, 50 at a time. */
@@ -639,6 +737,12 @@ class InnerTubeClient @Inject constructor(
         private const val EMBED_URL = "https://www.reddit.com/"
         private const val RETRIES = 3
         private const val RETRY_DELAY_MS = 500L
+
+        /** The telemetry version the web player reports, see YOUTUBE.md. */
+        private const val PLAYBACK_TELEMETRY_VER = 2
+        private const val CPN_LENGTH = 16
+        private const val CPN_ALPHABET =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
 
         /**
          * How long a minted googlevideo URL may be reused. YouTube's own expiry

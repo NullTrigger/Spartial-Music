@@ -231,23 +231,52 @@ How it works, and what keeps it bounded:
 - **Sign out of YouTube Music** deletes the stored cookie and clears the WebView
   cookies.
 
-### Writing to the account: the likes push
+### Writing to the account: the auto-sync
 
 **Maintainer decision, 3 November 2026:** in addition to reading, Mode 2 may
-make exactly one *write* on the signed-in account — pushing a locally liked
-YouTube Music track to the account's liked songs. This is the "Sync to YT"
-row in Settings → Content, and it is the only account write in the codebase.
+push a locally liked YouTube Music track to the account's liked songs. This
+started as the one-shot "Sync to YT" row in Settings → Content.
 
-- It is one-directional: Spartial Music pushes likes **to** YouTube and never pulls the
-  account's liked songs back into the library (reads for personalised shelves
-  are unchanged from the cookie decision above).
-- It replays liking what is already liked, which YouTube treats as a no-op, so
-  running the sync again is safe and can complete whatever was left.
+**Maintainer decision, 27 November 2026:** that row became Glossy's
+*"Auto-sync with account"* switch, and the set of account writes grew to what
+the switch promises. Everything below happens only while the switch is **on**
+*and* an account is signed in. The switch is off by default, unlike the
+reference player, because each of these writes lands on a real account.
+
+What a sync does, and the endpoint behind each part:
+
+- **Likes out.** Every locally liked YouTube Music track is replayed onto the
+  account through `like/like`. Replaying a like that already exists is a no-op
+  server-side, which is what makes the pass safe to repeat.
+- **Likes in.** The account's own liked songs (`browse` with
+  `FEmusic_liked_videos`) are added to the local library. Add-only: a like
+  removed on YouTube never removes a local like, because the local library is
+  the user's own record.
+- **Copied playlists.** A local playlist copied with *Copy to YouTube Music*
+  gets a private playlist on the account (`playlist/create`, then
+  `browse/edit_playlist`). The link between the two is remembered locally, so
+  every later sync appends only the tracks added since, to the same remote
+  playlist, instead of creating a duplicate.
+- **History.** A play is reported to the URL the `player` answer carries in
+  `playbackTracking` (a GET to `s.youtube.com/api/stats/playback` with `c`,
+  `cpn` and `ver=2`, the same ping the music site fires). That is what puts
+  the track in the account's History; the app never reads its own history back
+  from YouTube, and the ping is fire-and-forget so playback never waits on it.
+
+The loop itself (`core/sync/YouTubeSync.kt`) runs for the life of the process,
+looks at the clock every ten minutes, and syncs at most once every **thirty
+minutes** (Glossy's cooldown). **Sync now** runs it on demand. A sync that
+fails changes nothing locally and is simply retried; the *Last synced* line in
+Settings reports the last pass that completed.
+
+Bounds that did not change:
+
+- Reads for personalised shelves are unchanged from the cookie decision above.
 - Nothing is recorded per-user beyond what the like toggle already stores
-  locally; no new data leaves the device except the like calls themselves.
-- The endpoint is YouTube Music's own `like/like` with the session cookie and
-  the same SAPISIDHASH authorization as every other Mode 2 call. It carries the
-  same instability and the same legal position as the rest of Mode 2 (above).
+  locally; no new data leaves the device except the calls listed here.
+- Every call uses the session cookie and the same SAPISIDHASH authorization as
+  the rest of Mode 2, and carries the same instability and legal position
+  (above). No media, no PoToken, no attestation bypass, no ads touched.
 - The infinite queue reads related tracks from YouTube Music's own `next` request (the radio / up-next list the site itself shows); it is read-only metadata, with no PoToken, cipher or additional client identity.
 
 ### The legal reality, stated plainly

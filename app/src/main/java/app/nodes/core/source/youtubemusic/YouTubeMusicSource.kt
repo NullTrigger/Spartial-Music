@@ -19,6 +19,8 @@ import app.nodes.core.model.SourceResult
 import app.nodes.core.model.SourceStatus
 import app.nodes.core.model.Track
 import app.nodes.core.source.MusicSource
+import app.nodes.core.sync.YouTubePlaylistLink
+import app.nodes.core.sync.YouTubePlaylistLinks
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,6 +47,7 @@ class YouTubeMusicSource @Inject constructor(
     private val settings: SettingsRepository,
     private val remoteCache: RemoteCache,
     private val json: Json,
+    private val playlistLinks: YouTubePlaylistLinks,
 ) : MusicSource {
 
     override val id: SourceId = SourceId.YOUTUBE_MUSIC
@@ -268,41 +271,116 @@ class YouTubeMusicSource @Inject constructor(
 
     /** What a playlist push managed: the new playlist, or what went wrong. */
     sealed interface PlaylistPush {
-        data class Done(val playlistId: String, val added: Int, val missed: Int) : PlaylistPush
+        data class Done(
+            val playlistId: String,
+            val added: Int,
+            val missed: Int,
+            /** True the first time, false when an existing copy was refreshed. */
+            val created: Boolean = false,
+        ) : PlaylistPush
         data object SignedOut : PlaylistPush
         data object Failed : PlaylistPush
     }
 
     /**
-     * Copies a local playlist to the account: every local track is matched to
-     * a YouTube video by its title and artist, and a private playlist holding
-     * those videos is created. Tracks that cannot be matched are counted, never
-     * guessed - a wrong song in someone's playlist is worse than a missing one.
+     * Copies a local playlist to the account, or brings the copy it made before
+     * up to date.
+     *
+     * The first call matches every local track to a YouTube video by title and
+     * artist and creates a private playlist holding those videos. Later calls
+     * append only what that playlist does not hold yet, which is what lets a
+     * link survive the app being restarted and the playlist being edited -
+     * "copied" becomes "kept in step" instead of a second, duplicate playlist.
+     *
+     * Matches are remembered by [YouTubePlaylistLinks] so a refresh costs one
+     * append rather than one search per song. Tracks that cannot be matched are
+     * counted, never guessed: a wrong song in someone's playlist is worse than a
+     * missing one.
+     *
+     * @param localPlaylistId the local playlist's id, so the copy can be found
+     *        again. Null keeps the old behaviour of always creating a new list.
      */
-    suspend fun pushPlaylist(name: String, tracks: List<Track>): PlaylistPush {
+    suspend fun pushPlaylist(
+        name: String,
+        tracks: List<Track>,
+        localPlaylistId: String? = null,
+    ): PlaylistPush {
         if (!innerTube.isSignedIn) return PlaylistPush.SignedOut
-        val videoIds = mutableListOf<String>()
+        val link = localPlaylistId?.let { id -> playlistLinks.find(id) }
+        val matches = LinkedHashMap<String, String>(link?.matches.orEmpty())
         var missed = 0
+        val fresh = mutableListOf<String>()
         for (track in tracks) {
+            if (matches.containsKey(track.id)) continue
             val query = listOf(track.title, track.artist).filter { it.isNotBlank() }
                 .joinToString(" ")
             val match = runCatching { innerTube.search(query, 3) }.getOrDefault(emptyList())
                 .firstOrNull { it.videoId != null }
                 ?.videoId
-            if (match != null) videoIds += match else missed++
+            if (match != null) {
+                matches[track.id] = match
+                fresh += match
+            } else {
+                missed++
+            }
         }
-        if (videoIds.isEmpty()) return PlaylistPush.Failed
-        val id = runCatching { innerTube.createPlaylist(name, null, videoIds) }.getOrNull()
-            ?: return PlaylistPush.Failed
-        return PlaylistPush.Done(playlistId = id, added = videoIds.size, missed = missed)
+        if (matches.isEmpty()) return PlaylistPush.Failed
+
+        val existing = link?.remotePlaylistId
+        if (existing == null) {
+            val id = runCatching {
+                innerTube.createPlaylist(name, null, matches.values.toList())
+            }.getOrNull() ?: return PlaylistPush.Failed
+            remember(localPlaylistId, id, matches)
+            return PlaylistPush.Done(
+                playlistId = id,
+                added = matches.size,
+                missed = missed,
+                created = true,
+            )
+        }
+
+        if (fresh.isNotEmpty()) {
+            val ok = runCatching { innerTube.addToPlaylist(existing, fresh) }.getOrDefault(false)
+            if (!ok) {
+                // The copy is gone (deleted on the account) or refusing writes.
+                // Dropping the link lets the next attempt create a fresh copy
+                // instead of retrying the same dead playlist forever.
+                localPlaylistId?.let { id -> runCatching { playlistLinks.forget(id) } }
+                return PlaylistPush.Failed
+            }
+        }
+        remember(localPlaylistId, existing, matches)
+        return PlaylistPush.Done(playlistId = existing, added = fresh.size, missed = missed)
+    }
+
+    /** Stores what the remote playlist now holds, when the local id is known. */
+    private suspend fun remember(
+        localPlaylistId: String?,
+        remotePlaylistId: String,
+        matches: Map<String, String>,
+    ) {
+        if (localPlaylistId == null) return
+        runCatching {
+            playlistLinks.save(YouTubePlaylistLink(localPlaylistId, remotePlaylistId, matches))
+        }
     }
 
     override suspend fun play(track: Track): SourceResult<PlaybackHandle> {
         val videoId = track.videoId ?: return SourceResult.Success(
             PlaybackHandle.Unavailable("This track has no YouTube video id."),
         )
-        val preferHighQuality = settings.current().highQualityAudio
-        val outcome = runCatching { innerTube.audioUrl(videoId, preferHighQuality) }
+        val current = settings.current()
+        val outcome = runCatching {
+            innerTube.audioUrl(
+                videoId = videoId,
+                preferHighQuality = current.highQualityAudio,
+                // A play is what the account's history is made of; a prefetch
+                // below deliberately leaves this off. Reporting without a
+                // session would only be an anonymous ping.
+                reportToHistory = current.syncYouTube && innerTube.isSignedIn,
+            )
+        }
             .getOrElse {
                 return SourceResult.Success(
                     PlaybackHandle.Unavailable(

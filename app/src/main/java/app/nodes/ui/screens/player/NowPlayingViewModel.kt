@@ -102,13 +102,13 @@ class NowPlayingViewModel @Inject constructor(
                     _lyrics.value = cached
                     return@launch
                 }
-                // Only a cold lookup waits its turn. It is up to ten provider
-                // calls, and starting it at the same instant as the tap makes
-                // it compete with the stream resolution for the same
-                // connection - a large part of the "the song takes time to
-                // load" people describe. The spinner is raised immediately so
-                // opening Lyrics still looks busy; only the network work
-                // waits, briefly.
+                // Only a cold lookup waits its turn. It races the top of the
+                // provider order, and starting that burst at the same instant
+                // as the tap makes it compete with the stream resolution for
+                // the same connection - a large part of the "the song takes
+                // time to load" people describe. The spinner is raised
+                // immediately so opening Lyrics still looks busy; only the
+                // network work waits, briefly.
                 delay(LYRICS_START_DELAY_MS)
                 _lyrics.value = resolveLyrics(track)
             } finally {

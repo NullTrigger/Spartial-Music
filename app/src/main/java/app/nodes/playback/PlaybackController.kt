@@ -21,6 +21,7 @@ import app.nodes.R
 import app.nodes.core.crash.AppLogger
 import app.nodes.core.crash.AppSnapshot
 import app.nodes.core.data.LibraryRepository
+import app.nodes.core.data.LyricsRepository
 import app.nodes.core.data.AppSettings
 import app.nodes.core.data.SettingsRepository
 import app.nodes.core.model.PlaybackHandle
@@ -43,7 +44,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -75,10 +79,39 @@ class PlaybackController @Inject constructor(
     private val library: LibraryRepository,
     private val settings: SettingsRepository,
     private val offlineDownloads: OfflineDownloads,
+    private val lyrics: LyricsRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
+
+    /**
+     * Glossy's "Similar content" list: the provider's own radio answer for the
+     * track that is playing, offered under the queue so it can be folded in a
+     * track at a time. It is never added on its own - only
+     * [playNextSuggestion], [addSuggestionToQueue] and [addAllSuggestions]
+     * move an entry into the real queue.
+     */
+    private val _suggestions = MutableStateFlow<List<Track>>(emptyList())
+    val suggestions: StateFlow<List<Track>> = _suggestions.asStateFlow()
+
+    /** The track [suggestions] was fetched for; a new track refetches them. */
+    private var suggestionsSeedId: String? = null
+
+    private var suggestionsJob: Job? = null
+
+    /**
+     * What the infinite queue's station has already offered this session.
+     *
+     * The queue keeps everything the station added, so its own id filter
+     * covers those; this memory exists for the tracks the user removed. A
+     * station that serves them again is the old "same list, again" behaviour
+     * with extra steps.
+     */
+    private val stationOffered = LinkedHashSet<String>()
+
+    /** The track whose lyrics were last prefetched, so one attempt per song. */
+    private var prefetchedLyricsFor: String? = null
 
     private var controller: MediaController? = null
 
@@ -244,6 +277,27 @@ class PlaybackController @Inject constructor(
                 }
                 _state.update { it.copy(infiniteQueue = current.autoplaySimilar) }
             }
+        }
+        // The similar list follows whatever is playing: one radio call per new
+        // track, cancelled if the user skips again before it answers. Nothing
+        // is fetched while paused; the queue screen can ask for the list.
+        scope.launch {
+            state.map { it.current?.id to it.isPlaying }
+                .distinctUntilChanged()
+                .collect { (_, playing) -> if (playing) refreshSuggestions() }
+        }
+        // Glossy resolves the next track's lyrics ahead of time, so the lyrics
+        // screen opens on them instead of on a spinner. Same here: a moment
+        // into a song, the queue's next track is fetched in the background,
+        // and a skip cancels the attempt.
+        scope.launch {
+            state.map { it.current?.id }
+                .distinctUntilChanged()
+                .collectLatest { id ->
+                    if (id == null) return@collectLatest
+                    delay(LYRICS_PREFETCH_DELAY_MS)
+                    prefetchNextLyrics()
+                }
         }
         // Restore the queue from the last session, paused. Nothing plays and no
         // stream URL is fetched until the user presses play.
@@ -535,6 +589,9 @@ class PlaybackController @Inject constructor(
         forceRefresh: Boolean = false,
         startPositionMs: Long = 0L,
     ) {
+        // A new start is a new station: what the last one already offered says
+        // nothing about this one.
+        stationOffered.clear()
         scope.launch {
             // A restored queue resumes where the last session stopped, but
             // only when the restored track is the one being started.
@@ -1179,33 +1236,146 @@ class PlaybackController @Inject constructor(
         extendQueue(playFirst = false)
     }
 
+    // ------------------------------------------------------------------
+    // Similar content (Glossy's queue-add mechanism)
+    // ------------------------------------------------------------------
+
     /**
-     * The next batch, in preference order: source related tracks, then the
-     * For You feed's suggestions - the queue's own echo first, then the
-     * provider's editorial picks, then variety - then the local pool
-     * (recent, liked, all cached), then a shuffle of the whole local library.
-     * Already-queued and just-played tracks never come back.
+     * Asks for the similar list now, for a paused queue that wants its shelf
+     * before playback starts. Cheap when the list is already loaded.
+     */
+    fun requestSuggestions() = refreshSuggestions()
+
+    /** Folds [track] into the queue right after the current one. */
+    fun playNextSuggestion(track: Track) {
+        dropSuggestion(track)
+        playNext(track)
+    }
+
+    /** Appends [track] to the end of the queue. */
+    fun addSuggestionToQueue(track: Track) {
+        dropSuggestion(track)
+        addToQueue(track)
+    }
+
+    /**
+     * Appends every remaining suggestion in list order, as one deliberate
+     * action rather than a burst of separate edits.
+     */
+    fun addAllSuggestions() {
+        val all = _suggestions.value
+        if (all.isEmpty()) return
+        val queued = queue.mapTo(HashSet()) { it.id }
+        _suggestions.value = emptyList()
+        all.filterNot { it.id in queued }.forEach(::addToQueue)
+    }
+
+    /** Drops the suggestion the user just acted on, like Glossy's automix rows. */
+    private fun dropSuggestion(track: Track) {
+        _suggestions.update { list -> list.filterNot { it.id == track.id } }
+    }
+
+    /**
+     * Refetches the similar list for whatever is playing. The radio answer is
+     * the provider's own judgement of "more like this" - the same `next`
+     * request Glossy builds its queue from - so it is used as it comes back,
+     * minus what is already queued. An empty or failed answer clears the list
+     * rather than offering something unrelated.
+     */
+    private fun refreshSuggestions() {
+        suggestionsJob?.cancel()
+        val current = _state.value.current
+        if (current == null) {
+            suggestionsSeedId = null
+            _suggestions.value = emptyList()
+            return
+        }
+        if (current.id == suggestionsSeedId && _suggestions.value.isNotEmpty()) return
+        suggestionsSeedId = current.id
+        suggestionsJob = scope.launch {
+            val radio = radioSuggestions(current, SUGGESTION_COUNT * 2)
+            val queued = queue.mapTo(HashSet()) { it.id }
+            val picked = radio
+                .filter {
+                    it.id != current.id &&
+                        it.id !in queued &&
+                        (it.videoId != null || it.mediaUri != null)
+                }
+                .distinctBy { it.id }
+                .take(SUGGESTION_COUNT)
+            // A newer track may have started while this call was in flight.
+            if (suggestionsSeedId == current.id) _suggestions.value = picked
+        }
+    }
+
+    /**
+     * The provider's radio answer for [track]: its own "up next" list. Shared
+     * by the queue, the Reel feed and the similar list, so every place the
+     * player grows uses the same mechanism. A source that cannot answer, or a
+     * dead network, is an empty list - never an exception for the caller.
+     */
+    suspend fun radioSuggestions(track: Track, limit: Int): List<Track> = runCatching {
+        (registry.forTrack(track.sourceId)?.getRelated(track, limit) as? SourceResult.Success)
+            ?.data.orEmpty()
+    }.getOrDefault(emptyList())
+
+    /**
+     * The next batch, a station rather than a single radio call.
      *
-     * Every batch is shaped to the queue's mood next: a queue grown from a
-     * Malayalam song grows in Malayalam, and a track naming another language
-     * outright is kept to a small variety share instead of taking over the
-     * queue the way an unrelated pool used to.
+     * YouTube Music keeps autoplay from looping by growing around whatever is
+     * playing and what played just before it; Spotify leads with the station's
+     * own answer and deals a smaller discovery share through the batch. This is
+     * that idea in one place: two seeds - the playing track and, when it is a
+     * different artist, the one before it - are asked for their radios and
+     * blended round-robin, so one artist's run cannot own the batch; three of
+     * the ten slots then go to the provider's own picks, so the queue keeps
+     * moving outwards instead of circling the same radio.
+     *
+     * Only when both radios are dry does the older chain stand in - the For You
+     * feed's suggestions (the queue's own echo first, then the picks, then
+     * variety), then the local pool, then a shuffle of the library. Already
+     * queued, recently played and already-offered tracks never come back, and
+     * the fallback alone is shaped to the queue's mood: a radio answer needs no
+     * such help, while a queue grown from a Malayalam song should not be taken
+     * over by an unrelated pool.
      */
     private suspend fun fetchMoreTracks(): List<Track> {
         val queuedIds = queue.mapTo(HashSet()) { it.id }
         val recentlyPlayedIds = runCatching {
             library.recentlyPlayedIds(RECENT_EXCLUDE_COUNT)
         }.getOrDefault(emptySet())
+        val offeredIds = queuedIds + stationOffered
+        val excludedIds = offeredIds + recentlyPlayedIds
+        val names = queue.mapTo(HashSet()) { QueueEdits.titleKey(it) }
         val seed = _state.value.current ?: queue.lastOrNull()
-        val mood = moodFor(seed)
-        val related = if (seed != null) {
-            runCatching {
-                (registry.forTrack(seed.sourceId)?.getRelated(seed, EXTEND_COUNT) as? SourceResult.Success)
-                    ?.data.orEmpty()
-            }.getOrDefault(emptyList())
-        } else {
-            emptyList()
+
+        val stations = stationSeeds().map { radioSuggestions(it, STATION_RADIO_WINDOW) }
+        val station = QueueEdits.stationStream(
+            stations = stations,
+            excludedIds = excludedIds,
+            takenNames = names,
+            limit = EXTEND_COUNT,
+        )
+        if (station.isNotEmpty()) {
+            val stationNames = HashSet(names)
+            station.mapTo(stationNames) { QueueEdits.titleKey(it) }
+            val discovery = QueueEdits.varyByName(
+                discoveryPool(offeredIds),
+                stationNames,
+                DISCOVERY_SHARE,
+            )
+            val picked = QueueEdits.blendDiscovery(
+                station = station,
+                discovery = discovery,
+                limit = EXTEND_COUNT,
+                discoveryShare = DISCOVERY_SHARE,
+            )
+            rememberStationOffered(picked)
+            return picked
         }
+
+        val radio = stations.flatten()
+        val mood = moodFor(seed)
         val pool = localTrackPool()
         val shaped = shapedSuggestions(seed)
         // Before the wider pool: the shaped feed's tracks that echo the queue
@@ -1215,33 +1385,103 @@ class PlaybackController @Inject constructor(
             addAll(echo)
             shaped?.let { addAll(it.ordered) }
         }
-        // Up-next answers lead with the played song's own pressings - the same
-        // name over and over - so the queue never auto-repeats a name.
-        val names = queue.mapTo(HashSet()) { QueueEdits.titleKey(it) }
         // A wide net first, then the mood picks its share from it: shaping a
         // shortlist of ten would only reshuffle what the fallbacks happened to
         // return first.
         val candidates = QueueEdits.selectExtension(
-            related = QueueEdits.varyByName(related + preferred, names, EXTEND_CANDIDATES),
+            related = QueueEdits.varyByName(radio + preferred, names, EXTEND_CANDIDATES),
             localPool = QueueEdits.varyByName(pool, names, EXTEND_CANDIDATES),
-            queuedIds = queuedIds,
+            queuedIds = excludedIds,
             recentlyPlayedIds = recentlyPlayedIds,
             limit = EXTEND_CANDIDATES,
         )
         val picked = QueueEdits.shapeByMood(candidates, mood, EXTEND_COUNT)
-        if (picked.isNotEmpty()) return picked
+        if (picked.isNotEmpty()) {
+            rememberStationOffered(picked)
+            return picked
+        }
         // Last step: a shuffle of the whole local library, still minus what is
-        // queued or just played.
-        return QueueEdits.shapeByMood(
+        // queued, offered or just played.
+        val last = QueueEdits.shapeByMood(
             QueueEdits.varyByName(
-                pool.shuffled()
-                    .filter { it.id !in queuedIds && it.id !in recentlyPlayedIds },
+                pool.shuffled().filter { it.id !in excludedIds },
                 names,
                 EXTEND_CANDIDATES,
             ),
             mood,
             EXTEND_COUNT,
         )
+        rememberStationOffered(last)
+        return last
+    }
+
+    /**
+     * The seeds the station grows from: what is playing, then the track before
+     * it when it is a different artist, so the two radios' listeners meet
+     * instead of one radio being appended to itself.
+     */
+    private fun stationSeeds(): List<Track> {
+        val current = _state.value.current ?: queue.lastOrNull() ?: return emptyList()
+        val seeds = ArrayList<Track>(STATION_SEED_COUNT)
+        if (current.videoId != null || current.mediaUri != null) seeds += current
+        var index = queuePosition - 1
+        val floor = queuePosition - STATION_SEED_LOOKBACK
+        while (index >= floor && index >= 0 && seeds.size < STATION_SEED_COUNT) {
+            val candidate = queue.getOrNull(index)
+            index--
+            if (candidate == null || candidate.id == current.id) continue
+            if (candidate.videoId == null && candidate.mediaUri == null) continue
+            if (seeds.any { it.artist.equals(candidate.artist, ignoreCase = true) }) continue
+            seeds += candidate
+        }
+        return seeds
+    }
+
+    /**
+     * The discovery half of the station: the provider's own picks for the day,
+     * minus anything the queue already holds. The local catalogue stands in
+     * only when the feed cannot answer, and then only for songs that share an
+     * artist or album with the queue - discovery may wander, not leave the room.
+     */
+    private suspend fun discoveryPool(excludedIds: Set<String>): List<Track> {
+        val seed = _state.value.current
+        val shaped = runCatching { shapedSuggestions(seed) }.getOrNull()
+        val picks = shaped?.let { it.topPicks + it.fresh }.orEmpty()
+            .filterNot { it.id in excludedIds }
+        if (picks.isNotEmpty()) return picks
+        return QueueEdits.echo(queue, localTrackPool(), EXTEND_CANDIDATES)
+            .filterNot { it.id in excludedIds }
+    }
+
+    /**
+     * Resolves the next queue track's lyrics in the background, so changing song
+     * finds them already cached. One attempt per track: a provider that missed
+     * is not asked again on every play of the same song.
+     */
+    private suspend fun prefetchNextLyrics() {
+        val next = queue.getOrNull(queuePosition + 1) ?: return
+        if (next.id == prefetchedLyricsFor) return
+        prefetchedLyricsFor = next.id
+        try {
+            // A cache hit costs nothing; only a cold track is fetched.
+            if (lyrics.cachedFor(next) == null) lyrics.lyricsFor(next)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            AppLogger.w("Playback", "Prefetching lyrics for ${next.id} failed", error)
+        }
+    }
+
+    /** Remembers the station's picks so, once removed, they never return. */
+    private fun rememberStationOffered(tracks: List<Track>) {
+        if (tracks.isEmpty()) return
+        tracks.mapTo(stationOffered) { it.id }
+        while (stationOffered.size > STATION_MEMORY) {
+            val oldest = stationOffered.iterator()
+            if (!oldest.hasNext()) break
+            oldest.next()
+            oldest.remove()
+        }
     }
 
     /**
@@ -1512,8 +1752,29 @@ class PlaybackController @Inject constructor(
         /** Tracks appended at a time while the infinite queue is on. */
         const val EXTEND_COUNT = 10
 
+        /** How long a song plays before the next track's lyrics are prefetched. */
+        const val LYRICS_PREFETCH_DELAY_MS = 2_000L
+
+        /** Rows offered in the queue's "Similar content" list. */
+        const val SUGGESTION_COUNT = 12
+
         /** Candidate tracks gathered per batch before the mood shapes them. */
         const val EXTEND_CANDIDATES = EXTEND_COUNT * 3
+
+        /** Radios blended into one station batch: the track and the one before it. */
+        const val STATION_SEED_COUNT = 2
+
+        /** How far back the second station seed may sit in the queue. */
+        const val STATION_SEED_LOOKBACK = 4
+
+        /** Radio window asked of each station seed. */
+        const val STATION_RADIO_WINDOW = 25
+
+        /** Of the tracks appended at a time, how many are discovery. */
+        const val DISCOVERY_SHARE = 3
+
+        /** Bounded station memory, in track ids. */
+        const val STATION_MEMORY = 400
 
         /** Queue tail read for the mood, beyond what is playing. */
         const val MOOD_TAIL = 5

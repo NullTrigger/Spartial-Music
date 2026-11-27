@@ -9,6 +9,9 @@ import app.nodes.core.model.Track
 import java.text.Normalizer
 import java.util.Locale
 
+/** How many tracks the "From your searches" rail shows. */
+internal const val SEARCH_SUGGESTION_LIMIT = 10
+
 /**
  * Picks tracks the user has already discovered through Search, ranked against
  * their recent local search history. This is intentionally a pure local derive:
@@ -51,6 +54,54 @@ internal fun searchHistorySuggestions(
         .map { it.first }
         .toList()
 }
+
+/**
+ * Blends the local matches with what the provider suggests around them.
+ *
+ * The local pass only knows music the app has already seen, so on its own the
+ * rail repeats itself. [discovery] is the provider's answer for the best match
+ * (or, when nothing local matches, for the newest query itself): the songs the
+ * user has not heard yet but searched their way towards. Matches lead, because
+ * they answer the search, then discovery fills the rest one artist at a time so
+ * a single radio answer cannot turn the rail into eight songs by one artist.
+ */
+internal fun mergeSearchSuggestions(
+    matches: List<Track>,
+    discovery: List<Track>,
+    excludedIds: Set<String> = emptySet(),
+    limit: Int = SEARCH_SUGGESTION_LIMIT,
+): List<Track> {
+    if (limit <= 0) return emptyList()
+    val picked = LinkedHashMap<String, Track>()
+    for (track in matches) {
+        if (picked.size >= limit) break
+        if (track.id in excludedIds) continue
+        picked.putIfAbsent(track.id, track)
+    }
+    if (picked.size >= limit) return picked.values.toList()
+
+    val byArtist = LinkedHashMap<String, ArrayDeque<Track>>()
+    for (track in discovery) {
+        if (track.id in excludedIds || picked.containsKey(track.id)) continue
+        byArtist.getOrPut(artistKey(track.artist)) { ArrayDeque() }.addLast(track)
+    }
+    var roundAdded = true
+    while (roundAdded && picked.size < limit) {
+        roundAdded = false
+        for (queue in byArtist.values) {
+            if (picked.size >= limit) break
+            val track = queue.removeFirstOrNull() ?: continue
+            if (picked.putIfAbsent(track.id, track) == null) roundAdded = true
+        }
+    }
+    return picked.values.toList()
+}
+
+private fun artistKey(artist: String): String =
+    Normalizer.normalize(artist, Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
+        .lowercase(Locale.ROOT)
+        .trim()
 
 private fun tokens(value: String): Set<String> =
     Normalizer.normalize(value, Normalizer.Form.NFD)

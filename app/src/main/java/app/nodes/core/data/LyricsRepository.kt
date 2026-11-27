@@ -16,7 +16,11 @@ import app.nodes.core.model.LyricLine
 import app.nodes.core.model.Track
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
@@ -28,6 +32,7 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.coroutineContext
 import kotlin.math.abs
 
 /** What the player gets back for a track. Empty [lines] means "nothing found". */
@@ -42,11 +47,16 @@ data class LyricsResult(
 /**
  * Resolves lyrics for a track, in the order the user arranged in Settings.
  *
- * Providers are tried one at a time with a short budget each, because the point
- * of the order is that a provider the user moved up gets asked first. A synced
- * result wins immediately; when "prefer synced" is on, a plain result is held
- * while the remaining providers are asked, and only used if none of them can
- * time the song.
+ * The order decides who *wins*, not who is asked. Like Glossy, the top of the
+ * order is raced first - the three sources most likely to answer run at once
+ * with a short budget each, so a common song resolves in a few hundred
+ * milliseconds instead of waiting for the slowest provider in the list - and
+ * the rest is only asked when that tier cannot time the song. The winner is
+ * picked by rank: a timed answer from the head of a tier wins outright, any
+ * other answer is held for a short settle window so a better-ranked one can
+ * still turn up. The local `.lrc` sidecar is a file read, so it is answered
+ * before any request is spent; when "prefer synced" is on, a plain result is
+ * only used when nothing in the order can time the song.
  *
  * Results live in memory and on disk (`files/lyrics_cache`), keyed by track, so
  * replaying a song costs nothing. A miss is cached too, briefly, so an
@@ -160,42 +170,162 @@ class LyricsRepository @Inject constructor(
         }
         if (ordered.isEmpty()) return Resolved()
 
-        // A provider answer is only usable when it names the same recording.
-        // Plain text is held back while the rest of the order is asked, so a
-        // timed result from a later provider can still win.
+        // A plain answer is only usable when nothing in the order can time
+        // the song; it is held while the rest is asked, exactly as the
+        // "Prefer synced lyrics" setting promises.
         var plainFallback: Resolved? = null
-        val result = withTimeoutOrNull(TOTAL_TIMEOUT_MS) {
-            for (provider in ordered) {
+
+        // The user's own .lrc is a file read, not a request: answer it before
+        // any network call is spent. It is the one source the race skips.
+        val local = ordered.firstOrNull()?.takeIf { it.id == LyricsProviders.LOCAL }
+        if (local != null) {
+            val resolved = withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
+                safeFetch(local, query)
+            }?.let { evaluate(local, it, query) }
+            if (resolved != null) {
+                if (resolved.synced || !prefs.lyricsPreferSynced) return resolved
+                plainFallback = resolved
+            }
+        }
+        val remote = if (local == null) ordered else ordered.drop(1)
+        if (remote.isEmpty()) return plainFallback ?: Resolved()
+
+        val preferSynced = prefs.lyricsPreferSynced
+        // Glossy's shape: the top of the order is raced first, so a song the
+        // common providers know resolves in a few hundred milliseconds instead
+        // of waiting for the slowest provider in the whole list; the rest is
+        // only asked when that tier cannot time the song. The outer budget is
+        // the whole lookup, both tiers included.
+        val best = withTimeoutOrNull(TOTAL_TIMEOUT_MS) {
+            val firstTier = raceProviders(remote.take(TIER_SIZE), query, preferSynced)
+            if (firstTier != null && (firstTier.synced || !preferSynced)) {
+                firstTier
+            } else {
+                val rest = if (remote.size > TIER_SIZE) {
+                    raceProviders(remote.drop(TIER_SIZE), query, preferSynced)
+                } else {
+                    null
+                }
+                when {
+                    firstTier == null -> rest
+                    rest != null && rest.synced -> rest
+                    else -> firstTier
+                }
+            }
+        }
+        val plain = plainFallback
+        return when {
+            best == null -> plain ?: Resolved()
+            // Timed lyrics always beat the user's own untimed sidecar.
+            best.synced -> best
+            // Otherwise the sidecar outranks a plain network answer.
+            plain != null -> plain
+            else -> best
+        }
+    }
+
+    /**
+     * Races one tier of providers concurrently, but the winner is chosen by
+     * *rank*, not by who answers fastest: [providers] is already in the user's
+     * order, a timed answer from its head wins outright, and any other usable
+     * answer is held for [SYNCED_PREFERENCE_WINDOW_MS] so a better-ranked
+     * answer can still turn up. Racing by raw speed alone is what made moving
+     * a provider up or down in Settings meaningless.
+     */
+    private suspend fun raceProviders(
+        providers: List<LyricsProvider>,
+        query: LyricsQuery,
+        preferSynced: Boolean,
+    ): Resolved? {
+        if (providers.isEmpty()) return null
+        // The channel carries answers as they land; rank is the provider's
+        // position in this tier, so the consumer can tell a lucky fast answer
+        // from a preferred one.
+        val answers = Channel<Pair<Int, Resolved>>(Channel.BUFFERED)
+        val fetchJob = Job(coroutineContext[Job])
+        val fetchScope = CoroutineScope(coroutineContext + fetchJob)
+        val jobs = providers.mapIndexed { rank, provider ->
+            fetchScope.launch(Dispatchers.IO) {
                 val payload = withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
                     safeFetch(provider, query)
-                } ?: continue
-                if (payload !is LyricsPayload.Found) continue
-                // The user's own sidecar is explicitly trusted. Network
-                // results must identify the exact recording or are skipped.
-                if (provider.id != LyricsProviders.LOCAL &&
-                    !isVerifiedLyricsMatch(payload, query)
-                ) {
-                    continue
-                }
-
-                val parsed = LyricsParser.parse(payload.raw)
-                if (parsed.lines.isEmpty()) continue
-
-                val resolved = Resolved(
-                    raw = payload.raw,
-                    providerId = provider.id,
-                    displayName = provider.displayName,
-                    lines = parsed.lines,
-                    synced = parsed.synced,
-                )
-                if (parsed.synced || !prefs.lyricsPreferSynced) {
-                    return@withTimeoutOrNull resolved
-                }
-                if (plainFallback == null) plainFallback = resolved
+                } ?: return@launch
+                val resolved = evaluate(provider, payload, query) ?: return@launch
+                answers.trySend(rank to resolved)
             }
-            null
         }
-        return result ?: plainFallback ?: Resolved()
+        // Closing the channel when the last provider has answered is what ends
+        // the wait early: nothing better can arrive after that.
+        val monitor = fetchScope.launch {
+            jobs.forEach { it.join() }
+            answers.close()
+        }
+        try {
+            var best: Pair<Int, Resolved>? = null
+            var plain: Pair<Int, Resolved>? = null
+            var settleAt = Long.MAX_VALUE
+            while (true) {
+                val remaining = settleAt - System.currentTimeMillis()
+                val next = if (settleAt == Long.MAX_VALUE) {
+                    // Nothing worth waiting for has arrived yet: block until
+                    // an answer does, or every provider has had its budget.
+                    answers.receiveCatching().getOrNull() ?: break
+                } else {
+                    withTimeoutOrNull(remaining.coerceAtLeast(1L)) {
+                        answers.receiveCatching().getOrNull()
+                    } ?: break
+                }
+                val (rank, resolved) = next
+                // A timed answer is always worth showing; with the preference
+                // off, the best-ranked answer of any kind is.
+                if (resolved.synced || !preferSynced) {
+                    if (best == null || rank < best.first) {
+                        best = rank to resolved
+                        if (rank == 0) break
+                        settleAt = minOf(
+                            settleAt,
+                            System.currentTimeMillis() + SYNCED_PREFERENCE_WINDOW_MS,
+                        )
+                    }
+                } else if (plain == null || rank < plain.first) {
+                    plain = rank to resolved
+                    if (settleAt == Long.MAX_VALUE) {
+                        settleAt = System.currentTimeMillis() + SYNCED_PREFERENCE_WINDOW_MS
+                    }
+                }
+            }
+            return best?.second ?: plain?.second
+        } finally {
+            monitor.cancel()
+            fetchJob.cancel()
+        }
+    }
+
+    /**
+     * The answer as a usable result, or null when it cannot be shown: wrong
+     * recording, nothing parsed, or a provider that missed.
+     */
+    private fun evaluate(
+        provider: LyricsProvider,
+        payload: LyricsPayload,
+        query: LyricsQuery,
+    ): Resolved? {
+        if (payload !is LyricsPayload.Found) return null
+        // The user's own sidecar is explicitly trusted. Network results must
+        // identify the exact recording or are skipped.
+        if (provider.id != LyricsProviders.LOCAL &&
+            !isVerifiedLyricsMatch(payload, query)
+        ) {
+            return null
+        }
+        val parsed = LyricsParser.parse(payload.raw)
+        if (parsed.lines.isEmpty()) return null
+        return Resolved(
+            raw = payload.raw,
+            providerId = provider.id,
+            displayName = provider.displayName,
+            lines = parsed.lines,
+            synced = parsed.synced,
+        )
     }
 
     private suspend fun safeFetch(provider: LyricsProvider, query: LyricsQuery): LyricsPayload =
@@ -365,19 +495,43 @@ class LyricsRepository @Inject constructor(
                 .toSet()
         }
 
-        /** One provider's budget; enough for a cold CDN, short enough to skip. */
-        private const val PER_PROVIDER_TIMEOUT_MS = 6_000L
+        /**
+         * One provider's budget, taken from Glossy: enough for a cold CDN,
+         * short enough that a dead provider costs the tier a moment instead of
+         * the whole lookup. Two tiers fit inside [TOTAL_TIMEOUT_MS].
+         */
+        private const val PER_PROVIDER_TIMEOUT_MS = 3_500L
 
         /**
-         * The whole lookup, however many providers are enabled.
+         * How many of the user's providers are raced first.
          *
-         * Sized for the provider list, not a fixed number: a synced hit returns
-         * early, so the budget only binds when every provider misses, and the
-         * floor must be enough for the slowest useful provider in the order to
-         * still be reached - the captions source sits last on purpose, and with
-         * ten providers a 12 s budget never got there.
+         * The point is latency, not coverage: the sources that almost always
+         * answer are the ones near the top of the order, so asking three of
+         * them is what turns a lookup into a few hundred milliseconds. The
+         * remaining providers are only asked when none of the three could time
+         * the song.
          */
-        private const val TOTAL_TIMEOUT_MS = 25_000L
+        private const val TIER_SIZE = 3
+
+        /**
+         * How long a usable answer is held back while a better-ranked one gets
+         * a chance to arrive.
+         *
+         * The winner is picked by rank, so the top of the order has to be
+         * allowed to be slow; but not for long. A timed answer from the head of
+         * the tier wins outright, everything else waits this window. Glossy's
+         * number.
+         */
+        private const val SYNCED_PREFERENCE_WINDOW_MS = 1_500L
+
+        /**
+         * The whole lookup, both tiers included.
+         *
+         * A synced hit returns earlier, and the settle window usually ends the
+         * wait long before this; the ceiling only binds when every provider is
+         * slow or silent.
+         */
+        private const val TOTAL_TIMEOUT_MS = 12_000L
 
         /** Anything further off than this is another version of the song. */
         private const val MAX_DRIFT_SEC = 15

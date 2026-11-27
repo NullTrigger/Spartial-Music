@@ -24,6 +24,9 @@ class QueueEditsTest {
 
     private fun track(id: String) = Track(id = id, title = id, artist = "Artist")
 
+    private fun track(id: String, title: String, artist: String) =
+        Track(id = id, title = title, artist = artist)
+
     @Test
     fun `queue serialization round-trips including the unshuffled order`() {
         val original = listOf("a", "b", "c", "d")
@@ -267,5 +270,80 @@ class QueueEditsTest {
             emptyList<String>(),
             QueueEdits.shapeByMood(emptyList(), mood, limit = 5).map { it.id },
         )
+    }
+
+    // ------------------------------------------------------------------
+    // The station (infinite queue)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `the station takes one track from each seed per round`() {
+        val first = listOf(
+            track("a1", "A One", "Aster"),
+            track("a2", "A Two", "Aster"),
+            track("a3", "A Three", "Aster"),
+        )
+        val second = listOf(
+            track("b1", "B One", "Birch"),
+            track("b2", "B Two", "Birch"),
+        )
+
+        val stream = QueueEdits.stationStream(
+            stations = listOf(first, second),
+            excludedIds = emptySet(),
+            takenNames = emptySet(),
+            limit = 4,
+        )
+
+        // The two radios meet instead of one being appended to the other.
+        assertEquals(listOf("a1", "b1", "a2", "b2"), stream.map { it.id })
+    }
+
+    @Test
+    fun `the station drops queued tracks and repeated song names`() {
+        val station = listOf(
+            track("queued", "Queued Song", "Aster"),
+            track("live", "Song (Live)", "Aster"),
+            track("studio", "Song", "Aster"),
+        )
+
+        val stream = QueueEdits.stationStream(
+            stations = listOf(station),
+            excludedIds = setOf("queued"),
+            takenNames = emptySet(),
+            limit = 5,
+        )
+
+        // The pressing and the studio cut are one song; the first one wins.
+        assertEquals(listOf("live"), stream.map { it.id })
+    }
+
+    @Test
+    fun `discovery is dealt through the batch rather than staked at the end`() {
+        val station = (1..10).map { track("s$it", "S $it", "Aster") }
+        val discovery = (1..3).map { track("d$it", "D $it", "Birch") }
+
+        val blended = QueueEdits.blendDiscovery(
+            station = station,
+            discovery = discovery,
+            limit = 10,
+            discoveryShare = 3,
+        )
+
+        assertEquals(10, blended.size)
+        assertEquals(
+            listOf("s1", "d1", "s2", "s3", "d2", "s4", "s5", "d3", "s6", "s7"),
+            blended.map { it.id },
+        )
+    }
+
+    @Test
+    fun `a thin station is topped up by discovery instead of stopping short`() {
+        val station = listOf(track("s1", "S 1", "Aster"))
+        val discovery = listOf(track("d1", "D 1", "Birch"), track("d2", "D 2", "Birch"))
+
+        val blended = QueueEdits.blendDiscovery(station, discovery, limit = 3, discoveryShare = 2)
+
+        assertEquals(listOf("s1", "d1", "d2"), blended.map { it.id })
     }
 }

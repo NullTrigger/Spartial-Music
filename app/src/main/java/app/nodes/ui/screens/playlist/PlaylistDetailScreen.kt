@@ -255,12 +255,17 @@ class PlaylistDetailViewModel @Inject constructor(
         val source = registry.byId(SourceId.YOUTUBE_MUSIC) as? YouTubeMusicSource ?: return
         _state.value = state.copy(syncing = true, syncMessage = null)
         viewModelScope.launch {
-            val result = runCatching { source.pushPlaylist(playlist.title, state.tracks) }
+            // The local id is what lets a second press update the copy instead
+            // of creating a duplicate playlist on the account.
+            val result = runCatching { source.pushPlaylist(playlist.title, state.tracks, playlist.id) }
                 .getOrElse { YouTubeMusicSource.PlaylistPush.Failed }
             _state.value = _state.value.copy(
                 syncing = false,
                 syncMessage = when (result) {
-                    is YouTubeMusicSource.PlaylistPush.Done -> "playlist-sync:${result.added}:${result.missed}"
+                    is YouTubeMusicSource.PlaylistPush.Done -> {
+                        val kind = if (result.created) "new" else "update"
+                        "playlist-sync:$kind:${result.added}:${result.missed}"
+                    }
                     YouTubeMusicSource.PlaylistPush.SignedOut -> "playlist-sync:signed-out"
                     YouTubeMusicSource.PlaylistPush.Failed -> "playlist-sync:failed"
                 },
@@ -790,11 +795,13 @@ fun PlaylistDetailScreen(
                         stringResource(R.string.playlist_sync_failed)
                     else -> {
                         val parts = code.removePrefix("playlist-sync:").split(":")
-                        stringResource(
-                            R.string.playlist_sync_done,
-                            parts.getOrNull(0)?.toIntOrNull() ?: 0,
-                            parts.getOrNull(1)?.toIntOrNull() ?: 0,
-                        )
+                        val added = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                        val missed = parts.getOrNull(2)?.toIntOrNull() ?: 0
+                        if (parts.getOrNull(0) == "new") {
+                            stringResource(R.string.playlist_sync_done, added, missed)
+                        } else {
+                            stringResource(R.string.playlist_sync_updated, added, missed)
+                        }
                     }
                 },
                 onDismiss = viewModel::dismissSyncMessage,

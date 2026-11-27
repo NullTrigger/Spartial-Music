@@ -30,6 +30,12 @@ class PlayerViewModel @Inject constructor(
 
     val state: StateFlow<app.nodes.playback.PlayerUiState> = player.state
 
+    /**
+     * Glossy's "Similar content" for the queue: the radio answer for what is
+     * playing, offered under the queue. Folded in one track at a time.
+     */
+    val suggestions: StateFlow<List<Track>> = player.suggestions
+
     private val _liked = MutableStateFlow(false)
     val liked: StateFlow<Boolean> = _liked.asStateFlow()
 
@@ -38,6 +44,14 @@ class PlayerViewModel @Inject constructor(
     fun playNext(track: Track) = player.playNext(track)
 
     fun addToQueue(track: Track) = player.addToQueue(track)
+
+    fun requestSuggestions() = player.requestSuggestions()
+
+    fun playNextSuggestion(track: Track) = player.playNextSuggestion(track)
+
+    fun addSuggestionToQueue(track: Track) = player.addSuggestionToQueue(track)
+
+    fun addAllSuggestions() = player.addAllSuggestions()
 
     fun playQueueIndex(index: Int) = player.playQueueIndex(index)
 

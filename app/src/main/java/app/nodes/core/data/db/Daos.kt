@@ -83,6 +83,14 @@ interface LibraryDao {
     )
     fun likedTracks(): Flow<List<TrackEntity>>
 
+    /**
+     * The newest likes, with their timestamps. The account sync uses this to
+     * push only what changed since it last ran instead of replaying the whole
+     * liked list onto YouTube every half hour.
+     */
+    @Query("SELECT * FROM liked_tracks ORDER BY likedAt DESC LIMIT :limit")
+    suspend fun recentLikes(limit: Int): List<LikedTrackEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun recordPlay(history: PlayHistoryEntity)
 

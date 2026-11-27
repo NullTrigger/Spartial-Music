@@ -21,7 +21,7 @@ import app.nodes.core.data.SettingsRepository
 import app.nodes.core.lyrics.LyricsProviders
 import app.nodes.core.source.youtubemusic.InnerTubeAccount
 import app.nodes.core.source.youtubemusic.InnerTubeAuth
-import app.nodes.core.source.youtubemusic.YouTubeMusicSource
+import app.nodes.core.sync.YouTubeSync
 import app.nodes.playback.PlaybackController
 import coil.imageLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,7 +45,7 @@ class SettingsViewModel @Inject constructor(
     private val lyrics: LyricsRepository,
     private val searchHistory: SearchHistoryRepository,
     private val innerTubeAuth: InnerTubeAuth,
-    private val innerTubeSource: YouTubeMusicSource,
+    private val youTubeSync: YouTubeSync,
     private val library: LibraryRepository,
     private val player: PlaybackController,
 ) : ViewModel() {
@@ -56,13 +56,42 @@ class SettingsViewModel @Inject constructor(
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    private val _likesSyncRunning = MutableStateFlow(false)
+    /** True between "Sync now" and the pass that answers it. */
+    private var manualSync = false
 
     /** The Google account whose YouTube Music cookie is stored, if any. */
     val musicAccount: StateFlow<InnerTubeAccount?> = innerTubeAuth.account
 
-    /** True while a likes sync to YouTube Music is running. */
-    val likesSyncRunning: StateFlow<Boolean> = _likesSyncRunning.asStateFlow()
+    /** True while the auto-sync (automatic or a manual "Sync now") is working. */
+    val likesSyncRunning: StateFlow<Boolean> = youTubeSync.running
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    init {
+        // A finished sync reports itself once, so the screen shows what the
+        // loop just did instead of the banner going silent.
+        viewModelScope.launch {
+            youTubeSync.summary.collect { summary ->
+                val asked = manualSync
+                manualSync = false
+                // An automatic pass that found nothing new stays silent; the
+                // switch's own status line already says when it last ran.
+                if (!asked && !summary.didAnything) return@collect
+                _message.value = if (summary.didAnything) {
+                    context.getString(
+                        R.string.settings_sync_done,
+                        summary.likesPushed,
+                        summary.likesFailed,
+                        summary.likesPulled,
+                        summary.playlistsUpdated,
+                    )
+                } else {
+                    // An idle pass every half hour should say so once, quietly,
+                    // instead of reporting four zeroes.
+                    context.getString(R.string.settings_sync_uptodate)
+                }
+            }
+        }
+    }
 
     val recentSearchCount: StateFlow<Int> = searchHistory.recent
         .map { it.size }
@@ -243,39 +272,35 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Pushes every locally liked YouTube Music track to the account's liked
-     * songs ("Sync to YT"). Unofficial and one-directional: Spartial Music never pulls
-     * anything back, and re-running it is safe - liking what is already liked
-     * changes nothing. It only affects likes the app stores locally from this
-     * source's own results.
+     * Glossy's "Auto-sync with account" switch. Turning it on syncs straight
+     * away instead of waiting for the first cooldown to pass; turning it off
+     * leaves everything already synced in place.
      */
-    fun syncLikesToYouTube() {
-        if (_likesSyncRunning.value) return
+    fun setSyncYouTube(enabled: Boolean) {
         viewModelScope.launch {
+            settings.setSyncYouTube(enabled)
+            if (!enabled) return@launch
             if (!innerTubeAuth.isSignedIn) {
                 _message.value = context.getString(R.string.settings_sync_signed_out)
                 return@launch
             }
-            _likesSyncRunning.value = true
-            _message.value = context.getString(R.string.settings_sync_running)
-            try {
-                // Only tracks from YouTube Music carry a video id; local files
-                // have nothing to like on YouTube.
-                val videoIds = library.likedTracks.first().mapNotNull { it.videoId }
-                if (videoIds.isEmpty()) {
-                    _message.value = context.getString(R.string.settings_sync_nothing)
-                    return@launch
-                }
-                val outcome = innerTubeSource.pushLikes(videoIds)
-                _message.value = context.getString(
-                    R.string.settings_sync_done,
-                    outcome.pushed,
-                    outcome.failed,
-                )
-            } finally {
-                _likesSyncRunning.value = false
-            }
+            syncNow()
         }
+    }
+
+    /**
+     * Runs the auto-sync once, right now: likes out to the account, the
+     * account's likes back in, and every copied playlist refreshed.
+     */
+    fun syncNow() {
+        if (likesSyncRunning.value) return
+        if (!innerTubeAuth.isSignedIn) {
+            _message.value = context.getString(R.string.settings_sync_signed_out)
+            return
+        }
+        _message.value = context.getString(R.string.settings_sync_running)
+        manualSync = true
+        youTubeSync.syncNow()
     }
 
     // ------------------------------------------------------------------

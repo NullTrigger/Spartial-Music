@@ -79,6 +79,9 @@ class LibraryRepository @Inject constructor(
 
     fun isLiked(trackId: String): Flow<Boolean> = libraryDao.isLiked(trackId)
 
+    /** Liked tracks with their timestamps, newest first. */
+    suspend fun recentLikes(limit: Int): List<LikedTrackEntity> = libraryDao.recentLikes(limit)
+
     /** Everything the cache holds for one artist name, newest first. */
     fun artistTracks(artist: String): Flow<List<Track>> =
         trackDao.byArtist(artist).map { rows -> rows.map { it.toTrack() } }

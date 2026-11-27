@@ -207,9 +207,10 @@ only appears on the five tab roots.
 - [x] **Spartial Reel**: an endless vertical feed that *is* the play queue —
   swipe to change tracks, like, add to playlist, share, save
 - [x] **Follow artists**, local-first, with a Following tab in the Reel
-- [x] **Like sync**: a YouTube Music like is pushed to your account only while
-  signed in, and only for YouTube Music tracks; everything else stays on the
-  device
+- [x] **Auto-sync with account** (off by default): while it is on and you are
+  signed in, likes travel both ways, copied playlists are refreshed in place,
+  and plays are reported to YouTube Music's history — only for YouTube Music
+  tracks; everything else stays on the device
 - [x] **Animated covers**: your own video loops (any build) and YouTube Music
   covers where available (full build); streamed, never saved
 - [x] Home hero, recents, continue playing and provider shelves
@@ -374,7 +375,7 @@ modelled on another project, code comments say so. They deserve the credit:
 
 | Project | Licence | What we learned |
 | --- | --- | --- |
-| [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube request shape, WebView sign-in study (not copied, not used) |
+| [Glossy](https://github.com/izybro110-gif/Glossy) | GPL-3.0 | InnerTube request shape, WebView sign-in study (not copied, not used), the infinite queue's `next`-based continuation, the lyrics source race, and the "Auto-sync with account" design |
 | [Metrolist](https://github.com/MetrolistGroup/Metrolist) | GPL-3.0 | InnerTube protocol and Listen Together reference |
 | InnerTune / OuterTune | GPL-3.0 | InnerTube protocol reference |
 | [ArchiveTune](https://github.com/rukamori/ArchiveTune) | GPL-3.0 | Upstream project acknowledged by the maintainer; no direct code reuse is claimed here |

@@ -9,10 +9,12 @@ import android.app.Application
 import app.nodes.core.crash.AppLogger
 import app.nodes.core.crash.CrashReport
 import app.nodes.core.data.SettingsRepository
+import app.nodes.core.sync.YouTubeSync
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +28,9 @@ class SpartialApplication : Application(), ImageLoaderFactory {
 
     @Inject
     lateinit var settings: SettingsRepository
+
+    @Inject
+    lateinit var youTubeSync: Lazy<YouTubeSync>
 
     /**
      * App-level scope for work that outlives a screen. The handler is the reason
@@ -46,6 +51,14 @@ class SpartialApplication : Application(), ImageLoaderFactory {
         // was doing, then the handler itself, before any Hilt graph is built.
         AppLogger.init(this)
         CrashReport.install(this)
+
+        appScope.launch {
+            // The auto-sync loop: idle unless the setting is on and an account
+            // is signed in, and it lives as long as the process does. Built off
+            // the main thread, and lazily: the graph behind it opens the
+            // encrypted session store.
+            youTubeSync.get().start()
+        }
 
         appScope.launch {
             settings.settings.collect { current ->

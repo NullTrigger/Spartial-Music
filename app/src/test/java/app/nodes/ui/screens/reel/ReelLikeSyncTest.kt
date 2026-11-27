@@ -20,15 +20,38 @@ class ReelLikeSyncTest {
     fun `guest like is local only`() {
         assertEquals(
             LikeAction.LOCAL_ONLY,
-            likeAction(signedIn = false, sourceId = SourceId.YOUTUBE_MUSIC, liked = true),
+            likeAction(
+                signedIn = false,
+                syncEnabled = true,
+                sourceId = SourceId.YOUTUBE_MUSIC,
+                liked = true,
+            ),
         )
     }
 
     @Test
-    fun `signed-in youtube music like pushes`() {
+    fun `signed-in youtube music like pushes when auto-sync is on`() {
         assertEquals(
             LikeAction.LOCAL_AND_PUSH,
-            likeAction(signedIn = true, sourceId = SourceId.YOUTUBE_MUSIC, liked = true),
+            likeAction(
+                signedIn = true,
+                syncEnabled = true,
+                sourceId = SourceId.YOUTUBE_MUSIC,
+                liked = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `auto-sync off keeps the like local`() {
+        assertEquals(
+            LikeAction.LOCAL_ONLY,
+            likeAction(
+                signedIn = true,
+                syncEnabled = false,
+                sourceId = SourceId.YOUTUBE_MUSIC,
+                liked = true,
+            ),
         )
     }
 
@@ -37,7 +60,12 @@ class ReelLikeSyncTest {
         for (source in listOf(SourceId.LOCAL, SourceId.YOUTUBE)) {
             assertEquals(
                 LikeAction.LOCAL_ONLY,
-                likeAction(signedIn = true, sourceId = source, liked = true),
+                likeAction(
+                    signedIn = true,
+                    syncEnabled = true,
+                    sourceId = source,
+                    liked = true,
+                ),
             )
         }
     }
@@ -46,7 +74,12 @@ class ReelLikeSyncTest {
     fun `unlike is local only`() {
         assertEquals(
             LikeAction.LOCAL_ONLY_UNLIKE,
-            likeAction(signedIn = true, sourceId = SourceId.YOUTUBE_MUSIC, liked = false),
+            likeAction(
+                signedIn = true,
+                syncEnabled = true,
+                sourceId = SourceId.YOUTUBE_MUSIC,
+                liked = false,
+            ),
         )
     }
 }

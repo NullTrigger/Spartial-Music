@@ -22,7 +22,6 @@ import app.nodes.core.data.SettingsRepository
 import app.nodes.core.data.db.PendingLikeDao
 import app.nodes.core.data.db.PendingLikeEntity
 import app.nodes.core.model.SourceId
-import app.nodes.core.model.SourceResult
 import app.nodes.core.model.Track
 import app.nodes.core.source.SourceRegistry
 import app.nodes.core.suggestions.FeedSuggestions
@@ -201,14 +200,10 @@ class ReelViewModel @Inject constructor(
             candidates += followingCandidates(exclude, BATCH)
         }
         if (candidates.isEmpty()) {
-            // 1. related tracks from the track's own source.
-            val source = registry.byId(current.sourceId)
-            if (source != null) {
-                val related = runCatching {
-                    (source.getRelated(current, BATCH * 2) as? SourceResult.Success)?.data
-                }.getOrNull().orEmpty()
-                candidates += related
-            }
+            // 1. The playing track's radio - the same mechanism, and the same
+            // call, the queue grows with. The Reel is the queue, so the feed
+            // and the queue must agree on what "similar" means.
+            candidates += player.radioSuggestions(current, BATCH * 2)
         }
         // The same shaped home feed the For You screen and the queue use: the
         // playing track's echo first, then the provider's picks, then variety.
@@ -337,17 +332,24 @@ class ReelViewModel @Inject constructor(
 
     /**
      * Optimistic like: the local write happens first and always sticks. For
-     * a signed-in user's YouTube Music track the like is then pushed with
-     * the existing replay mechanism; if the push fails the like stays local,
-     * the track is remembered as pending, and the screen shows one quiet
-     * line. Unlikes stay local: no unlike request is verified (REVIEW_NOTES).
+     * a signed-in user's YouTube Music track, and only while "Auto-sync with
+     * account" is on, the like is then pushed with the existing replay
+     * mechanism; if the push fails the like stays local, the track is
+     * remembered as pending, and the screen shows one quiet line. Unlikes stay
+     * local: no unlike request is verified (REVIEW_NOTES).
      */
     fun toggleLike(track: Track) {
         viewModelScope.launch {
             val nowLiked = !likedIds.value.contains(track.id)
             library.setLiked(track, nowLiked)
             val current = settings.current()
-            when (likeAction(current.youtubeSignedIn, track.sourceId, nowLiked)) {
+            val decision = likeAction(
+                signedIn = current.youtubeSignedIn,
+                syncEnabled = current.syncYouTube,
+                sourceId = track.sourceId,
+                liked = nowLiked,
+            )
+            when (decision) {
                 LikeAction.LOCAL_ONLY -> Unit
 
                 LikeAction.LOCAL_ONLY_UNLIKE -> Unit
@@ -386,7 +388,9 @@ class ReelViewModel @Inject constructor(
             val rows = pendingLikes.oldest(PENDING_RETRY_BATCH)
             if (rows.isEmpty()) return@launch
             val current = settings.current()
-            if (!current.youtubeSignedIn) return@launch
+            // These are account writes: they wait for the switch like every
+            // other write does.
+            if (!current.youtubeSignedIn || !current.syncYouTube) return@launch
             val source = registry.byId(SourceId.YOUTUBE_MUSIC)
                 as? app.nodes.core.source.youtubemusic.YouTubeMusicSource
                 ?: return@launch

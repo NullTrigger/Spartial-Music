@@ -16,6 +16,20 @@ All notable changes to Spartial Music are documented here. The format follows
 - User-imported `.txt` lyric sidecars next to `.lrc`, both tried before any
   network source.
 - "Content and takedowns" link on the About screen.
+- Glossy's queue model: **Play next** inserts after the playing track, **Add to
+  queue** appends, and the queue is no longer rebuilt from the list a track came
+  from; the optional duplicate guard drops the older copy of a track instead of
+  queueing it twice.
+- The queue continues from the playing track's own up-next radio when it runs
+  low, instead of from a stale related list.
+- Home "From your searches" turns each recent search into an artist, album or
+  track suggestion, ranked the way Glossy ranks its search suggestions.
+- Lyrics are fetched from up to three sources at once and the first synced
+  answer wins within a short window; the next track's lyrics are fetched in the
+  background so they are ready when it starts.
+- Settings → Content: **Auto-sync with account** (off by default) with **Sync
+  now**, keeping the signed-in account's likes, listening history and copied
+  playlists in step at most every 30 minutes.
 
 ### Changed
 
@@ -28,6 +42,10 @@ All notable changes to Spartial Music are documented here. The format follows
   third-party lists stay separate.
 - The "Show which source was used" lyric toggle is gone; the credit is always
   visible.
+- Autoplay continuation ("keep the queue going") is **on by default**; it can
+  still be switched off in Playback settings.
+- Unlike Glossy, the account sync starts off: every part of it writes to a real
+  account, so it waits for the switch.
 
 ### Security
 

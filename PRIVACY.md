@@ -78,6 +78,14 @@ is covered by its own
 - **Artwork and media CDNs.** Artwork URLs returned by a provider are loaded by
   Coil. Audio streams are played directly from the provider's returned stream
   URL. The app does not operate a proxy or relay for these requests.
+- **Your YouTube Music account, only when you sign in and turn on
+  "Auto-sync with account"** (off by default; see Settings → Content). That sync
+  sends the video ids of tracks you liked, the video ids of a local playlist you
+  chose to copy, and a playback ping for each YouTube Music track you play —
+  the ping is what puts the track in the account's own YouTube Music history.
+  It also reads the account's liked songs so they can appear in your library.
+  Local files, search history, Listen Together rooms, crash reports and
+  diagnostics are not part of it.
 - **Lyrics services.** When lyrics are requested, enabled providers can receive
   the track title, artist, album, duration, and, for some providers, the
   YouTube Music video ID. The built-in providers include LRCLIB (`lrclib.net`),

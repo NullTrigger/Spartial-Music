@@ -160,10 +160,17 @@ object ReelFeed {
 
 /** What a like tap should do beyond the local database. */
 enum class LikeAction {
-    /** Guest, or a locally sourced track: the Room write is the whole story. */
+    /**
+     * Guest, the auto-sync switch is off, or the track is not from YouTube
+     * Music: the Room write is the whole story.
+     */
     LOCAL_ONLY,
 
-    /** Signed in and the track is a YouTube Music track: push the like. */
+    /**
+     * Signed in, auto-sync on, and the track is a YouTube Music track: push
+     * the like. With the switch off the like is local until the next sync,
+     * which is the only thing allowed to write to the account.
+     */
     LOCAL_AND_PUSH,
 
     /**
@@ -173,9 +180,18 @@ enum class LikeAction {
     LOCAL_ONLY_UNLIKE,
 }
 
-/** The like decision, as a pure function so the state machine is testable. */
-fun likeAction(signedIn: Boolean, sourceId: SourceId, liked: Boolean): LikeAction = when {
+/**
+ * The like decision, as a pure function so the state machine is testable.
+ * [syncEnabled] is the "Auto-sync with account" switch: without it, no like
+ * ever leaves the device.
+ */
+fun likeAction(
+    signedIn: Boolean,
+    syncEnabled: Boolean,
+    sourceId: SourceId,
+    liked: Boolean,
+): LikeAction = when {
     !liked -> LikeAction.LOCAL_ONLY_UNLIKE
-    signedIn && sourceId == SourceId.YOUTUBE_MUSIC -> LikeAction.LOCAL_AND_PUSH
+    signedIn && syncEnabled && sourceId == SourceId.YOUTUBE_MUSIC -> LikeAction.LOCAL_AND_PUSH
     else -> LikeAction.LOCAL_ONLY
 }

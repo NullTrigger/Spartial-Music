@@ -2,9 +2,15 @@
 
 Spartial Music never bundles lyrics. A track gets lyrics from a local `.lrc` file the
 user placed on the device, or from one of the public providers below, in the
-order chosen under **Settings → Lyrics**. The repository asks providers one at a
-time with a short budget, refuses an answer whose title, artist or duration
-clearly belongs to another song, and caches the result on the device.
+order chosen under **Settings → Lyrics**. The repository races the first three
+enabled providers at once with a short budget each, and only asks the rest when
+those cannot time the song; the winner is chosen by rank, with a short settle
+window so a better-placed answer can still arrive. The order therefore decides
+which provider wins, while a common song resolves in a few hundred
+milliseconds. It refuses an answer whose title, artist or duration clearly
+belongs to another song, and caches the result on the device - including the
+next track in the queue, resolved ahead of time so the lyrics screen opens on
+them.
 
 No provider is sent the user's account, cookie or listening history: a lookup
 contains only the track title, artist, album, duration and (for YouTube Music
