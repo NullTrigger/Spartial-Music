@@ -92,7 +92,7 @@ jobs:
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
-          echo "Android SDK location: $SDK"
+          echo "Android SDK: $SDK"
 
       - name: Install Android SDK packages
         shell: bash
@@ -105,24 +105,20 @@ jobs:
             -type f -name sdkmanager -print -quit)
 
           if [ -z "$SDKMANAGER" ]; then
-            echo "::error::Android sdkmanager was not found."
+            echo "::error::sdkmanager not found."
             find "$SDK/cmdline-tools" -maxdepth 4 -type f || true
             exit 1
           fi
 
-          echo "Found SDK Manager: $SDKMANAGER"
+          echo "Using: $SDKMANAGER"
 
-          echo "Accepting Android SDK licenses..."
           yes | "$SDKMANAGER" --licenses
-
-          echo "Installing Android SDK packages..."
 
           "$SDKMANAGER" \
             "platform-tools" \
             "build-tools;36.0.0" \
             "platforms;android-37"
 
-          echo "Installed SDK packages:"
           "$SDKMANAGER" --list_installed
 
       - name: Set up Gradle
@@ -160,11 +156,11 @@ jobs:
 
           if name_count != 1 or parts_count != 1:
               raise SystemExit(
-                  "Could not safely update versionName and versionCode calculation."
+                  "Could not safely update versionName/versionCode calculation."
               )
 
           path.write_text(content)
-          print(f"Updated version to {version}")
+          print(f"Application version updated to {version}")
           PY
 
       - name: Configure YouTube API
@@ -195,7 +191,7 @@ jobs:
             ANDROID_KEY_PASSWORD
           do
             if [ -z "${!secret:-}" ]; then
-              echo "::error::$secret is missing from GitHub repository secrets."
+              echo "::error::$secret is missing."
               exit 1
             fi
           done
