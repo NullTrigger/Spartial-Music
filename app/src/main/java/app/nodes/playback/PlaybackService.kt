@@ -96,10 +96,17 @@ class PlaybackService : MediaSessionService() {
             // seconds to load" people see on tap. Music streams are small and
             // pause quickly; starting after half a second of buffer makes a
             // tap feel instant while still absorbing a normal network hiccup.
+            // Media3's builder takes all four buffer durations at once, so
+            // min/max keep their library defaults and only the two
+            // start-playback thresholds change.
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .setBufferForPlaybackMs(500)
-                    .setBufferForPlaybackFromRebufferMs(1_000)
+                    .setBufferDurationsMs(
+                        androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+                        androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
+                        /* bufferForPlaybackMs = */ 500,
+                        /* bufferForPlaybackAfterRebufferMs = */ 1_000,
+                    )
                     .build(),
             )
             .build()
