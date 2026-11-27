@@ -1,4 +1,5 @@
 
+   
 name: Build Android Release APKs
 
 on:
@@ -56,7 +57,7 @@ jobs:
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "New version: $NEW_VERSION"
+          echo "Building version: $NEW_VERSION"
 
   build:
     name: Build ${{ matrix.flavor }} APK
@@ -66,9 +67,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        flavor:
-          - gms
-          - foss
+        include:
+          - flavor: gms
+            task_flavor: Gms
+          - flavor: foss
+            task_flavor: Foss
 
     steps:
       - name: Checkout repository
@@ -80,29 +83,44 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configure Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+
+          echo "Using Android SDK: $SDK"
 
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
 
-          yes | sdkmanager --licenses
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$SDK/cmdline-tools/16.0/bin/sdkmanager"
 
-          sdkmanager \
-            "platform-tools" \
-            "build-tools;36.0.0"
-
-          echo "Checking Android SDK 37 availability..."
-
-          if sdkmanager --list | grep -Fq "platforms;android-37"; then
-            sdkmanager "platforms;android-37"
-          else
-            echo "::error::Android SDK platform 37 is unavailable."
-            echo "The project requires compileSdk 37. Check the SDK repository or command-line tools version."
+          if [ ! -x "$SDKMANAGER" ]; then
+            echo "::error::sdkmanager not found at $SDKMANAGER"
+            find "$SDK/cmdline-tools" -name sdkmanager -type f || true
             exit 1
           fi
+
+          echo "Accepting Android SDK licenses..."
+          yes | "$SDKMANAGER" --licenses
+
+          echo "Installing required Android SDK packages..."
+
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "build-tools;36.0.0" \
+            "platforms;android-37"
+
+          echo "Installed SDK packages:"
+          "$SDKMANAGER" --list_installed
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -123,7 +141,7 @@ jobs:
           content = path.read_text()
           version = os.environ["RELEASE_VERSION"]
 
-          content, version_name_count = re.subn(
+          content, name_count = re.subn(
               r'versionName = "[^"]+"',
               f'versionName = "{version}"',
               content,
@@ -132,18 +150,18 @@ jobs:
 
           content, parts_count = re.subn(
               r'(val parts = ")[^"]+(")',
-              rf'\g<1>{version}\g<2>',
+              lambda m: m.group(1) + version + m.group(2),
               content,
               count=1
           )
 
-          if version_name_count != 1 or parts_count != 1:
+          if name_count != 1 or parts_count != 1:
               raise SystemExit(
                   "Could not safely update versionName and versionCode calculation."
               )
 
           path.write_text(content)
-          print(f"Updated application version to {version}")
+          print(f"Updated version to {version}")
           PY
 
       - name: Configure YouTube API
@@ -186,12 +204,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          FLAVOR="${{ matrix.flavor }}"
-          TASK_FLAVOR="$(echo "$FLAVOR" | sed 's/./\U&/')"
-
           ./gradlew --no-daemon \
-            ":app:lint${TASK_FLAVOR}Release" \
-            ":app:assemble${TASK_FLAVOR}Release"
+            ":app:lint${{ matrix.task_flavor }}Release" \
+            ":app:assemble${{ matrix.task_flavor }}Release"
 
       - name: Sign release APK
         uses: ilharp/sign-android-release@v2
